@@ -250,7 +250,7 @@ describe("runUploadCommand --store google", () => {
     await expect(runUploadCommand({ project: projectPath, store: "google" }, storeSpecsPath, dependencies()))
       .rejects.toThrow(/Set GOOGLE_PLAY_SERVICE_ACCOUNT_PATH .* or pass --service-account <path>/);
     await expect(runUploadCommand({ project: projectPath, store: "apple", "dry-run": "true" }, storeSpecsPath, dependencies()))
-      .rejects.toThrow(/only --store google is available/);
+      .rejects.toThrow(/use --store google or --store apple/);
     expect(play.calls).toEqual([]);
   });
 

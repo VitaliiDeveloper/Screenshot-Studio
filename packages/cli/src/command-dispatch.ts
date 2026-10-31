@@ -2,6 +2,7 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { parseStoreSpecs } from "@screenshot-studio/core/export";
+import { runAppStoreUploadCommand } from "./app-store-upload-command.js";
 import { runAssetCommand } from "./asset-commands.js";
 import { ensureRenderBrowsers, resolveBrowserChoice, runSetupCommand, type BrowserSetupDependencies } from "./browser-setup.js";
 import { runCheckCommand } from "./check-command.js";
@@ -125,11 +126,17 @@ export async function dispatchCommand(
     case "copy":
       console.log(await runCopyCommand(resolveProjectPath(flags), args, flags));
       break;
-    case "upload":
-      console.log(await runUploadCommand(flags, defaults.storeSpecsPath, {
-        prepareRender: () => ensureRenderBrowsers("required", defaults.browserSetup, resolveBrowserChoice(undefined)),
-      }));
+    case "upload": {
+      const prepareRender = () => ensureRenderBrowsers("required", defaults.browserSetup, resolveBrowserChoice(undefined));
+      if (flags.store === "apple") {
+        const result = await runAppStoreUploadCommand(flags, defaults.storeSpecsPath, { prepareRender });
+        console.log(result.output);
+        if (result.exitCode !== 0) process.exitCode = result.exitCode;
+      } else {
+        console.log(await runUploadCommand(flags, defaults.storeSpecsPath, { prepareRender }));
+      }
       break;
+    }
     case "publishing":
       console.log(await runPublishingCommand(resolveProjectPath(flags), args, flags));
       break;

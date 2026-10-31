@@ -76,8 +76,8 @@ block is dropped so a project without identifiers keeps its bytes.
 Store credentials never enter the project document, git, logs, CI artifacts, or the environment of
 agents. The CLI reads them only from environment variables that name key files
 (`GOOGLE_PLAY_SERVICE_ACCOUNT_PATH`; `APP_STORE_CONNECT_KEY_ID`, `APP_STORE_CONNECT_ISSUER_ID`, and
-`APP_STORE_CONNECT_KEY_PATH` are reserved for App Store Connect) or from a `--service-account <path>`
-flag; key material itself is never a command-line argument. The repository GitHub Action does not
+`APP_STORE_CONNECT_KEY_PATH`) or from a `--service-account <path>` or `--key-path <path>` flag; key
+material itself is never a command-line argument. The repository GitHub Action does not
 upload.
 Text elements persist horizontal alignment and an optional vertical alignment; the shared renderer
 treats an omitted vertical value as `top` so existing strict documents keep their pixels unchanged.
@@ -189,6 +189,25 @@ the touched slots are listed, deleted, and refilled, and the edit is committed o
 before the commit abandons the edit; requests time out after 60 seconds and are never retried. Production endpoints are constants in code;
 tests inject a loopback mock through the command's dependencies, never through the environment.
 `--dry-run` is offline and opens no edit.
+
+`screenshots upload --store apple` uses the same plan module and render path. Which App Store Connect
+screenshot set a target fills is catalog data: every App Store target in `store-specs.json` carries
+`appStoreConnect: { displayType }` (an API `ScreenshotDisplayType` value, validated against the enum)
+or `appStoreConnect: { unsupported: "<reason>" }`, which the plan reports as skipped. Landscape
+targets share their portrait twin's display type; iPhone Duo targets are unsupported because the API
+has no display type for them. The data is optional so custom catalogs stay valid; an unmapped App
+Store target is skipped. The plan groups sets by App Store platform (Mac, Apple TV, and Vision Pro
+display types belong to their own platform's version, everything else to iOS), locale, and display
+type in export order, and enforces 10 screenshots and one size per set: where two sizes share a
+display type, the family lead's size (then a root screen's) is kept and the rest are skipped. The client signs an ES256
+JWT over the `.p8` key with `node:crypto` (15-minute lifetime, reissued a minute before expiry) and
+calls the v1 API with `fetch`. Version selection and localization lookup run before rendering. App
+Store Connect has no atomic commit, so execution is set by set: delete, then reserve, upload the
+parts (sent to Apple's presigned URLs with only the headers Apple returns, never the token), commit
+with the MD5 checksum, and poll `assetDeliveryState` with a bounded wait. The first failure stops
+the run and the report records each set as replaced, partial, failed, or untouched; the exit code is
+non-zero unless all are replaced. The API root is a constant overridable only through the command's
+dependencies.
 
 The UI export route renders into a unique request-owned staging directory, copies the finished ZIP
 into the one-shot artifact store, and removes the unpacked staging tree before responding. Its `201`
@@ -401,7 +420,8 @@ an allowlisted environment, so API keys and provider switches in the server envi
 CLI off the subscription. The same allowlist keeps store credential variables away from agents, and
 `agentEnv()` adds `SCREENSHOT_STUDIO_AGENT=1`; `screenshots upload` refuses to run when that variable
 is set, even with `--dry-run`. The marker is an accident guard, not a security boundary: an agent can
-unset it, and `--service-account <path>` accepts any key file the agent process can read. An external
+unset it, and `--service-account <path>` or `--key-path <path>` accepts any key file the agent process
+can read. An external
 agent the user starts in a terminal inherits the user's environment and carries no marker, so for
 external agents the protection is instruction-only: the project guide and skill describe `upload` as
 human-only. A future Claude Code release may default `-p` to `--bare`, which ignores the
