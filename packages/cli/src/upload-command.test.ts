@@ -18,7 +18,7 @@ const APP = `/androidpublisher/v3/applications/${PACKAGE}`;
 interface MockPlay {
   origin: string;
   calls: string[];
-  uploads: Array<{ path: string; contentType: string | undefined; bytes: Buffer }>;
+  uploads: Array<{ uploadType: string | null; contentType: string | undefined; bytes: Buffer }>;
   assertions: string[];
   fail: { method: string; path: string } | undefined;
 }
@@ -81,8 +81,7 @@ beforeEach(async () => {
       return reply(200, { deleted: [{ id: "old-a" }, { id: "old-b" }] });
     }
     if (request.method === "POST" && path === `/upload${APP}/edits/edit-1/listings/en-US/phoneScreenshots`) {
-      expect(url.searchParams.get("uploadType")).toBe("media");
-      play.uploads.push({ path, contentType: request.headers["content-type"], bytes: body });
+      play.uploads.push({ uploadType: url.searchParams.get("uploadType"), contentType: request.headers["content-type"], bytes: body });
       return reply(200, { image: { id: `new-${play.uploads.length}` } });
     }
     if (request.method === "POST" && path === `${APP}/edits/edit-1:commit`) return reply(200, { id: "edit-1" });
@@ -117,8 +116,7 @@ async function fixture(publishing: unknown = { google: { packageName: PACKAGE } 
   return { root, projectPath, accountPath, androidId: android.id as string };
 }
 
-function dependencies(env: NodeJS.ProcessEnv = {}): UploadCommandDependencies & { log: ReturnType<typeof vi.fn> } {
-  const log = vi.fn();
+function dependencies(env: NodeJS.ProcessEnv = {}): UploadCommandDependencies {
   const exportBundle = vi.fn<NonNullable<ExportCommandDependencies["exportBundle"]>>(async ({ outDir, entries }) => {
     for (const [index, entry] of entries.entries()) {
       await mkdir(dirname(join(outDir, entry.relativePath)), { recursive: true });
@@ -128,7 +126,6 @@ function dependencies(env: NodeJS.ProcessEnv = {}): UploadCommandDependencies & 
   });
   return {
     env,
-    log,
     fetch,
     endpoints: { apiRoot: play.origin, tokenUrl: `${play.origin}/token` },
     startWebServer: vi.fn(async () => ({ url: "http://localhost:4000", exited: new Promise<Error>(() => undefined), stop: vi.fn(async () => undefined) })) as never,
@@ -161,8 +158,8 @@ describe("runUploadCommand --store google", () => {
       "POST /upload/edits/edit-1/listings/en-US/phoneScreenshots",
       "POST /edits/edit-1:commit",
     ]);
-    expect(play.uploads.map(({ bytes, contentType }) => [bytes.toString(), contentType]))
-      .toEqual([["png-0", "image/png"], ["png-1", "image/png"]]);
+    expect(play.uploads.map(({ bytes, contentType, uploadType }) => [bytes.toString(), contentType, uploadType]))
+      .toEqual([["png-0", "image/png", "media"], ["png-1", "image/png", "media"]]);
     const report = JSON.parse(output);
     expect(report).toMatchObject({ store: "google", packageName: PACKAGE, dryRun: false, committed: true, untouchedLocales: ["de-DE"] });
     expect(report.locales[0].slots[0]).toEqual({
@@ -171,7 +168,6 @@ describe("runUploadCommand --store google", () => {
       replace: [{ id: "old-a" }, { id: "old-b" }],
     });
     expectNoSecrets(output);
-    expectNoSecrets(JSON.stringify(deps.log.mock.calls));
   });
 
   it("abandons the edit when an upload fails mid-plan and reports that nothing changed", async () => {

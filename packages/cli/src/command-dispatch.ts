@@ -127,7 +127,7 @@ export async function dispatchCommand(
       break;
     case "upload":
       console.log(await runUploadCommand(flags, defaults.storeSpecsPath, {
-        prepareRender: () => ensureRenderBrowsers("required", defaults.browserSetup),
+        prepareRender: () => ensureRenderBrowsers("required", defaults.browserSetup, resolveBrowserChoice(undefined)),
       }));
       break;
     case "publishing":
