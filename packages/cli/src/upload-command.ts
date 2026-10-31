@@ -104,9 +104,10 @@ async function abandon(
     const deleteMessage = deleteError instanceof Error ? deleteError.message : String(deleteError);
     throw new Error(
       `${message}\nNothing was committed, so Google Play is unchanged; the open edit could not be deleted (${deleteMessage}) and will expire.`,
+      { cause: deleteError },
     );
   }
-  throw new Error(`${message}\nThe edit was abandoned; nothing changed on Google Play.`);
+  throw new Error(`${message}\nThe edit was abandoned; nothing changed on Google Play.`, { cause: error });
 }
 
 /**
@@ -192,7 +193,7 @@ export async function runUploadCommand(
       await client.commitEdit(editId);
     } catch (error) {
       if (error instanceof GooglePlayRequestError && !error.responded) {
-        throw new Error(`${error.message}\nThe commit outcome is unknown; check Play Console before uploading again.`);
+        throw new Error(`${error.message}\nThe commit outcome is unknown; check Play Console before uploading again.`, { cause: error });
       }
       return await abandon(client, editId, error);
     }

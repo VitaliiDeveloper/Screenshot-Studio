@@ -23,13 +23,17 @@ export interface GooglePlayServiceAccount {
 
 /** Reads a service-account JSON key; errors never echo the file content. */
 export async function readGooglePlayServiceAccount(path: string): Promise<GooglePlayServiceAccount> {
+  let text: string;
+  try {
+    text = await readFile(path, "utf8");
+  } catch (error) {
+    throw new Error(`Cannot read the Google Play service account file: ${(error as NodeJS.ErrnoException).code}`, { cause: error });
+  }
   let raw: unknown;
   try {
-    raw = JSON.parse(await readFile(path, "utf8"));
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code) {
-      throw new Error(`Cannot read the Google Play service account file: ${(error as NodeJS.ErrnoException).code}`);
-    }
+    raw = JSON.parse(text);
+  } catch {
+    // No cause: a JSON.parse message quotes the file, which holds the private key.
     throw new Error("The Google Play service account file is not valid JSON");
   }
   const { client_email: clientEmail, private_key: privateKey } = (raw ?? {}) as Record<string, unknown>;

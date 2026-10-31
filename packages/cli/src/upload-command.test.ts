@@ -226,7 +226,7 @@ describe("runUploadCommand --store google", () => {
 
   it("refuses under the agent marker, even with --dry-run", async () => {
     const { projectPath, accountPath } = await fixture();
-    for (const flags of [{ "dry-run": "true" }, {}]) {
+    for (const flags of [{ "dry-run": "true" }, {}] as Array<Record<string, string>>) {
       await expect(runUploadCommand(
         { project: projectPath, store: "google", ...flags },
         storeSpecsPath,
