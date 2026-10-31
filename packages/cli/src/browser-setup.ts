@@ -37,15 +37,30 @@ export function resolveBrowserChoice(
   return value as BrowserChoice;
 }
 
-/** System browsers to try, in order, before the downloaded Chromium. */
+/** System browsers `auto` falls back to once the pinned Chromium is missing, in order. */
 export function systemChannels(choice: BrowserChoice): SystemChannel[] {
   if (choice === "auto") return ["chrome", "msedge"];
   return choice === "chromium" ? [] : [choice];
 }
 
+/** Launch attempts in order; `undefined` is the downloaded Chromium. Only `auto` falls through. */
+export function launchOrder(choice: BrowserChoice): (SystemChannel | undefined)[] {
+  return choice === "auto" ? [undefined, ...systemChannels(choice)] : choice === "chromium" ? [undefined] : systemChannels(choice);
+}
+
+export const SYSTEM_BROWSER_NAMES: Record<SystemChannel, string> = {
+  chrome: "Google Chrome",
+  msedge: "Microsoft Edge",
+};
+
 /** Playwright throws "Chromium distribution '<channel>' is not found at <path>" for an absent channel. */
 export function isMissingChannelError(error: unknown): boolean {
-  return error instanceof Error && /distribution '[^']+' is not found/.test(error.message);
+  return error instanceof Error && /distribution '[^']+' is not (found|supported)/.test(error.message);
+}
+
+/** Playwright throws "Executable doesn't exist at <path>" when the downloaded build is absent. */
+export function isMissingChromiumError(error: unknown): boolean {
+  return error instanceof Error && /Executable doesn't exist/.test(error.message);
 }
 
 export interface PlaywrightInstall {

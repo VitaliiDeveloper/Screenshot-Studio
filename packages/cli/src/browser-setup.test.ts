@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -9,6 +10,8 @@ import {
   installHelp,
   listInstallLocations,
   isMissingChannelError,
+  isMissingChromiumError,
+  launchOrder,
   parseInstallLocations,
   resolveBrowserChoice,
   resolvePlaywrightInstall,
@@ -193,12 +196,24 @@ describe("browser choice", () => {
     expect(isMissingChannelError("distribution 'chrome' is not found")).toBe(false);
   });
 
-  it("detects the real Playwright error for an absent channel without throwing", async () => {
-    const { chromium } = await import("playwright");
-    const error = await chromium.launch({ channel: "msedge", executablePath: undefined, timeout: 5_000 })
-      .then(async (browser) => { await browser.close(); return undefined; }, (e: unknown) => e);
-    // Machines that do have Edge simply launch; only an absent channel must classify as missing.
-    if (error !== undefined) expect(isMissingChannelError(error)).toBe(true);
+  it("recognises Playwright's missing-Chromium error", () => {
+    expect(isMissingChromiumError(new Error("browserType.launch: Executable doesn't exist at /cache/chromium"))).toBe(true);
+    expect(isMissingChromiumError(new Error("browser crashed"))).toBe(false);
+  });
+
+  it("orders launch attempts so only auto falls through, Chromium first", () => {
+    expect(launchOrder("auto")).toEqual([undefined, "chrome", "msedge"]);
+    expect(launchOrder("chromium")).toEqual([undefined]);
+    expect(launchOrder("chrome")).toEqual(["chrome"]);
+  });
+
+  it("still finds the error wording in the pinned Playwright", () => {
+    const bundle = readFileSync(
+      join(dirname(createRequire(import.meta.url).resolve("playwright-core/package.json")), "lib", "coreBundle.js"),
+      "utf8",
+    );
+    expect(bundle).toContain("distribution '${name}' is not found");
+    expect(bundle).toContain("Executable doesn't exist");
   });
 
   describe("ensureRenderBrowsers with a system browser", () => {
@@ -230,12 +245,30 @@ describe("browser choice", () => {
     });
 
     it("dispatches --browser and SCREENSHOTS_BROWSER to the guard", async () => {
-      const d = deps({ interactive: false });
-      await expect(dispatchCommand("export", ["--browser", "firefox"], { storeSpecsPath: "/s.json", browserSetup: d }))
-        .rejects.toThrow(/Unknown browser "firefox"/);
-      // chrome skips the guard, so the failure moves on to project resolution.
-      await expect(dispatchCommand("export", ["--browser", "chrome"], { storeSpecsPath: "/s.json", browserSetup: d }))
-        .rejects.not.toThrow("screenshots setup");
+      const guarded = () => deps({ interactive: false, detect: vi.fn(() => ({ missing: true })) });
+      const run = (argv: string[], d: BrowserSetupDependencies) =>
+        dispatchCommand("export", argv, { storeSpecsPath: "/s.json", browserSetup: d });
+
+      await expect(run(["--browser", "firefox"], guarded())).rejects.toThrow(/Unknown browser "firefox"/);
+
+      // chrome skips the guard, so neither detection runs and failure moves on to project resolution.
+      const flagged = guarded();
+      await expect(run(["--browser", "chrome"], flagged)).rejects.not.toThrow("screenshots setup");
+      expect(flagged.detect).not.toHaveBeenCalled();
+      expect(flagged.hasSystemBrowser).not.toHaveBeenCalled();
+
+      vi.stubEnv("SCREENSHOTS_BROWSER", "msedge");
+      try {
+        const fromEnv = guarded();
+        await expect(run([], fromEnv)).rejects.not.toThrow("screenshots setup");
+        expect(fromEnv.detect).not.toHaveBeenCalled();
+
+        const overridden = guarded();
+        await expect(run(["--browser", "chromium"], overridden)).rejects.toThrow("screenshots setup");
+        expect(overridden.detect).toHaveBeenCalledOnce();
+      } finally {
+        vi.unstubAllEnvs();
+      }
     });
   });
 });

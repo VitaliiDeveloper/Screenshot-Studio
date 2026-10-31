@@ -63,27 +63,40 @@ describe("RenderBrowserSession", () => {
       newContext: vi.fn(async () => ({ close: vi.fn(async () => undefined) })),
       close: vi.fn(async () => undefined),
     };
-    const missing = (channel: string) =>
+    const missingChannel = (channel: string) =>
       new Error(`browserType.launch: Chromium distribution '${channel}' is not found at /x\nRun "npx playwright install ${channel}"`);
+    const missingChromium = () => new Error("browserType.launch: Executable doesn't exist at /cache/chromium");
     const launchedChannels = (launch: { mock: { calls: unknown[][] } }) =>
       launch.mock.calls.map(([options]) => (options as { channel?: string }).channel);
 
-    it("auto tries chrome, then msedge, then the downloaded Chromium", async () => {
-      const launch = vi.fn(async (options?: { channel?: string }) => {
-        if (options?.channel) throw missing(options.channel);
-        return browser as never;
-      });
-      await (await createRenderBrowserSession({ browser: "auto", launch })).close();
-      expect(launchedChannels(launch)).toEqual(["chrome", "msedge", undefined]);
+    it("auto prefers the downloaded Chromium and logs nothing", async () => {
+      const launch = vi.fn(async (_options?: unknown) => browser as never);
+      const log = vi.fn();
+      await (await createRenderBrowserSession({ browser: "auto", launch, log })).close();
+      expect(launchedChannels(launch)).toEqual([undefined]);
+      expect(log).not.toHaveBeenCalled();
     });
 
-    it("auto stops at the first installed system browser", async () => {
+    it("auto falls back to Chrome, then Edge, once Chromium is missing", async () => {
       const launch = vi.fn(async (options?: { channel?: string }) => {
-        if (options?.channel === "chrome") throw missing("chrome");
+        if (options?.channel !== "msedge") {
+          throw options?.channel ? missingChannel(options.channel) : missingChromium();
+        }
         return browser as never;
       });
-      await (await createRenderBrowserSession({ browser: "auto", launch })).close();
-      expect(launchedChannels(launch)).toEqual(["chrome", "msedge"]);
+      const log = vi.fn();
+      await (await createRenderBrowserSession({ browser: "auto", launch, log })).close();
+      expect(launchedChannels(launch)).toEqual([undefined, "chrome", "msedge"]);
+      expect(log).toHaveBeenCalledOnce();
+      expect(log).toHaveBeenCalledWith(expect.stringContaining("Microsoft Edge"));
+    });
+
+    it("auto rethrows the Chromium failure when no browser exists", async () => {
+      const launch = vi.fn(async (options?: { channel?: string }) => {
+        throw options?.channel ? missingChannel(options.channel) : missingChromium();
+      });
+      await expect(createRenderBrowserSession({ browser: "auto", launch })).rejects.toThrow("Executable doesn't exist");
+      expect(launch).toHaveBeenCalledTimes(3);
     });
 
     it("auto surfaces launch failures that are not a missing browser", async () => {
@@ -92,17 +105,27 @@ describe("RenderBrowserSession", () => {
       expect(launch).toHaveBeenCalledOnce();
     });
 
-    it("an explicit channel never falls back", async () => {
-      const launch = vi.fn(async (options?: { channel?: string }) => { throw missing(options!.channel!); });
-      await expect(createRenderBrowserSession({ browser: "msedge", launch })).rejects.toThrow("'msedge' is not found");
+    it("an explicit channel never falls back and names the browser to install", async () => {
+      const launch = vi.fn(async (options?: { channel?: string }) => { throw missingChannel(options!.channel!); });
+      await expect(createRenderBrowserSession({ browser: "msedge", launch }))
+        .rejects.toThrow(/Microsoft Edge is not installed.*--browser chromium/);
       expect(launchedChannels(launch)).toEqual(["msedge"]);
     });
 
-    it("chromium and the default never pass a channel", async () => {
+    it("an explicit channel logs the browser that rendered", async () => {
       const launch = vi.fn(async (_options?: unknown) => browser as never);
-      await (await createRenderBrowserSession({ browser: "chromium", launch })).close();
-      await (await createRenderBrowserSession({ launch })).close();
+      const log = vi.fn();
+      await (await createRenderBrowserSession({ browser: "chrome", launch, log })).close();
+      expect(log).toHaveBeenCalledWith(expect.stringContaining("Google Chrome"));
+    });
+
+    it("chromium and the default never pass a channel or log", async () => {
+      const launch = vi.fn(async (_options?: unknown) => browser as never);
+      const log = vi.fn();
+      await (await createRenderBrowserSession({ browser: "chromium", launch, log })).close();
+      await (await createRenderBrowserSession({ launch, log })).close();
       expect(launchedChannels(launch)).toEqual([undefined, undefined]);
+      expect(log).not.toHaveBeenCalled();
     });
   });
 

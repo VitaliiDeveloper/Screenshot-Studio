@@ -20,6 +20,13 @@ cache) with the Playwright version this CLI depends on, and is safe to re-run. `
 same download on first use when run in a terminal; in CI or piped runs it exits with the install
 command instead. On Linux, Chromium may also need Playwright's system packages.
 
+To skip the download, pass `--browser chrome`, `--browser msedge`, or `--browser auto` (the
+downloaded Chromium if present, otherwise installed Chrome, then Edge) to `export`, or set
+`SCREENSHOTS_BROWSER`; the flag wins. System browsers are opt-in because exports are only
+reproducible against the pinned Chromium: they run full headless Chrome rather than Playwright's
+headless shell, so output can differ even at the same Chromium version, and Chrome and Edge
+auto-update, which can change text rendering between exports.
+
 Interactive runs check the npm registry at most once a day for a newer version and print a
 one-line notice. Disable it with `SCREENSHOTS_NO_UPDATE_CHECK=1` or `NO_UPDATE_NOTIFIER=1`; it is
 skipped when `CI` is set or output is not a terminal.
