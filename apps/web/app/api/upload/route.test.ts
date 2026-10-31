@@ -75,7 +75,7 @@ const upload = (body: unknown, revision: string, dependencies: UploadRouteDepend
   session,
   request(body),
   revision,
-  { credentials, plans, progressRegistry, env: {}, ...dependencies },
+  { credentials, plans, progressRegistry, env: {} as NodeJS.ProcessEnv, ...dependencies },
 );
 
 describe("upload plan", () => {
