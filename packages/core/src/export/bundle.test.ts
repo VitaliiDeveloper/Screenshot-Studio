@@ -300,3 +300,10 @@ describe("validateBundleArtboards", () => {
     expect(() => validateBundleArtboards(entries)).toThrow(/export would distort\.$/);
   });
 });
+
+describe("publishing identifiers and export parity", () => {
+  it("leave every export entry, and so every rendered screen, unchanged", () => {
+    const withPublishing: Project = { ...project(), publishing: { google: { packageName: "com.example.app" }, apple: { appId: "1" } } };
+    expect(buildBundleEntries(withPublishing, "default", specs, {})).toEqual(buildBundleEntries(project(), "default", specs, {}));
+  });
+});

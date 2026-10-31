@@ -6,4 +6,5 @@ export * from "./project-artboard-ops.js";
 export * from "./project-output-ops.js";
 export * from "./project-locale-ops.js";
 export * from "./project-layout.js";
+export * from "./project-publishing-ops.js";
 export * from "./screen-set-policy.js";
