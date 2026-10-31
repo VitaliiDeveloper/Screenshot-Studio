@@ -194,12 +194,14 @@ The editor uploads through the same command, not a second implementation. `POST 
 reads one project snapshot and builds the plan with the CLI plan module (the whole layout's Android
 screens; the export dialog's size and locale checks do not narrow it). Its `planHash` is the SHA-256
 of `{ store, projectId, revision, layoutId, identifier, plan }`, where `plan` is the projection the
-CLI's `--json` report prints, and the server keeps the latest hash per project. `POST /api/upload`
-takes `{ store, layout, planHash }` under the project mutation guard and `If-Match`: it consumes the
+CLI's `--json` report prints, and the server keeps the last 8 issued hashes per project, so two
+tabs reviewing different layouts can each confirm. `POST /api/upload`
+takes `{ store, layout, planHash }` under the project mutation guard and `If-Match`: it consumes that
 issued hash (one confirmation allows one attempt), recomputes the plan, and answers `409` when the
 hash is missing, not the one issued (`plan-not-confirmed`), or no longer matches the project
 (`plan-stale`). It then calls `runUploadCommand` with `--service-account` set to the key store's file,
-a `startWebServer` stub that renders through the running Next host like `/api/export`, and an
+a `startWebServer` stub that renders through the running Next host like `/api/export`, the same
+pinned Chromium session `/api/export` opens (not `SCREENSHOTS_BROWSER`), and an
 `exportBundle` wrapper that refuses a revision other than the reviewed one and reports rendering and
 then an indeterminate `uploading` phase through the export progress registry. The response is the
 CLI's JSON report plus its preflight warnings; CLI errors are already sanitized and are returned as
@@ -438,11 +440,13 @@ agent's `consented` outside its probe cache; a grant for an agent without an ada
 is checked again after the readiness probe, right before launch. Store upload keys are app-level too: one
 `0600` file per store in `<data root>/store-credentials/` (`0700`, with a `*` `.gitignore`, since the
 default data root `.screenshot-studio` sits under the launch directory): `google-play-service-account.json`
-is the service-account key as downloaded, and `app-store-connect.json` holds `{ keyId, issuerId,
-privateKey }` for the Apple upload that lands separately. Saving is refused when that folder resolves
-inside the active project folder, and the project archive never includes it. `/api/store-credentials`
-(loopback Host, `X-Project-Id`) sets, clears, and reports `{ configured, updatedAt }` per store and never
-returns key material; only the upload route hands the file path to the CLI. The trust boundary is the
+is the service-account key as downloaded, and `app-store-connect.json` holds `{ keyId, issuerId }`
+next to `app-store-connect.p8`, the key the Apple upload CLI reads by path. Saving is refused when that
+folder, with symlinks resolved, is inside the active project folder, or when the folder itself is a
+symlink; the project archive never includes it. `/api/store-credentials` (loopback Host,
+`X-Project-Id`, bodies over 64 KiB refused before reading) sets, clears, and reports
+`{ configured, updatedAt }` per store and never returns key material; setting and clearing wait for an
+editor-started agent run (`423`) like edits do; only the upload route hands the file path to the CLI. The trust boundary is the
 user account: any process of the same user can read the data root and call the local API, so the plan
 hash stops an unconfirmed or stale upload from the editor, not a hostile local process. Agent routes
 have no path to the plan, upload, or key store, `/api/upload` is refused (`423`) while an
