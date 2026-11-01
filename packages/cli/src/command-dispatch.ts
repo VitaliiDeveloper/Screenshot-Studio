@@ -19,7 +19,16 @@ import { runPublishingCommand } from "./publishing-commands.js";
 import { runScreenCommand } from "./screen-commands.js";
 import { runTemplateCommand } from "./template-commands.js";
 import { runThemeCommand } from "./theme-commands.js";
+import { readOwnVersion } from "./update-check.js";
 import { runUploadCommand } from "./upload-command.js";
+
+const HELP_FLAGS: ReadonlySet<string> = new Set(["--help", "-h"]);
+const VERSION_FLAGS: ReadonlySet<string> = new Set(["--version", "-v"]);
+
+/** `--help` and `--version` print and exit; they need no project, browser, or network. */
+export function isInfoFlag(command: string | undefined): boolean {
+  return command !== undefined && (HELP_FLAGS.has(command) || VERSION_FLAGS.has(command));
+}
 
 export function positionalArgs(argv: string[]): string[] {
   const args: string[] = [];
@@ -89,6 +98,14 @@ export async function dispatchCommand(
   argv: string[],
   defaults: { storeSpecsPath: string; browserSetup?: BrowserSetupDependencies; launch?: LaunchDependencies },
 ): Promise<void> {
+  if (command !== undefined && HELP_FLAGS.has(command)) {
+    console.log(USAGE);
+    return;
+  }
+  if (command !== undefined && VERSION_FLAGS.has(command)) {
+    console.log(await readOwnVersion());
+    return;
+  }
   if (command === undefined || command.startsWith("--") || isPathArgument(command)) {
     const { flags, target } = launchArgs(command === undefined ? argv : [command, ...argv]);
     await runLaunchCommand(flags, defaults.launch ?? defaultLaunchDependencies(
