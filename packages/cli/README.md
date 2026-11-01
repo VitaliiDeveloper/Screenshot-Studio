@@ -80,6 +80,109 @@ screenshots with your own store credentials. Run from the `--out` folder, they r
 every image it finds there, so export into a clean folder, and add `--overwrite_screenshots` to
 deliver to replace the screenshots already in App Store Connect instead of appending to them.
 
+### Upload to Google Play
+
+`screenshots upload --store google [--layout <id>] [--dry-run] [--json] [--changes-not-sent-for-review]`
+replaces the project's Google Play screenshots directly, with no fastlane or Ruby. It is a human-only
+action: run it yourself in a terminal or CI job.
+
+1. Store the app's package name in the project (identifiers only, never keys):
+   `screenshots publishing set --google-package com.example.app`. `publishing show` prints it and
+   `publishing clear google` removes it; `--apple-app-id <id>` is stored the same way for the App
+   Store Connect upload below.
+2. Point `GOOGLE_PLAY_SERVICE_ACCOUNT_PATH` (or `--service-account <path>`) at the JSON key of a
+   service account that has release access to the app in Play Console. The key is read from that file
+   only; it never goes into the project, a flag value, or the output.
+3. Run `screenshots upload --store google --dry-run` to see the plan, then without `--dry-run` to
+   upload.
+
+The plan uses the fastlane locale and slot mapping above. Each slot with project screens
+(`phoneScreenshots`, `sevenInchScreenshots`, `tenInchScreenshots`, `tvScreenshots`,
+`wearScreenshots`, `featureGraphic`) is replaced as a whole, in project screen order; every other slot
+and every other store locale is left as it is. A slot with more than 8 screenshots (or more than one
+Feature Graphic) stops the command before anything is rendered or sent. `--dry-run` is offline: it
+needs no credentials, renders nothing, and opens no edit, so it says "replaces every current image"
+instead of a count. It still checks that every artboard scales to its store size and prints export
+preflight warnings (such as Android tablet screen counts) on stderr, as a real upload does.
+
+A real upload exchanges the key for an access token first, so a revoked key fails before rendering.
+It then renders through the ordinary bundle export, opens one Play edit, checks that every planned
+locale already has a store listing, lists the touched slots, deletes their images, uploads the new
+PNGs, and commits the edit once. Any failure before the commit abandons the edit, so Google Play is
+unchanged. Each request times out after 60 seconds and nothing is retried; every step only changes
+the uncommitted edit, so running the command again after a failure starts cleanly. If the commit
+request gets no response, the command says the outcome is unknown; check Play Console before running
+it again. Failures exit 1 with an error on stderr and no `--json` report, like `check`.
+
+Add `--changes-not-sent-for-review` when Play rejects the commit because the app's changes cannot be
+sent for review automatically, which typically follows an earlier review rejection. The edit is then
+committed with `changesNotSentForReview=true`: Play adds it to the changes waiting in Play Console and
+reviews nothing until you send them for review there.
+
+Agents the editor starts carry `SCREENSHOT_STUDIO_AGENT=1` and none of the credential variables;
+`upload` refuses to run when that variable is set, even with `--dry-run`. This guards against an
+accidental run, not a determined agent; agents you start yourself in a terminal carry no marker and
+are kept from uploading only by the project guide.
+
+### Upload to App Store Connect
+
+`screenshots upload --store apple [--layout <id>] [--version <string>] [--dry-run] [--json] [--key-path <path>]`
+replaces the project's App Store screenshots through the App Store Connect API, with no fastlane. It is
+human-only and refuses to run under `SCREENSHOT_STUDIO_AGENT`, even with `--dry-run`, like the Google
+command.
+
+1. Store the numeric Apple ID of the app: `screenshots publishing set --apple-app-id 1234567890`.
+2. Create an App Store Connect API key with the App Manager role and set `APP_STORE_CONNECT_KEY_ID`,
+   `APP_STORE_CONNECT_ISSUER_ID`, and `APP_STORE_CONNECT_KEY_PATH` (or pass `--key-path <path>`) to the
+   downloaded `.p8` file. The key is read from that file only; the command signs a short-lived ES256
+   token from it and never writes the key or the token to the project, a flag value, or the output.
+3. Run `screenshots upload --store apple --dry-run` to see the plan, then without `--dry-run`.
+
+Each App Store target in `store-specs.json` names its App Store Connect display type, so a screen
+uploads into the set of its target: iPhone 6.9 into `APP_IPHONE_67`, 6.5 into `APP_IPHONE_65`, 6.3
+into `APP_IPHONE_61`, 6.1 into `APP_IPHONE_58`, iPad 13 and 12.9 into `APP_IPAD_PRO_3GEN_129`, iPad 11
+into `APP_IPAD_PRO_3GEN_11`, Mac into `APP_DESKTOP`, Apple TV into `APP_APPLE_TV`, Vision Pro into
+`APP_APPLE_VISION_PRO`, and Apple Watch Ultra, Series 11, 9, 6, and 3 into `APP_WATCH_ULTRA`,
+`APP_WATCH_SERIES_10`, `_7`, `_4`, and `_3`. A landscape target uploads into the same set as its
+portrait twin. iPhone Duo targets have no display type in the API and are listed as skipped with the
+reason. Locales use the fastlane mapping above. A set takes one size, so when screens of two sizes
+fill the same display type (for example an iPad 13 root with a 12.9 variant, Watch Ultra 3 and Ultra
+2, or Apple TV 4K and HD), the family's lead size from `store-specs.json` is uploaded, or a root
+screen's size where the lead is not among them, and the other screens are listed as skipped with
+both sizes named; the command stops only when neither applies. A set with more than 10 screenshots
+stops the command before anything is rendered or sent. `--dry-run` is
+offline: it needs no key, renders nothing, and contacts nothing, but checks artboards and prints
+preflight warnings like a real upload.
+
+iPhone, iPad, and Watch sets belong to the app's iOS version; Mac, Apple TV, and Vision Pro sets to
+its macOS, tvOS, and visionOS versions. For each platform the plan touches, the command lists the
+app's editable versions (Prepare for Submission, Ready for Review, Developer Rejected, Rejected,
+Metadata Rejected, Waiting for Review, Invalid Binary). A platform with one editable version uses it.
+On a platform with several, `--version <string>` picks one by its version string, so Mac and iOS
+version numbers may differ; without a match, or with no editable version, the command stops and
+lists them. Every
+planned locale must already have a localization on that version. These reads happen before
+rendering, so a bad key, an ambiguous version, or a missing localization stops the command with
+nothing changed.
+
+App Store Connect has no edit to commit, so the upload is not atomic. Sets are replaced one at a time
+in plan order: a missing set is created, its current screenshots are deleted, each new PNG is
+reserved, uploaded in the parts App Store Connect asks for, and committed with its MD5 checksum, and
+the command then waits (up to 5 minutes per screenshot) until App Store Connect reports each one
+processed. The first failure stops the run, and the report gives every set's state:
+
+- `replaced`: its old screenshots are gone and every new one finished processing.
+- `partial`: some change reached the set (or a request got no response) before it failed, so the set
+  may be empty or half filled; upload again or fix it in App Store Connect.
+- `failed`: the first change to the set was rejected, so the set is as it was.
+- `untouched`: the run stopped before reaching the set.
+
+The report goes to stdout (also with `--json`), and the command exits 1 unless every set is
+replaced. Requests time out after 60 seconds and nothing is retried; running the command again
+replaces each set from scratch. Errors before any change exit 1 with the error on stderr and no
+report. A custom `--store-specs` catalog without `appStoreConnect` on a target is still valid; that
+target is skipped with a reason.
+
 `screen add --size` accepts only a device lead target. `screen migrate-lead --platform <platform>
 --device <device> --from <previous-size>` explicitly moves every layout's primary screens authored at
 a former lead onto the current lead, keeping each original as a `<previous-size>` variant; it refuses

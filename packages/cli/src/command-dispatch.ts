@@ -2,6 +2,7 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { parseStoreSpecs } from "@screenshot-studio/core/export";
+import { runAppStoreUploadCommand } from "./app-store-upload-command.js";
 import { runAssetCommand } from "./asset-commands.js";
 import { ensureRenderBrowsers, resolveBrowserChoice, runSetupCommand, type BrowserSetupDependencies } from "./browser-setup.js";
 import { runCheckCommand } from "./check-command.js";
@@ -15,9 +16,11 @@ import { runInit } from "./init.js";
 import { runLayoutCommand } from "./layout-commands.js";
 import { runLocaleCommand } from "./locale-commands.js";
 import { resolveProjectPath } from "./project-io.js";
+import { runPublishingCommand } from "./publishing-commands.js";
 import { runScreenCommand } from "./screen-commands.js";
 import { runTemplateCommand } from "./template-commands.js";
 import { runThemeCommand } from "./theme-commands.js";
+import { runUploadCommand } from "./upload-command.js";
 
 export function positionalArgs(argv: string[]): string[] {
   const args: string[] = [];
@@ -62,7 +65,7 @@ export async function dispatchCommand(
   defaults: { storeSpecsPath: string; browserSetup?: BrowserSetupDependencies },
 ): Promise<void> {
   if (!isCliCommand(command)) {
-    throw new Error(`Unknown command: ${command ?? "(none)"}\nUsage: screenshots <init|export|check|screen|dev|import|font|theme|locale|asset|layout|setup|template|element|copy> [flags]`);
+    throw new Error(`Unknown command: ${command ?? "(none)"}\nUsage: screenshots <init|export|check|screen|dev|import|font|theme|locale|asset|layout|setup|template|element|copy|publishing|upload> [flags]`);
   }
 
   const { flags, args } = parseCommandFlags(argv, COMMAND_FLAG_SPECS[command]);
@@ -122,6 +125,20 @@ export async function dispatchCommand(
     }
     case "copy":
       console.log(await runCopyCommand(resolveProjectPath(flags), args, flags));
+      break;
+    case "upload": {
+      const prepareRender = () => ensureRenderBrowsers("required", defaults.browserSetup, resolveBrowserChoice(undefined));
+      if (flags.store === "apple") {
+        const result = await runAppStoreUploadCommand(flags, defaults.storeSpecsPath, { prepareRender });
+        console.log(result.output);
+        if (result.exitCode !== 0) process.exitCode = result.exitCode;
+      } else {
+        console.log(await runUploadCommand(flags, defaults.storeSpecsPath, { prepareRender }));
+      }
+      break;
+    }
+    case "publishing":
+      console.log(await runPublishingCommand(resolveProjectPath(flags), args, flags));
       break;
   }
 }

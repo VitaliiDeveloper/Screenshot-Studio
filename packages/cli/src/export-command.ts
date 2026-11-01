@@ -10,6 +10,7 @@ import {
   safeLocalePathSegment,
   safeStoreSizePathToken,
   validateBundleArtboards,
+  type BundleEntry,
   type BundleFilters,
   type StoreSize,
   type StoreSpecs,
@@ -47,6 +48,8 @@ export interface ExportCommandDependencies {
   createRenderBrowserSession?: typeof createRenderBrowserSession;
   publishFileSafely?: typeof publishFileSafely;
   log?: (message: string) => void;
+  /** Re-lays out the bundle before rendering; `screenshots upload` renders its store plan through it. */
+  layoutBundleEntries?: (entries: BundleEntry[]) => BundleEntry[];
 }
 
 const SUPPORTED_DEVICES = new Set<string>(Object.values(SCREEN_DEVICES_BY_PLATFORM).flat());
@@ -190,6 +193,7 @@ export async function runExportCommand(
         if (layout.entries.length === 0) throw new Error("No selected screen has a fastlane upload slot");
         entries = layout.entries;
       }
+      if (dependencies.layoutBundleEntries) entries = dependencies.layoutBundleEntries(entries);
       validateBundleArtboards(entries, specs);
       for (const warning of bundlePreflightWarnings(entries, specs)) log(`Warning: ${warning.message}`);
       const outDir = explicitOutDir ?? join(dirname(context.projectPath), "export");

@@ -210,7 +210,8 @@ shared renderer, or size-variant reflow changes.
 
 Feature pull requests into `dev` run only lint, typecheck, and unit tests (about two job-minutes per
 push), plus the golden gallery when they change its own files. Browser E2E, coverage, and the release gates stay off them; use the cheapest exact local check
-for the changed behavior. The full integration gate runs for a pull request whose head is `dev` and
+for the changed behavior. The web `typecheck` runs `next typegen` first, so it sees the same Next
+global types as `next build` (for example a required `NODE_ENV` on `ProcessEnv`) without a build. The full integration gate runs for a pull request whose head is `dev` and
 base is `main`: lint, typecheck, unit tests, coverage, the path-scoped package matrix and
 release-candidate checks, plus the complete `pnpm test:e2e` browser suite. The separate
 `Golden gallery` workflow runs `pnpm golden:check` on the same `dev` to `main` pull requests, on pull
