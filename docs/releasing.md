@@ -36,7 +36,8 @@ Then run `screenshots` with no command: it must open the project library at
 starting another, and a project created with **New project** must still be listed after Ctrl+C and
 a new launch. `ss-studio` must run the same CLI: in `./my-app-screenshots`, `ss-studio .` must open
 that project in the running editor, and with no editor running it must start one and open the
-project.
+project. In a non-empty folder without a project, `ss-studio .` must offer to create one in
+`./screenshot-studio`, and a second `ss-studio .` there must open it without asking.
 
 `screenshots setup` installs Chromium and the headless shell with the exact Playwright version in the
 package manifest; it is idempotent. The package has no `postinstall` script. In a clean consumer also

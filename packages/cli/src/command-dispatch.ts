@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { readFile } from "node:fs/promises";
 import { isAbsolute, resolve } from "node:path";
-import { parseStoreSpecs } from "@screenshot-studio/core/export";
 import { runAppStoreUploadCommand } from "./app-store-upload-command.js";
 import { runAssetCommand } from "./asset-commands.js";
 import { ensureRenderBrowsers, resolveBrowserChoice, runSetupCommand, type BrowserSetupDependencies } from "./browser-setup.js";
@@ -12,7 +10,7 @@ import { runDevCommand, runImportCommand } from "./dev-command.js";
 import { runElementCommand } from "./element-commands.js";
 import { runExportCommand } from "./export-command.js";
 import { runFontCommand } from "./font-commands.js";
-import { runInit } from "./init.js";
+import { initProjectFolder } from "./init.js";
 import { defaultLaunchDependencies, runLaunchCommand, type LaunchDependencies } from "./launch-command.js";
 import { runLayoutCommand } from "./layout-commands.js";
 import { runLocaleCommand } from "./locale-commands.js";
@@ -39,8 +37,7 @@ export function positionalArgs(argv: string[]): string[] {
 
 async function runInitCommand(flags: Record<string, string>, storeSpecsPath: string): Promise<void> {
   const cwd = flags.dir ? resolve(flags.dir) : process.cwd();
-  const specs = parseStoreSpecs(JSON.parse(await readFile(storeSpecsPath, "utf8")));
-  await runInit(cwd, flags.name, specs);
+  await initProjectFolder(cwd, flags.name, storeSpecsPath);
   console.log(`Initialized project in ${cwd}`);
 }
 

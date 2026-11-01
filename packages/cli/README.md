@@ -26,19 +26,21 @@ Managed projects, recent projects, agent consents, and store keys live in the pe
 `~/.local/share/screenshot-studio` on Linux, `%LOCALAPPDATA%\screenshot-studio` on Windows), or in
 `SCREENSHOT_STUDIO_DATA_ROOT` when it is set.
 
-To work on a project folder in place, without copying it into the library, pass the folder:
+To work on a project in a folder in place, without copying it into the library, pass the folder:
 
 ```bash
-screenshots init --dir ./my-app-screenshots
-cd ./my-app-screenshots
+cd ./my-app
 ss-studio .
-screenshots export
 ```
 
-`ss-studio .` opens the folder's `app-store-screenshots.json` in the editor that is already running,
-or starts the editor first, and adds the project to the library's recent projects. A folder must be
-written as a path (`.`, `./name`, `../name`, or an absolute path) so it never reads as a command.
-`screenshots dev` still starts an editor pinned to one project on a random port.
+`ss-studio .` opens the folder's `app-store-screenshots.json`, or the one in its `screenshot-studio`
+subfolder, in the editor that is already running, or starts the editor first, and adds the project
+to the library's recent projects. When the folder has no project, a terminal run offers to create
+one: in the folder itself when it is empty, otherwise in `./screenshot-studio`, so an app repository
+keeps its own files. Without a terminal, or with `CI` set, it prints the `screenshots init` command
+instead. A folder must be written as a path (`.`, `./name`, `../name`, or an absolute path) so it
+never reads as a command. `screenshots dev` still starts an editor pinned to one project on a random
+port.
 
 `screenshots setup` downloads the Chromium builds (about 550 MB, in Playwright's shared per-user
 cache) with the Playwright version this CLI depends on, and is safe to re-run. `export` offers the

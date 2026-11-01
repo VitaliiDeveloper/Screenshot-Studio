@@ -478,11 +478,12 @@ ss-studio
 `ss-studio`, another name for `screenshots`, with no command starts the packaged production editor
 at `http://localhost:4747` and opens the project library in your browser; running it again reopens
 the editor that is already running. `ss-studio .` opens the project in the current folder in that
-editor, starting it first when needed. `--port <port>` and `--no-open` change that, and Ctrl+C in
-its terminal stops it (closing the tab does not). The installed CLI keeps managed projects, recent projects, and store keys in the
-per-user data folder (`~/Library/Application Support/screenshot-studio` on macOS) unless
-`SCREENSHOT_STUDIO_DATA_ROOT` is set. `screenshots dev --project` still starts an editor pinned to
-one project.
+editor, starting it first when needed, and offers to create one (in `./screenshot-studio` inside a
+non-empty folder) when there is none. `--port <port>` and `--no-open` change that, and Ctrl+C in its
+terminal stops it (closing the tab does not). The installed CLI keeps managed projects, recent
+projects, and store keys in the per-user data folder
+(`~/Library/Application Support/screenshot-studio` on macOS) unless `SCREENSHOT_STUDIO_DATA_ROOT` is
+set. `screenshots dev --project` still starts an editor pinned to one project.
 
 `screenshots setup` downloads the Chromium builds (about 550 MB, in Playwright's shared per-user
 cache) using the Playwright version the CLI depends on; it is safe to re-run. Without it,

@@ -23,6 +23,8 @@ function launchDeps(cwd = "/work"): LaunchDependencies {
     probe: vi.fn(async () => "studio" as const),
     ensureBrowsers: vi.fn(async () => {}),
     startServer: vi.fn(),
+    confirm: vi.fn(async () => false),
+    createProject: vi.fn(async () => {}),
     openProject: vi.fn(async (baseUrl: string) => `${baseUrl}/editor/recent_1`),
     serve: vi.fn(async () => {}),
     open: vi.fn(),

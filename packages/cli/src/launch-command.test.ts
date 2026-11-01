@@ -94,25 +94,79 @@ describe("openInBrowser", () => {
 });
 
 describe("resolveLaunchProject", () => {
-  it("finds the project file in a folder or takes a project file directly", async () => {
-    const dir = await tempDir();
-    await writeFile(join(dir, "app-store-screenshots.json"), "{}");
-    await writeFile(join(dir, "other.json"), "{}");
+  function resolveDeps(cwd: string, overrides: Partial<LaunchDependencies> = {}) {
+    return {
+      cwd,
+      env: {},
+      interactive: false,
+      confirm: vi.fn(async () => true),
+      createProject: vi.fn(async (folder: string) => {
+        await mkdir(folder, { recursive: true });
+        await writeFile(join(folder, "app-store-screenshots.json"), "{}");
+      }),
+      log: vi.fn(),
+      ...overrides,
+    };
+  }
 
-    await expect(resolveLaunchProject(".", dir)).resolves.toBe(join(dir, "app-store-screenshots.json"));
-    await expect(resolveLaunchProject("./other.json", dir)).resolves.toBe(join(dir, "other.json"));
+  it("finds the project in the folder, in its screenshot-studio subfolder, or takes a project file directly", async () => {
+    const dir = await tempDir();
+    await writeFile(join(dir, "other.json"), "{}");
+    await mkdir(join(dir, "repo", "screenshot-studio"), { recursive: true });
+    await writeFile(join(dir, "repo", "screenshot-studio", "app-store-screenshots.json"), "{}");
+    await writeFile(join(dir, "app-store-screenshots.json"), "{}");
+
+    await expect(resolveLaunchProject(".", resolveDeps(dir))).resolves.toBe(join(dir, "app-store-screenshots.json"));
+    await expect(resolveLaunchProject("./repo", resolveDeps(dir)))
+      .resolves.toBe(join(dir, "repo", "screenshot-studio", "app-store-screenshots.json"));
+    await expect(resolveLaunchProject("./other.json", resolveDeps(dir))).resolves.toBe(join(dir, "other.json"));
   });
 
-  it("points at init for a folder without a project and names a missing path", async () => {
+  it("points at init without a terminal and names a missing path", async () => {
     const dir = await tempDir();
     await mkdir(join(dir, "empty"));
+    await mkdir(join(dir, "repo"));
+    await writeFile(join(dir, "repo", "README.md"), "app");
 
-    await expect(resolveLaunchProject("./empty/", dir)).rejects.toThrow(
-      `No app-store-screenshots.json in ${join(dir, "empty")}. Create a project with: screenshots init --dir ./empty/screenshots\nthen open it with: ss-studio ./empty/screenshots`,
+    await expect(resolveLaunchProject("./empty", resolveDeps(dir))).rejects.toThrow(
+      `No app-store-screenshots.json in ${join(dir, "empty")}. Create a project with: screenshots init --dir ./empty\nthen open it with: ss-studio ./empty`,
     );
-    await expect(resolveLaunchProject(".", join(dir, "empty")))
-      .rejects.toThrow("screenshots init --dir ./screenshots\nthen open it with: ss-studio ./screenshots");
-    await expect(resolveLaunchProject("./missing", dir)).rejects.toThrow(`${join(dir, "missing")} does not exist`);
+    await expect(resolveLaunchProject("./repo/", resolveDeps(dir)))
+      .rejects.toThrow("screenshots init --dir ./repo/screenshot-studio\nthen open it with: ss-studio ./repo/screenshot-studio");
+    await expect(resolveLaunchProject(".", resolveDeps(join(dir, "repo"))))
+      .rejects.toThrow("screenshots init --dir ./screenshot-studio\n");
+    await expect(resolveLaunchProject("./missing", resolveDeps(dir))).rejects.toThrow(`${join(dir, "missing")} does not exist`);
+  });
+
+  it("asks in a terminal and creates the project in an empty folder or in a subfolder of a non-empty one", async () => {
+    const dir = await tempDir();
+    await mkdir(join(dir, "empty"));
+    await writeFile(join(dir, "empty", ".DS_Store"), "");
+    await mkdir(join(dir, "repo", ".git"), { recursive: true });
+
+    const inEmpty = resolveDeps(dir, { interactive: true });
+    await expect(resolveLaunchProject("./empty", inEmpty)).resolves.toBe(join(dir, "empty", "app-store-screenshots.json"));
+    expect(inEmpty.confirm).toHaveBeenCalledWith(
+      `No Screenshot Studio project in ${join(dir, "empty")}. Create one in ${join(dir, "empty")}? [Y/n] `,
+    );
+    expect(inEmpty.createProject).toHaveBeenCalledWith(join(dir, "empty"));
+
+    const inRepo = resolveDeps(dir, { interactive: true });
+    await expect(resolveLaunchProject("./repo", inRepo))
+      .resolves.toBe(join(dir, "repo", "screenshot-studio", "app-store-screenshots.json"));
+    expect(inRepo.createProject).toHaveBeenCalledWith(join(dir, "repo", "screenshot-studio"));
+  });
+
+  it("creates nothing when the person declines or CI is set", async () => {
+    const dir = await tempDir();
+    const declined = resolveDeps(dir, { interactive: true, confirm: vi.fn(async () => false) });
+    await expect(resolveLaunchProject(".", declined)).rejects.toThrow(`No project was created in ${dir}.`);
+    expect(declined.createProject).not.toHaveBeenCalled();
+
+    const ci = resolveDeps(dir, { interactive: true, env: { CI: "true" } });
+    await expect(resolveLaunchProject(".", ci)).rejects.toThrow(/screenshots init --dir \./);
+    expect(ci.confirm).not.toHaveBeenCalled();
+    expect(ci.createProject).not.toHaveBeenCalled();
   });
 });
 
@@ -161,6 +215,8 @@ function launchDeps(state: PortState, overrides: Partial<LaunchDependencies> = {
     probe: vi.fn(async () => state),
     ensureBrowsers: vi.fn(async () => {}),
     startServer: vi.fn(async (port: number | undefined) => fakeServer(port ?? 51234)),
+    confirm: vi.fn(async () => false),
+    createProject: vi.fn(async () => {}),
     openProject: vi.fn(async (baseUrl: string) => `${baseUrl}/editor/recent_1`),
     serve: vi.fn(async () => {}),
     open: vi.fn(),
@@ -267,9 +323,9 @@ describe("runLaunchCommand", () => {
       expect(deps.serve).not.toHaveBeenCalled();
     });
 
-    it("fails before probing when the folder has no project", async () => {
+    it("fails before probing when the folder has no project and none is created", async () => {
       const deps = launchDeps("free", { cwd: await tempDir() });
-      await expect(runLaunchCommand({}, deps, ".")).rejects.toThrow(/No app-store-screenshots\.json/);
+      await expect(runLaunchCommand({}, deps, ".")).rejects.toThrow(/No project was created/);
       expect(deps.probe).not.toHaveBeenCalled();
     });
   });

@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 import { spawn } from "node:child_process";
-import { stat } from "node:fs/promises";
+import { readdir, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import { askYesNo } from "./browser-setup.js";
 import { parsePortFlag, serveUntilStopped } from "./dev-command.js";
+import { initProjectFolder } from "./init.js";
 import { DEFAULT_PROJECT_FILENAME } from "./project-io.js";
 import { localHostUrl, startWebServer, type RunningServer } from "./server.js";
 import { AGENT_MARKER_ENV } from "./upload-command.js";
@@ -39,19 +41,40 @@ export function openInBrowser(url: string, log: (message: string) => void, platf
   child.unref();
 }
 
-export async function resolveLaunchProject(target: string, cwd: string): Promise<string> {
-  const path = resolve(cwd, target);
+// A repository folder gets its project in this subfolder, so init never collides with the repository's
+// own AGENTS.md and a later launch from the same folder finds it again.
+export const PROJECT_SUBFOLDER = "screenshot-studio";
+
+async function isFile(path: string): Promise<boolean> {
+  return (await stat(path).catch(() => null))?.isFile() ?? false;
+}
+
+export async function resolveLaunchProject(
+  target: string,
+  deps: Pick<LaunchDependencies, "cwd" | "env" | "interactive" | "confirm" | "createProject" | "log">,
+): Promise<string> {
+  const path = resolve(deps.cwd, target);
   const info = await stat(path).catch(() => null);
   if (!info) throw new Error(`${path} does not exist`);
-  const projectPath = info.isDirectory() ? join(path, DEFAULT_PROJECT_FILENAME) : path;
-  if (!(await stat(projectPath).catch(() => null))?.isFile()) {
-    // A subfolder, because the folder is often an app repository whose own AGENTS.md init refuses to overwrite.
-    const folder = `${target === "." ? "." : target.replace(/[\\/]+$/, "")}/screenshots`;
+  if (!info.isDirectory()) return path;
+  for (const folder of [path, join(path, PROJECT_SUBFOLDER)]) {
+    if (await isFile(join(folder, DEFAULT_PROJECT_FILENAME))) return join(folder, DEFAULT_PROJECT_FILENAME);
+  }
+
+  const empty = (await readdir(path)).every((name) => name === ".DS_Store");
+  const folder = empty ? path : join(path, PROJECT_SUBFOLDER);
+  if (!deps.interactive || isSet(deps.env.CI)) {
+    const shown = empty ? target : `${target === "." ? "." : target.replace(/[\\/]+$/, "")}/${PROJECT_SUBFOLDER}`;
     throw new Error(
-      `No ${DEFAULT_PROJECT_FILENAME} in ${path}. Create a project with: screenshots init --dir ${folder}\nthen open it with: ss-studio ${folder}`,
+      `No ${DEFAULT_PROJECT_FILENAME} in ${path}. Create a project with: screenshots init --dir ${shown}\nthen open it with: ss-studio ${shown}`,
     );
   }
-  return projectPath;
+  if (!(await deps.confirm(`No Screenshot Studio project in ${path}. Create one in ${folder}? [Y/n] `))) {
+    throw new Error(`No project was created in ${folder}.`);
+  }
+  await deps.createProject(folder);
+  deps.log(`Created a Screenshot Studio project in ${folder}`);
+  return join(folder, DEFAULT_PROJECT_FILENAME);
 }
 
 export async function openProjectInHost(
@@ -79,6 +102,8 @@ export interface LaunchDependencies {
   probe: (port: number) => Promise<PortState>;
   ensureBrowsers: () => Promise<void>;
   startServer: (port: number | undefined) => Promise<RunningServer>;
+  confirm: (question: string) => Promise<boolean>;
+  createProject: (folder: string) => Promise<void>;
   openProject: (baseUrl: string, projectPath: string) => Promise<string>;
   serve: (server: RunningServer) => Promise<void>;
   open: (url: string) => void;
@@ -94,10 +119,12 @@ export function defaultLaunchDependencies(
   return {
     env: process.env,
     cwd: process.cwd(),
-    interactive: Boolean(process.stdout.isTTY),
+    interactive: Boolean(process.stdin.isTTY && process.stdout.isTTY),
     probe: (port) => probeLaunchPort(port),
     ensureBrowsers,
     startServer: (port) => startWebServer(port, { storeSpecsPath }),
+    confirm: askYesNo,
+    createProject: (folder) => initProjectFolder(folder, undefined, storeSpecsPath),
     openProject: (baseUrl, projectPath) => openProjectInHost(baseUrl, projectPath),
     serve: serveUntilStopped,
     open: (url) => openInBrowser(url, log),
@@ -116,8 +143,8 @@ export async function runLaunchCommand(
       `screenshots without a command or with a folder opens the editor for a person and does not run in an agent session (${AGENT_MARKER_ENV} is set). Run a command such as screenshots check instead.`,
     );
   }
-  const projectPath = target === undefined ? undefined : await resolveLaunchProject(target, deps.cwd);
   const requestedPort = parsePortFlag(flags.port);
+  const projectPath = target === undefined ? undefined : await resolveLaunchProject(target, deps);
   const port = requestedPort ?? DEFAULT_LAUNCH_PORT;
   const shouldOpen = deps.interactive && flags["no-open"] !== "true" && !isSet(deps.env.CI);
 
