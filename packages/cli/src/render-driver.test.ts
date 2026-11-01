@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it, vi } from "vitest";
-import { createRenderBrowserSession, renderScreenToPng } from "./render-driver.js";
+import { createRenderBrowserSession, MISSING_CHROMIUM_MESSAGE, renderScreenToPng } from "./render-driver.js";
 
 describe("RenderBrowserSession", () => {
   it("retains a one-shot render failure when session cleanup also fails", async () => {
@@ -95,8 +95,19 @@ describe("RenderBrowserSession", () => {
       const launch = vi.fn(async (options?: { channel?: string }) => {
         throw options?.channel ? missingChannel(options.channel) : missingChromium();
       });
-      await expect(createRenderBrowserSession({ browser: "auto", launch })).rejects.toThrow("Executable doesn't exist");
+      await expect(createRenderBrowserSession({ browser: "auto", launch })).rejects.toThrow(MISSING_CHROMIUM_MESSAGE);
       expect(launch).toHaveBeenCalledTimes(3);
+    });
+
+    it("explains a missing Chromium with the setup command instead of Playwright's install banner", async () => {
+      const cause = missingChromium();
+      const launch = vi.fn(async () => { throw cause; });
+      const failure = await createRenderBrowserSession({ launch }).catch((error: unknown) => error);
+
+      expect(failure).toBeInstanceOf(Error);
+      expect((failure as Error).message).toBe(MISSING_CHROMIUM_MESSAGE);
+      expect((failure as Error).message).toContain("screenshots setup");
+      expect((failure as Error).cause).toBe(cause);
     });
 
     it("auto surfaces launch failures that are not a missing browser", async () => {

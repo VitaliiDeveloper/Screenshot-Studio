@@ -45,7 +45,8 @@ port.
 `screenshots setup` downloads the Chromium builds (about 550 MB, in Playwright's shared per-user
 cache) with the Playwright version this CLI depends on, and is safe to re-run. `export` offers the
 same download on first use when run in a terminal; in CI or piped runs it exits with the install
-command instead. On Linux, Chromium may also need Playwright's system packages.
+command instead. Exporting from the editor without the download shows the `screenshots setup`
+command. On Linux, Chromium may also need Playwright's system packages.
 
 To skip the download, pass `--browser chrome`, `--browser msedge`, or `--browser auto` (the
 downloaded Chromium if present, otherwise installed Chrome, then Edge) to `export`, or set
