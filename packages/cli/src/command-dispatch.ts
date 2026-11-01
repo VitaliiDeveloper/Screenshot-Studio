@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { isAbsolute, resolve } from "node:path";
 import { parseStoreSpecs } from "@screenshot-studio/core/export";
 import { runAppStoreUploadCommand } from "./app-store-upload-command.js";
 import { runAssetCommand } from "./asset-commands.js";
@@ -61,19 +61,30 @@ async function runFontManagementCommand(args: string[], flags: Record<string, st
 }
 
 const USAGE = [
-  "Usage: screenshots [--port <port>] [--no-open]",
+  "Usage: screenshots [./project-folder] [--port <port>] [--no-open]",
   "       screenshots <init|export|check|screen|dev|import|font|theme|locale|asset|layout|setup|template|element|copy|publishing|upload> [flags]",
+  "ss-studio is another name for screenshots.",
 ].join("\n");
 
-function launchFlags(argv: string[]): Record<string, string> {
+function isPathArgument(arg: string): boolean {
+  return /^\.\.?(?:[\\/]|$)/.test(arg) || isAbsolute(arg);
+}
+
+function launchArgs(argv: string[]): { flags: Record<string, string>; target?: string } {
   let parsed;
   try {
     parsed = parseCommandFlags(argv, LAUNCH_FLAG_SPEC);
   } catch (error) {
     throw new Error(`${error instanceof Error ? error.message : String(error)}\n${USAGE}`, { cause: error });
   }
-  if (parsed.args.length > 0) throw new Error(`Unknown command: ${parsed.args[0]}\n${USAGE}`);
-  return parsed.flags;
+  const [target, extra] = parsed.args;
+  if (target !== undefined && !isPathArgument(target)) throw unknownCommand(target);
+  if (extra !== undefined) throw new Error(`Open one project folder at a time, not ${extra}\n${USAGE}`);
+  return { flags: parsed.flags, target };
+}
+
+function unknownCommand(command: string): Error {
+  return new Error(`Unknown command: ${command}. To open a folder, write ./${command}\n${USAGE}`);
 }
 
 export async function dispatchCommand(
@@ -81,15 +92,15 @@ export async function dispatchCommand(
   argv: string[],
   defaults: { storeSpecsPath: string; browserSetup?: BrowserSetupDependencies; launch?: LaunchDependencies },
 ): Promise<void> {
-  if (command === undefined || command.startsWith("--")) {
-    const flags = launchFlags(command === undefined ? argv : [command, ...argv]);
+  if (command === undefined || command.startsWith("--") || isPathArgument(command)) {
+    const { flags, target } = launchArgs(command === undefined ? argv : [command, ...argv]);
     await runLaunchCommand(flags, defaults.launch ?? defaultLaunchDependencies(
       defaults.storeSpecsPath,
       () => ensureRenderBrowsers("optional", defaults.browserSetup),
-    ));
+    ), target);
     return;
   }
-  if (!isCliCommand(command)) throw new Error(`Unknown command: ${command}\n${USAGE}`);
+  if (!isCliCommand(command)) throw unknownCommand(command);
 
   const { flags, args } = parseCommandFlags(argv, COMMAND_FLAG_SPECS[command]);
   switch (command) {
