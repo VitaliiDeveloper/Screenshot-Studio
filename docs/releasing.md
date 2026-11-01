@@ -31,6 +31,11 @@ screenshots dev --project ./my-app-screenshots/app-store-screenshots.json
 screenshots export --project ./my-app-screenshots/app-store-screenshots.json
 ```
 
+Then run `screenshots` with no command: it must open the project library at
+`http://localhost:4747`, a second `screenshots` while it runs must reopen the same editor without
+starting another, and a project created with **New project** must still be listed after Ctrl+C and
+a new launch.
+
 `screenshots setup` installs Chromium and the headless shell with the exact Playwright version in the
 package manifest; it is idempotent. The package has no `postinstall` script. In a clean consumer also
 confirm the first-run behaviour with an empty browser cache (`PLAYWRIGHT_BROWSERS_PATH=$(mktemp -d)`):
