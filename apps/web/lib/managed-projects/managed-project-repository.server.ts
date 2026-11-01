@@ -394,9 +394,18 @@ export class ManagedProjectRepository {
     let entries = 0;
     let bytes = 0;
     const walk = async (current: string): Promise<void> => {
-      for (const name of await readdir(current)) {
+      // A concurrent writer's lock entry can vanish between listing and inspection.
+      const names = await readdir(current).catch((error: unknown) => {
+        if (current !== directory && errorCode(error) === "ENOENT") return [];
+        throw error;
+      });
+      for (const name of names) {
         const path = join(current, name);
-        const info = await lstat(path);
+        const info = await lstat(path).catch((error: unknown) => {
+          if (errorCode(error) === "ENOENT") return undefined;
+          throw error;
+        });
+        if (!info) continue;
         entries += 1;
         if (entries > this.config.maxProjectFiles) throw new Error("Managed project exceeds the configured file limit");
         if (info.isSymbolicLink()) throw new Error("Managed project cannot contain a symbolic link");
