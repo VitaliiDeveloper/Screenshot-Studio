@@ -11,6 +11,9 @@ import {
   managedProjectLifecycleLockPath,
 } from "./managed-project-lifecycle-lock.server.js";
 
+// A tsx child cold-starts in about 0.6 s on an idle machine and several times slower on a loaded
+// one, so the 5 s default leaves too little headroom for tests that wait on a real child process.
+const CHILD_PROCESS_TIMEOUT_MS = 30_000;
 const roots: string[] = [];
 const children = new Set<ChildProcess>();
 const WEB_TSCONFIG = fileURLToPath(new URL("../../tsconfig.json", import.meta.url));
@@ -99,7 +102,7 @@ describe("managed project lifecycle lock", () => {
 
     const recovered = await acquireManagedProjectLifecycleLock(config, PROJECT_ID, shortOptions());
     await recovered.release();
-  });
+  }, CHILD_PROCESS_TIMEOUT_MS);
 
   it("rejects a lifecycle-lock root redirected through a static symlink", async () => {
     const root = await mkdtemp(join(tmpdir(), "managed-lifecycle-symlink-"));

@@ -26,7 +26,8 @@
     "access": "public"
   },
   "bin": {
-    "screenshots": "./bin/screenshots.mjs"
+    "screenshots": "./bin/screenshots.mjs",
+    "ss-studio": "./bin/screenshots.mjs"
   },
   "exports": {
     "./app-store-connect-client": "./src/app-store-connect-client.ts",

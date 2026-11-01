@@ -4,6 +4,11 @@ Use the cheapest test that can fail for the behavior being changed. Browser E2E 
 contracts that require a real Next.js host, browser rendering, user interaction, persistence, or a
 packed consumer. A test does not belong in E2E merely because its data is used by the editor.
 
+The global unit `testTimeout` stays at the Vitest default. Only a test that waits on a real child
+process or runs a multi-step scenario may pass its own named per-test timeout, and never to cover a
+slow assertion: compare large `Buffer` fixtures with `Buffer.equals`, because Vitest deep equality
+walks them byte by byte.
+
 ## Test pyramid
 
 | Level | Use it for | Normal command |

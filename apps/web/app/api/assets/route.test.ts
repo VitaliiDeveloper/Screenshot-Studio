@@ -87,7 +87,7 @@ describe("/api/assets", () => {
         source: "assets",
       },
     });
-    expect(await readFile(join(directory, "assets/imported/Finder-capture.png"))).toEqual(imageBytes);
+    expect((await readFile(join(directory, "assets/imported/Finder-capture.png"))).equals(imageBytes)).toBe(true);
     expect(await readFile(projectPath)).toEqual(before);
   }, COLD_IMAGE_DECODE_TIMEOUT_MS);
 

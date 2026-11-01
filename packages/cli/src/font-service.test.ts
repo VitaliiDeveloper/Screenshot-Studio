@@ -99,6 +99,11 @@ function textElement(id: string) {
   };
 }
 
+// Deep equality walks a 320 KB font byte by byte and costs hundreds of milliseconds.
+const sameBytes = (expected: Buffer) => ({
+  asymmetricMatch: (actual: unknown) => Buffer.isBuffer(actual) && actual.equals(expected),
+});
+
 function registeredFont(path = "assets/fonts/inter-400.ttf") {
   return { family: "Inter", weight: 400, source: "uploaded", path };
 }
@@ -185,7 +190,7 @@ describe("font-service safety", () => {
     expect(publishFontFile).toHaveBeenCalledWith({
       root: await realpath(dir),
       relativePath: "assets/fonts/inter-400.ttf",
-      bytes: validTtf,
+      bytes: sameBytes(validTtf),
     });
 
     await expect(addUploadedFont(path, {
@@ -239,7 +244,7 @@ describe("font-service safety", () => {
 
     expect(quarantineFontFile).not.toHaveBeenCalled();
     expect((await loadProjectFile(path)).fonts).toEqual([registeredFont()]);
-    expect(await readFile(join(dir, "assets/fonts/inter-400.ttf"))).toEqual(validTtf);
+    expect((await readFile(join(dir, "assets/fonts/inter-400.ttf"))).equals(validTtf)).toBe(true);
   });
 
   it("preserves JSON when managed-resource deletion policy rejects a symlink", async () => {
@@ -280,7 +285,7 @@ describe("font-service safety", () => {
     await removeFont(path, { family: "Inter", weight: 400 }, { quarantineFontFile });
 
     expect(quarantineFontFile).not.toHaveBeenCalled();
-    expect(await readFile(join(dir, sharedPath))).toEqual(validTtf);
+    expect((await readFile(join(dir, sharedPath))).equals(validTtf)).toBe(true);
   });
 
   it("rolls back a created resource when the project write fails", async () => {
@@ -405,7 +410,7 @@ describe("font-service safety", () => {
       fileDependencies: { openFile: async () => { throw failure; } },
     })).rejects.toBe(failure);
 
-    expect(await readFile(target)).toEqual(validTtf);
+    expect((await readFile(target)).equals(validTtf)).toBe(true);
     expect((await loadProjectFile(path)).fonts).toEqual([registeredFont()]);
   });
 });

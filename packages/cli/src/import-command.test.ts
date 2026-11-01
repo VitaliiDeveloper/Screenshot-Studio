@@ -15,6 +15,8 @@ import {
   previewCaptures,
 } from "./import-command.js";
 
+// One scenario runs four sequential imports plus a Sharp re-encode, about 0.35 s idle.
+const FOUR_IMPORTS_TIMEOUT_MS = 30_000;
 const temporaryRoots: string[] = [];
 
 afterEach(async () => {
@@ -90,8 +92,8 @@ describe("importCaptures", () => {
     ]);
     const iphoneAssetUrl = importedCapturePath("apple-iphone-en-01", png);
     const tabletAssetUrl = importedCapturePath("android-tablet-7-en-01", png);
-    await expect(readFile(join(dir, iphoneAssetUrl))).resolves.toEqual(png);
-    await expect(readFile(join(dir, tabletAssetUrl))).resolves.toEqual(png);
+    expect((await readFile(join(dir, iphoneAssetUrl))).equals(png)).toBe(true);
+    expect((await readFile(join(dir, tabletAssetUrl))).equals(png)).toBe(true);
 
     const written = JSON.parse(await readFile(projectPath, "utf8")) as Project;
     const screens = written.layouts[0]!.screens;
@@ -225,7 +227,7 @@ describe("importCaptures", () => {
         { assetUrl: importedCapturePath("apple-iphone-en-01", first) },
         { assetUrl: importedCapturePath("apple-iphone-en-01", first) },
       ]);
-  });
+  }, FOUR_IMPORTS_TIMEOUT_MS);
 
   it("marks a different existing receiver asset invalid during no-write preview", async () => {
     const receiver = await workspace("screenshot-studio-import-receiver-conflict-");
@@ -460,7 +462,7 @@ describe("importCaptures", () => {
       },
     )).rejects.toBe(writeFailure);
 
-    expect(await readFile(assetPath)).toEqual(png);
+    expect((await readFile(assetPath)).equals(png)).toBe(true);
   });
 
   it("publishes imports beside the canonical project when invoked through a file symlink", async () => {
@@ -479,7 +481,7 @@ describe("importCaptures", () => {
 
     await importCaptures({ projectPath: aliasProjectPath, inputDir });
 
-    expect(await readFile(join(realDir, assetRelativePath))).toEqual(png);
+    expect((await readFile(join(realDir, assetRelativePath))).equals(png)).toBe(true);
     await expect(readFile(join(aliasDir, assetRelativePath))).rejects.toMatchObject({ code: "ENOENT" });
   });
 });

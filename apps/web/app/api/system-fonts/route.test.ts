@@ -132,7 +132,7 @@ describe("system font handlers", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toBe("application/octet-stream");
     expect(response.headers.get("x-content-type-options")).toBe("nosniff");
-    expect(Buffer.from(await response.arrayBuffer())).toEqual(pacificoBytes);
+    expect(Buffer.from(await response.arrayBuffer()).equals(pacificoBytes)).toBe(true);
 
     for (const unknown of [`sf_${"0".repeat(32)}`, encodeURIComponent(join(fontDir, "Pacifico-Regular.ttf")), "..%2F..%2Fetc%2Fpasswd"]) {
       expect((await handleSystemFontPreview(previewRequest(`?id=${unknown}`))).status).toBe(404);
@@ -173,7 +173,7 @@ describe("system font handlers", () => {
     expect((await response.json()).fonts).toEqual([
       { family: "Pacifico", weight: 400, source: "uploaded", path: "assets/fonts/pacifico-400.ttf" },
     ]);
-    expect(await readFile(join(dir, "assets/fonts/pacifico-400.ttf"))).toEqual(pacificoBytes);
+    expect((await readFile(join(dir, "assets/fonts/pacifico-400.ttf"))).equals(pacificoBytes)).toBe(true);
   });
 
   it("answers an unknown import id with 404 and leaves the project untouched", async () => {

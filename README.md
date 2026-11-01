@@ -472,14 +472,25 @@ pnpm build:cli-package
 pnpm --dir packages/cli/package pack
 pnpm add --global ./packages/cli/package/screenshot-studio-cli-0.1.0.tgz
 screenshots setup
-screenshots init --dir ./my-app-screenshots
+ss-studio
 ```
+
+`ss-studio`, another name for `screenshots`, with no command starts the packaged production editor
+at `http://localhost:4747` and opens the project library in your browser; running it again reopens
+the editor that is already running. `ss-studio .` opens the project in the current folder in that
+editor, starting it first when needed, and offers to create one (in `./screenshot-studio` inside a
+non-empty folder) when there is none. `--port <port>` and `--no-open` change that, and Ctrl+C in its
+terminal stops it (closing the tab does not). The installed CLI keeps managed projects, recent
+projects, and store keys in the per-user data folder
+(`~/Library/Application Support/screenshot-studio` on macOS) unless `SCREENSHOT_STUDIO_DATA_ROOT` is
+set. `screenshots dev --project` still starts an editor pinned to one project.
 
 `screenshots setup` downloads the Chromium builds (about 550 MB, in Playwright's shared per-user
 cache) using the Playwright version the CLI depends on; it is safe to re-run. Without it,
 `screenshots export` asks before downloading on first use and, in CI or other non-interactive
-runs, exits with the install command instead of downloading. On Linux, Chromium may also need
-Playwright's [system packages](https://playwright.dev/docs/browsers#install-system-dependencies).
+runs, exits with the install command instead of downloading. Exporting from the editor without it
+shows the `screenshots setup` command. On Linux, Chromium may also need Playwright's
+[system packages](https://playwright.dev/docs/browsers#install-system-dependencies).
 
 To skip the download, `screenshots export` can use a Chrome or Edge you already have installed:
 `--browser chrome`, `--browser msedge`, or `--browser auto` (the downloaded Chromium if present,

@@ -78,6 +78,16 @@ function errorsTogether(primary: unknown, cleanup: unknown, action: string): Agg
   );
 }
 
+// The editor shows this to people who never ran a terminal command: Playwright's own message
+// suggests an unpinned `npx playwright install`, which may fetch a build this CLI does not use.
+export const MISSING_CHROMIUM_MESSAGE = "Rendering screenshots needs Chromium, which is not installed yet. "
+  + "Run `screenshots setup` in a terminal (`pnpm screenshots setup` in a source checkout) to download it once "
+  + "(about 550 MB), then try again.";
+
+function missingChromium(error: unknown): Error {
+  return new Error(MISSING_CHROMIUM_MESSAGE, { cause: error });
+}
+
 async function launchRenderBrowser({
   headless = true,
   browser: choice = "chromium",
@@ -106,10 +116,10 @@ async function launchRenderBrowser({
           { cause: error },
         );
       }
-      throw error;
+      throw absent ? missingChromium(error) : error;
     }
   }
-  if (!browser) throw firstFailure;
+  if (!browser) throw isMissingChromiumError(firstFailure) ? missingChromium(firstFailure) : firstFailure;
   return browser;
 }
 

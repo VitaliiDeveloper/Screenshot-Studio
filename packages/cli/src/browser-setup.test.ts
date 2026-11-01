@@ -20,6 +20,10 @@ import {
   type BrowserSetupDependencies,
 } from "./browser-setup.js";
 
+// The dry run spawns Playwright's real CLI synchronously: about 0.3 s idle, several seconds when the
+// machine is loaded, which the 5 s default does not cover.
+const REAL_PROCESS_TIMEOUT_MS = 30_000;
+
 const DRY_RUN = `Chrome for Testing 151.0.1 (playwright chromium v1234)
   Install location:    /cache/ms-playwright/chromium-1234
   Download url:        https://cdn.playwright.dev/chromium.zip
@@ -70,7 +74,7 @@ describe("install location detection", () => {
     } finally {
       rmSync(cache, { recursive: true, force: true });
     }
-  });
+  }, REAL_PROCESS_TIMEOUT_MS);
 
   it("pins the installer to the Playwright version the CLI depends on", () => {
     expect(resolvePlaywrightInstall().version).toMatch(/^\d+\.\d+\.\d+$/);

@@ -17,6 +17,7 @@ import {
 import {
   extractWebArchive,
   materializeSharpRuntime,
+  packagedDataRoot,
   preparePackagedRenderHost,
 } from "./packaged-render-host.js";
 
@@ -156,9 +157,28 @@ describe("preparePackagedRenderHost", () => {
     expect(host.command).toBe(process.execPath);
     expect(host.args[0]).toMatch(/apps\/web\/server\.js$/);
     expect(host.env).toMatchObject({ NODE_ENV: "production", PORT: "4789", HOSTNAME: "127.0.0.1" });
+    const extracted = join(host.cwd, "..", "..");
+    expect(host.env.SCREENSHOT_STUDIO_DATA_ROOT).toBeDefined();
+    expect(host.env.SCREENSHOT_STUDIO_DATA_ROOT!.startsWith(extracted)).toBe(false);
     expect(materialize).toHaveBeenCalledTimes(1);
     await host.cleanup();
     await rm(directory, { recursive: true, force: true });
+  });
+});
+
+describe("packagedDataRoot", () => {
+  it("uses the per-user data folder of each platform", () => {
+    expect(packagedDataRoot({}, "darwin", "/Users/ada"))
+      .toBe("/Users/ada/Library/Application Support/screenshot-studio");
+    expect(packagedDataRoot({}, "linux", "/home/ada")).toBe("/home/ada/.local/share/screenshot-studio");
+    expect(packagedDataRoot({ XDG_DATA_HOME: "/data" }, "linux", "/home/ada")).toBe("/data/screenshot-studio");
+    expect(packagedDataRoot({ LOCALAPPDATA: "C:\\Users\\ada\\AppData\\Local" }, "win32", "C:\\Users\\ada"))
+      .toBe("C:\\Users\\ada\\AppData\\Local\\screenshot-studio");
+  });
+
+  it("resolves an explicit SCREENSHOT_STUDIO_DATA_ROOT against the launch directory", () => {
+    expect(packagedDataRoot({ SCREENSHOT_STUDIO_DATA_ROOT: "studio-data" }, "darwin", "/Users/ada"))
+      .toBe(join(process.cwd(), "studio-data"));
   });
 });
 

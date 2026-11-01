@@ -43,6 +43,11 @@ async function waitForHttp(url: string, timeoutMs: number): Promise<void> {
   throw new Error(`Web server did not become ready within ${timeoutMs}ms`);
 }
 
+/** The browser keeps editor settings per origin, so every printed, opened, or probed URL uses this form. */
+export function localHostUrl(port: number): string {
+  return `http://localhost:${port}`;
+}
+
 export async function resolveServerPort(port?: number): Promise<number> {
   if (port) return port;
 
@@ -160,7 +165,7 @@ export async function createServerController({
   });
   const stderrCapture = captureStderrTail(child);
 
-  const url = `http://localhost:${selectedPort}`;
+  const url = localHostUrl(selectedPort);
   let stopping = false;
   let resolveUnexpectedExit!: (error: Error) => void;
   const unexpectedExit = new Promise<Error>((resolveExit) => {

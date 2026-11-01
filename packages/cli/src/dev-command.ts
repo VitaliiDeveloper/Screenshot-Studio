@@ -5,20 +5,34 @@ import { parseStoreSpecs } from "@screenshot-studio/core/export";
 import { runWithCleanup } from "./cli-runtime.js";
 import { importCaptures } from "./import-command.js";
 import { resolveProjectPath } from "./project-io.js";
-import { startWebServer } from "./server.js";
+import { startWebServer, type RunningServer } from "./server.js";
 
 export interface DevOptions {
   projectPath: string;
   port?: number;
 }
 
+export function parsePortFlag(value: string | undefined): number | undefined {
+  if (!value) return undefined;
+  const port = Number(value);
+  if (!Number.isInteger(port) || port <= 0) throw new Error("--port must be a positive integer");
+  return port;
+}
+
 export function resolveDevOptions(flags: Record<string, string>): DevOptions {
-  let port: number | undefined;
-  if (flags.port) {
-    port = Number(flags.port);
-    if (!Number.isInteger(port) || port <= 0) throw new Error("--port must be a positive integer");
-  }
-  return { projectPath: resolveProjectPath(flags), port };
+  return { projectPath: resolveProjectPath(flags), port: parsePortFlag(flags.port) };
+}
+
+/** Keeps the host running until Ctrl+C or SIGTERM, and fails if it exits on its own. */
+export async function serveUntilStopped(server: RunningServer): Promise<void> {
+  await runWithCleanup(() => Promise.race([
+    new Promise<void>((resolveShutdown) => {
+      const shutdown = () => resolveShutdown();
+      process.once("SIGINT", shutdown);
+      process.once("SIGTERM", shutdown);
+    }),
+    server.exited.then((error) => { throw error; }),
+  ]), () => server.stop());
 }
 
 export interface ImportOptions {
@@ -47,15 +61,7 @@ export async function runDevCommand(
   const storeSpecsPath = flags["store-specs"] ? resolve(flags["store-specs"]) : defaultStoreSpecsPath;
   const server = await startWebServer(options.port, { projectPath: options.projectPath, storeSpecsPath });
   console.log(`Editor running at ${server.url}/editor`);
-
-  await runWithCleanup(() => Promise.race([
-    new Promise<void>((resolveShutdown) => {
-      const shutdown = () => resolveShutdown();
-      process.once("SIGINT", shutdown);
-      process.once("SIGTERM", shutdown);
-    }),
-    server.exited.then((error) => { throw error; }),
-  ]), () => server.stop());
+  await serveUntilStopped(server);
 }
 
 export async function runImportCommand(

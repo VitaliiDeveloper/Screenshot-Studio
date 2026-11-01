@@ -46,7 +46,7 @@ export function compareVersions(a: string, b: string): -1 | 0 | 1 | undefined {
   return 0;
 }
 
-function isSet(value: string | undefined): boolean {
+export function isSet(value: string | undefined): boolean {
   return value !== undefined && !["", "0", "false"].includes(value.toLowerCase());
 }
 

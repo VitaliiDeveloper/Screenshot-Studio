@@ -2,8 +2,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { copyFile, cp, lstat, mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
-import { tmpdir } from "node:os";
-import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { homedir, tmpdir } from "node:os";
+import { dirname, isAbsolute, join, posix, relative, resolve, sep, win32 } from "node:path";
 import { fileURLToPath } from "node:url";
 import JSZip from "jszip";
 
@@ -159,6 +159,22 @@ export async function extractWebArchive(archivePath: string, destination: string
   }
 }
 
+/**
+ * The packaged host runs from a temporary copy that `cleanup()` deletes, and a global install sets no
+ * INIT_CWD, so the editor's default `.screenshot-studio` would land inside that copy. Managed projects,
+ * recent projects, and store keys go to a per-user folder instead.
+ */
+export function packagedDataRoot(env: NodeJS.ProcessEnv, platform: NodeJS.Platform, home: string): string {
+  if (env.SCREENSHOT_STUDIO_DATA_ROOT) return resolve(env.SCREENSHOT_STUDIO_DATA_ROOT);
+  const path = platform === "win32" ? win32 : posix;
+  const base = platform === "win32"
+    ? env.LOCALAPPDATA ?? path.join(home, "AppData", "Local")
+    : platform === "darwin"
+      ? path.join(home, "Library", "Application Support")
+      : env.XDG_DATA_HOME ?? path.join(home, ".local", "share");
+  return path.join(base, "screenshot-studio");
+}
+
 export async function preparePackagedRenderHost(
   port: number,
   archivePath = packagedWebArchive,
@@ -174,7 +190,12 @@ export async function preparePackagedRenderHost(
       command: process.execPath,
       args: [entry],
       cwd: dirname(entry),
-      env: { NODE_ENV: "production", PORT: String(port), HOSTNAME: "127.0.0.1" },
+      env: {
+        NODE_ENV: "production",
+        PORT: String(port),
+        HOSTNAME: "127.0.0.1",
+        SCREENSHOT_STUDIO_DATA_ROOT: packagedDataRoot(process.env, process.platform, homedir()),
+      },
       cleanup: () => rm(directory, { recursive: true, force: true }),
     };
   } catch (error) {
