@@ -52,7 +52,7 @@ export function projectInstructions({ mode, context, attachments }: AgentRunRequ
     skillPath ? `The Screenshot Studio skill is at ${skillPath}.` : "",
     critic
       ? `This run is read-only. Read ${skillPath ? skillReference(skillPath, "critic.md") : "the critic rules"} completely and follow it. Use only listing commands and \`screenshots export\` with \`--project ./app-store-screenshots.json\`; never change the project or run \`screenshots dev\`. A change to the project is rolled back.`
-      : "Change the project only through the `screenshots` CLI with `--project ./app-store-screenshots.json`. Never run `screenshots dev`.",
+      : "Change the project only through the `screenshots` CLI with `--project ./app-store-screenshots.json`. Never run `screenshots dev` or `screenshots` without a command.",
     !critic && skillPath
       ? `When the request is about store marketing, copy, a livelier or more premium look, or restyling from a reference image, read ${skillReference(skillPath, "art-direction.md")} first and follow it.`
       : "",

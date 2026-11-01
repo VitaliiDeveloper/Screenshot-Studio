@@ -6,13 +6,14 @@ import { runAppStoreUploadCommand } from "./app-store-upload-command.js";
 import { runAssetCommand } from "./asset-commands.js";
 import { ensureRenderBrowsers, resolveBrowserChoice, runSetupCommand, type BrowserSetupDependencies } from "./browser-setup.js";
 import { runCheckCommand } from "./check-command.js";
-import { COMMAND_FLAG_SPECS, isCliCommand, parseCommandFlags } from "./command-flags.js";
+import { COMMAND_FLAG_SPECS, LAUNCH_FLAG_SPEC, isCliCommand, parseCommandFlags } from "./command-flags.js";
 import { runCopyCommand } from "./copy-commands.js";
 import { runDevCommand, runImportCommand } from "./dev-command.js";
 import { runElementCommand } from "./element-commands.js";
 import { runExportCommand } from "./export-command.js";
 import { runFontCommand } from "./font-commands.js";
 import { runInit } from "./init.js";
+import { defaultLaunchDependencies, runLaunchCommand, type LaunchDependencies } from "./launch-command.js";
 import { runLayoutCommand } from "./layout-commands.js";
 import { runLocaleCommand } from "./locale-commands.js";
 import { resolveProjectPath } from "./project-io.js";
@@ -59,14 +60,36 @@ async function runFontManagementCommand(args: string[], flags: Record<string, st
   if (output) console.log(output);
 }
 
+const USAGE = [
+  "Usage: screenshots [--port <port>] [--no-open]",
+  "       screenshots <init|export|check|screen|dev|import|font|theme|locale|asset|layout|setup|template|element|copy|publishing|upload> [flags]",
+].join("\n");
+
+function launchFlags(argv: string[]): Record<string, string> {
+  let parsed;
+  try {
+    parsed = parseCommandFlags(argv, LAUNCH_FLAG_SPEC);
+  } catch (error) {
+    throw new Error(`${error instanceof Error ? error.message : String(error)}\n${USAGE}`, { cause: error });
+  }
+  if (parsed.args.length > 0) throw new Error(`Unknown command: ${parsed.args[0]}\n${USAGE}`);
+  return parsed.flags;
+}
+
 export async function dispatchCommand(
   command: string | undefined,
   argv: string[],
-  defaults: { storeSpecsPath: string; browserSetup?: BrowserSetupDependencies },
+  defaults: { storeSpecsPath: string; browserSetup?: BrowserSetupDependencies; launch?: LaunchDependencies },
 ): Promise<void> {
-  if (!isCliCommand(command)) {
-    throw new Error(`Unknown command: ${command ?? "(none)"}\nUsage: screenshots <init|export|check|screen|dev|import|font|theme|locale|asset|layout|setup|template|element|copy|publishing|upload> [flags]`);
+  if (command === undefined || command.startsWith("--")) {
+    const flags = launchFlags(command === undefined ? argv : [command, ...argv]);
+    await runLaunchCommand(flags, defaults.launch ?? defaultLaunchDependencies(
+      defaults.storeSpecsPath,
+      () => ensureRenderBrowsers("optional", defaults.browserSetup),
+    ));
+    return;
   }
+  if (!isCliCommand(command)) throw new Error(`Unknown command: ${command}\n${USAGE}`);
 
   const { flags, args } = parseCommandFlags(argv, COMMAND_FLAG_SPECS[command]);
   switch (command) {
