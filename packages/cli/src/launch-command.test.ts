@@ -6,9 +6,10 @@ import { join } from "node:path";
 import { createServer as createTcpServer, type AddressInfo, type Socket } from "node:net";
 import { spawn } from "node:child_process";
 import { EventEmitter } from "node:events";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_LAUNCH_PORT,
+  openInAppWindow,
   openInBrowser,
   openProjectInHost,
   probeLaunchPort,
@@ -90,6 +91,67 @@ describe("openInBrowser", () => {
     expect(child.unref).toHaveBeenCalledTimes(1);
     child.emit("error", new Error("spawn ENOENT"));
     expect(log).toHaveBeenCalledWith("Open http://localhost:4747 in your browser.");
+  });
+});
+
+describe("openInAppWindow", () => {
+  const url = "http://localhost:4747/editor/recent_1";
+
+  // Each spawned child emits one event once the caller has attached its listeners.
+  function spawnEmitting(...events: Array<[string, ...unknown[]]>) {
+    const children: Array<{ unref: ReturnType<typeof vi.fn> }> = [];
+    for (const [event, ...args] of events) {
+      vi.mocked(spawn).mockImplementationOnce(() => {
+        const child = Object.assign(new EventEmitter(), { unref: vi.fn() });
+        children.push(child);
+        queueMicrotask(() => child.emit(event, ...args));
+        return child as never;
+      });
+    }
+    return children;
+  }
+
+  beforeEach(() => vi.mocked(spawn).mockReset());
+
+  it("tries the next macOS browser when open cannot find one", async () => {
+    const children = spawnEmitting(["exit", 1], ["exit", 0]);
+    const warn = vi.fn();
+    await openInAppWindow(url, vi.fn(), warn, "darwin");
+
+    expect(spawn).toHaveBeenNthCalledWith(1, "open", ["-na", "Google Chrome", "--args", `--app=${url}`], { detached: true, stdio: "ignore" });
+    expect(spawn).toHaveBeenNthCalledWith(2, "open", ["-na", "Microsoft Edge", "--args", `--app=${url}`], { detached: true, stdio: "ignore" });
+    expect(spawn).toHaveBeenCalledTimes(2);
+    expect(warn).not.toHaveBeenCalled();
+    // Nothing else may keep a reopening CLI alive, so an unref'd opener would exit before its code.
+    for (const child of children) expect(child.unref).not.toHaveBeenCalled();
+  });
+
+  it("starts Edge through start on Windows", async () => {
+    spawnEmitting(["exit", 0]);
+    await openInAppWindow(url, vi.fn(), vi.fn(), "win32");
+    expect(spawn).toHaveBeenCalledWith("cmd", ["/c", "start", "", "msedge", `--app=${url}`], { detached: true, stdio: "ignore" });
+  });
+
+  it("starts the first Linux browser on PATH without waiting for it to exit", async () => {
+    const children = spawnEmitting(["error", new Error("spawn ENOENT")], ["spawn"]);
+    const warn = vi.fn();
+    await openInAppWindow(url, vi.fn(), warn, "linux");
+
+    expect(spawn).toHaveBeenNthCalledWith(2, "chromium", [`--app=${url}`], { detached: true, stdio: "ignore" });
+    expect(spawn).toHaveBeenCalledTimes(2);
+    expect(children[1]?.unref).toHaveBeenCalledTimes(1);
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("falls back to a browser tab with a warning when no Chromium-based browser is found", async () => {
+    spawnEmitting(["exit", 1], ["exit", 1], ["exit", 1], ["exit", 1], ["spawn"]);
+    const warn = vi.fn();
+    await openInAppWindow(url, vi.fn(), warn, "darwin");
+
+    expect(warn).toHaveBeenCalledWith(
+      "--app found no supported browser (Google Chrome, Microsoft Edge, Chromium, Brave Browser), so the editor opens in a browser tab instead.",
+    );
+    expect(spawn).toHaveBeenLastCalledWith("open", [url], { detached: true, stdio: "ignore" });
   });
 });
 
@@ -220,6 +282,7 @@ function launchDeps(state: PortState, overrides: Partial<LaunchDependencies> = {
     openProject: vi.fn(async (baseUrl: string) => `${baseUrl}/editor/recent_1`),
     serve: vi.fn(async () => {}),
     open: vi.fn(),
+    openApp: vi.fn(async () => {}),
     log: vi.fn(),
     warn: vi.fn(),
     ...overrides,
@@ -265,13 +328,22 @@ describe("runLaunchCommand", () => {
 
   it.each([
     ["--no-open", { "no-open": "true" }, {}],
+    ["--app and --no-open", { app: "true", "no-open": "true" }, {}],
     ["CI", {}, { env: { CI: "true" } }],
-    ["no terminal", {}, { interactive: false }],
+    ["no terminal", { app: "true" }, { interactive: false }],
   ])("does not open a browser with %s", async (_case, flags, overrides) => {
     const deps = launchDeps("free", overrides);
     await runLaunchCommand(flags, deps);
     expect(deps.open).not.toHaveBeenCalled();
+    expect(deps.openApp).not.toHaveBeenCalled();
     expect(deps.serve).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(["free", "studio"] as const)("opens an app window instead of a tab with --app when the port is %s", async (state) => {
+    const deps = launchDeps(state);
+    await runLaunchCommand({ app: "true" }, deps);
+    expect(deps.openApp).toHaveBeenCalledWith(`http://localhost:${DEFAULT_LAUNCH_PORT}`);
+    expect(deps.open).not.toHaveBeenCalled();
   });
 
   it("refuses to run in an agent session the editor started", async () => {

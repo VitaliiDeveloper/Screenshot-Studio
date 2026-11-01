@@ -18,8 +18,11 @@ while the editor runs opens the same editor instead of starting a second one, an
 keeps the editor's layout and agent choice between launches. If another program holds port 4747,
 the editor starts on a free port with a warning, and those settings start from defaults for that
 run. `--port <port>` picks the port (and fails if another program holds it); `--no-open` skips the
-browser, which also stays closed when `CI` is set or output is not a terminal. The editor keeps
-running after you close the tab: stop it with Ctrl+C in its terminal.
+browser, which also stays closed when `CI` is set or output is not a terminal. `--app` opens the
+editor in its own window without tabs or an address bar, in Chrome, Edge, Chromium, or Brave (Edge
+on Windows), and falls back to a tab with a warning when none is installed. That browser keeps its
+own copy of the editor settings when it is not your default browser. The editor keeps running after
+you close the tab: stop it with Ctrl+C in its terminal.
 
 Managed projects, recent projects, agent consents, and store keys live in the per-user data folder
 (`~/Library/Application Support/screenshot-studio` on macOS, `$XDG_DATA_HOME/screenshot-studio` or
