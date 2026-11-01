@@ -34,7 +34,7 @@ for (const path of requiredFiles) {
 
 const readme = await readFile(join(repoRoot, "README.md"), "utf8");
 assertIncludes(readme, "https://github.com/VitaliiDeveloper/Screenshot-Studio.git", "README source install");
-assertIncludes(readme, "it is not a registry release", "README release status");
+assertIncludes(readme, "npm install --global @screenshot-studio/cli", "README npm install");
 assertIncludes(readme, "A code-first, open-source editor", "README product positioning");
 assertIncludes(readme, "Microsoft Store", "README Microsoft Store support");
 assertIncludes(readme, "## Current capabilities", "README current capabilities");
