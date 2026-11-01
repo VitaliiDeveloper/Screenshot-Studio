@@ -4,10 +4,10 @@ Built command-line distribution for Screenshot Studio. It manages strict Apple A
 Play, Microsoft Store, and Web screenshot projects, opens the local editor, and exports exact output
 PNGs through the packaged shared web renderer.
 
-After installing the `0.1.0` dry-run package artifact and its matching Chromium builds:
+Install it with Node.js 22.13+, download its matching Chromium builds once, and open the editor:
 
 ```bash
-pnpm add --global ./screenshot-studio-cli-0.1.0.tgz
+npm install --global @screenshot-studio/cli
 screenshots setup
 ss-studio
 ```
@@ -257,6 +257,7 @@ Project before an atomic write:
 - `screen set <id> --background '<json>'` replaces one screen's solid, linear-gradient, or image background.
 
 Node.js 22.13 or newer is required. The package is local-first and does not include an AI provider.
-The artifact carries its Apache-2.0 `LICENSE`, `NOTICE`, and generated third-party notices. Presence
-of this package manifest does not mean a registry release has been published. See the repository's
-`docs/releasing.md` for upgrade, uninstall, limitations, and the owner-only publication boundary.
+The package carries its Apache-2.0 `LICENSE`, `NOTICE`, and generated third-party notices. Upgrade
+with `npm install --global @screenshot-studio/cli@latest` and remove it with
+`npm uninstall --global @screenshot-studio/cli`; projects, exports, and the shared Chromium cache
+stay. See the repository's `docs/releasing.md` for limitations and the release process.
