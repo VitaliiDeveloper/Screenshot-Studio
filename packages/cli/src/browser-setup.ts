@@ -160,16 +160,18 @@ function defaultDependencies(): BrowserSetupDependencies {
         else reject(new Error(`Browser install failed (${signal ?? `exit code ${code}`}).\n${installHelp(playwright.version)}`));
       });
     }),
-    async confirm(question) {
-      const rl = createInterface({ input: process.stdin, output: process.stdout });
-      try {
-        return /^(y(es)?)?$/i.test((await rl.question(question)).trim());
-      } finally {
-        rl.close();
-      }
-    },
+    confirm: askYesNo,
     log: (message) => console.log(message),
   };
+}
+
+export async function askYesNo(question: string): Promise<boolean> {
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    return /^(y(es)?)?$/i.test((await rl.question(question)).trim());
+  } finally {
+    rl.close();
+  }
 }
 
 function describeDownload(version: string, cacheDir: string | undefined): string {

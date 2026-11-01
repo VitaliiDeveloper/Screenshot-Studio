@@ -255,10 +255,20 @@ export class RecentProjectsStore {
   }
 
   async record(session: ProjectSession): Promise<void> {
+    await this.#record(session);
+  }
+
+  async openLocal(projectPath: string, registry: ProjectSessionRegistry): Promise<string> {
+    const recentId = await this.#record(await registry.openLocal(projectPath));
+    if (!recentId) throw new Error("Local project could not be added to recent projects");
+    return recentId;
+  }
+
+  async #record(session: ProjectSession): Promise<string | undefined> {
     const sourceKind = session.descriptor.sourceKind;
-    if (sourceKind !== "managed-project" && sourceKind !== "local-file") return;
+    if (sourceKind !== "managed-project" && sourceKind !== "local-file") return undefined;
     const catalogEntries = await this.#catalog.listActive();
-    await this.#withLock(async () => {
+    return this.#withLock(async () => {
       const document = await this.#readOrRecover(catalogEntries);
       const generation = nextGeneration(document.generation);
       const locator = sourceKind === "managed-project"
@@ -283,6 +293,7 @@ export class RecentProjectsStore {
           ...document.entries.filter((candidate) => sourceKey(candidate) !== key),
         ]).slice(0, MAX_RECENT_PROJECTS),
       });
+      return entry.recentId;
     });
   }
 

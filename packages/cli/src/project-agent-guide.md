@@ -47,8 +47,8 @@ project's JSON with `--project`.
   run `screenshots upload --store google --dry-run` or `screenshots upload --store apple --dry-run`,
   then without `--dry-run`, themselves. The
   command refuses to run inside an agent the editor started (`SCREENSHOT_STUDIO_AGENT` is set).
-- `screenshots` with no command starts the editor for a person and keeps running until stopped. Never
-  run it; always name a command such as `screenshots check`.
+- `screenshots` or `ss-studio` with no command or with only a folder starts the editor for a person
+  and keeps running until stopped. Never run it; always name a command such as `screenshots check`.
 
 ## Enforced v1 shape
 

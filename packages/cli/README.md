@@ -9,10 +9,10 @@ After installing the `0.1.0` dry-run package artifact and its matching Chromium 
 ```bash
 pnpm add --global ./screenshot-studio-cli-0.1.0.tgz
 screenshots setup
-screenshots
+ss-studio
 ```
 
-`screenshots` with no command starts the editor at `http://localhost:4747` and opens the project
+`ss-studio` is another name for `screenshots`; both run the same CLI. With no command it starts the editor at `http://localhost:4747` and opens the project
 library in your browser, where **New project** and **Import** create projects. Running it again
 while the editor runs opens the same editor instead of starting a second one, and the fixed address
 keeps the editor's layout and agent choice between launches. If another program holds port 4747,
@@ -26,14 +26,21 @@ Managed projects, recent projects, agent consents, and store keys live in the pe
 `~/.local/share/screenshot-studio` on Linux, `%LOCALAPPDATA%\screenshot-studio` on Windows), or in
 `SCREENSHOT_STUDIO_DATA_ROOT` when it is set.
 
-To work on a project folder in place, without copying it into the library:
+To work on a project in a folder in place, without copying it into the library, pass the folder:
 
 ```bash
-screenshots init --dir ./my-app-screenshots
-cd ./my-app-screenshots
-screenshots dev
-screenshots export
+cd ./my-app
+ss-studio .
 ```
+
+`ss-studio .` opens the folder's `app-store-screenshots.json`, or the one in its `screenshot-studio`
+subfolder, in the editor that is already running, or starts the editor first, and adds the project
+to the library's recent projects. When the folder has no project, a terminal run offers to create
+one: in the folder itself when it is empty, otherwise in `./screenshot-studio`, so an app repository
+keeps its own files. Without a terminal, or with `CI` set, it prints the `screenshots init` command
+instead. A folder must be written as a path (`.`, `./name`, `../name`, or an absolute path) so it
+never reads as a command. `screenshots dev` still starts an editor pinned to one project on a random
+port.
 
 `screenshots setup` downloads the Chromium builds (about 550 MB, in Playwright's shared per-user
 cache) with the Playwright version this CLI depends on, and is safe to re-run. `export` offers the
