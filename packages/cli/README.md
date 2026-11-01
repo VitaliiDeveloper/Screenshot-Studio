@@ -9,16 +9,44 @@ After installing the `0.1.0` dry-run package artifact and its matching Chromium 
 ```bash
 pnpm add --global ./screenshot-studio-cli-0.1.0.tgz
 screenshots setup
-screenshots init --dir ./my-app-screenshots
-cd ./my-app-screenshots
-screenshots dev
-screenshots export
+ss-studio
 ```
+
+`ss-studio` is another name for `screenshots`; both run the same CLI. With no command it starts the editor at `http://localhost:4747` and opens the project
+library in your browser, where **New project** and **Import** create projects. Running it again
+while the editor runs opens the same editor instead of starting a second one, and the fixed address
+keeps the editor's layout and agent choice between launches. If another program holds port 4747,
+the editor starts on a free port with a warning, and those settings start from defaults for that
+run. `--port <port>` picks the port (and fails if another program holds it); `--no-open` skips the
+browser, which also stays closed when `CI` is set or output is not a terminal. The editor keeps
+running after you close the tab: stop it with Ctrl+C in its terminal.
+
+Managed projects, recent projects, agent consents, and store keys live in the per-user data folder
+(`~/Library/Application Support/screenshot-studio` on macOS, `$XDG_DATA_HOME/screenshot-studio` or
+`~/.local/share/screenshot-studio` on Linux, `%LOCALAPPDATA%\screenshot-studio` on Windows), or in
+`SCREENSHOT_STUDIO_DATA_ROOT` when it is set.
+
+To work on a project in a folder in place, without copying it into the library, pass the folder:
+
+```bash
+cd ./my-app
+ss-studio .
+```
+
+`ss-studio .` opens the folder's `app-store-screenshots.json`, or the one in its `screenshot-studio`
+subfolder, in the editor that is already running, or starts the editor first, and adds the project
+to the library's recent projects. When the folder has no project, a terminal run offers to create
+one: in the folder itself when it is empty, otherwise in `./screenshot-studio`, so an app repository
+keeps its own files. Without a terminal, or with `CI` set, it prints the `screenshots init` command
+instead. A folder must be written as a path (`.`, `./name`, `../name`, or an absolute path) so it
+never reads as a command. `screenshots dev` still starts an editor pinned to one project on a random
+port.
 
 `screenshots setup` downloads the Chromium builds (about 550 MB, in Playwright's shared per-user
 cache) with the Playwright version this CLI depends on, and is safe to re-run. `export` offers the
 same download on first use when run in a terminal; in CI or piped runs it exits with the install
-command instead. On Linux, Chromium may also need Playwright's system packages.
+command instead. Exporting from the editor without the download shows the `screenshots setup`
+command. On Linux, Chromium may also need Playwright's system packages.
 
 To skip the download, pass `--browser chrome`, `--browser msedge`, or `--browser auto` (the
 downloaded Chromium if present, otherwise installed Chrome, then Edge) to `export`, or set

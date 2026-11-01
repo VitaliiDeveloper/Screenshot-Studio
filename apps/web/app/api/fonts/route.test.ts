@@ -65,7 +65,7 @@ describe("/api/fonts", () => {
     expect((await added.json()).fonts).toEqual([
       { family: "Inter", weight: 700, source: "uploaded", path: "assets/fonts/inter-700.ttf" },
     ]);
-    expect(await readFile(join(dir, "assets/fonts/inter-700.ttf"))).toEqual(validTtf);
+    expect((await readFile(join(dir, "assets/fonts/inter-700.ttf"))).equals(validTtf)).toBe(true);
 
     const listed = await handleFontGet(projectPath);
     expect((await listed.json()).fonts).toHaveLength(1);
@@ -91,7 +91,7 @@ describe("/api/fonts", () => {
 
     expect(response.status).toBe(201);
     expect(fetch).toHaveBeenCalledTimes(2);
-    expect(await readFile(join(dir, "assets/fonts/inter-400.ttf"))).toEqual(validTtf);
+    expect((await readFile(join(dir, "assets/fonts/inter-400.ttf"))).equals(validTtf)).toBe(true);
   });
 
   it("rejects invalid upload bytes without publishing and rejects duplicate identities", async () => {

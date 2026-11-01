@@ -83,7 +83,7 @@ const manifest = {
   bugs: sourceManifest.bugs,
   keywords: sourceManifest.keywords,
   publishConfig: sourceManifest.publishConfig,
-  bin: { screenshots: "./dist/index.js" },
+  bin: { screenshots: "./dist/index.js", "ss-studio": "./dist/index.js" },
   engines: { node: ">=22.13" },
   files: ["dist", "runtime", "README.md", "LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md"],
   dependencies: {

@@ -276,6 +276,13 @@ must never render a different cookie-selected project as a fallback. A local ses
 The legacy `/editor` route remains a session-based compatibility entry and may canonicalize only
 when the active selection already exposes an exact managed entry identity.
 
+The installed CLI opens a project folder (`ss-studio .`) through `POST /api/instance/open`, the one
+route that takes a filesystem path from a client. It refuses with `403` a request that carries an
+`Origin` header (every browser POST does), lacks `X-Screenshot-Studio-CLI: 1`, or has a non-loopback
+`Host`. The host opens the absolute project path as a local session, records it in recent projects,
+and returns its `recent_*` entry id; the CLI opens `/editor/<entryId>`, so the path never appears in
+a URL.
+
 Every project-bound operation resolves one active context and sends its `X-Project-Id`; a missing
 identity returns `428` and an inactive identity returns `409`. Versioned operations such as save,
 interactive resource mutation, and export additionally send exactly one strong quoted `If-Match` ETag.
@@ -476,7 +483,9 @@ session's `X-Project-Id` header so a cross-site page cannot grant it, and `/api/
 agent's `consented` outside its probe cache; a grant for an agent without an adapter is refused. Consent
 is checked again after the readiness probe, right before launch. Store upload keys are app-level too: one
 `0600` file per store in `<data root>/store-credentials/` (`0700`, with a `*` `.gitignore`, since the
-default data root `.screenshot-studio` sits under the launch directory): `google-play-service-account.json`
+default data root `.screenshot-studio` sits under the launch directory; the installed CLI instead
+passes its packaged host a per-user data folder, because that host runs from a temporary copy it
+deletes on stop): `google-play-service-account.json`
 is the service-account key as downloaded, and `app-store-connect.json` holds `{ keyId, issuerId }`
 next to `app-store-connect.p8`, the key the Apple upload CLI reads by path. Saving is refused when that
 folder, with symlinks resolved, is inside the active project folder, or when the folder itself is a

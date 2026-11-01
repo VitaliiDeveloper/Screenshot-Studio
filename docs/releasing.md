@@ -31,11 +31,20 @@ screenshots dev --project ./my-app-screenshots/app-store-screenshots.json
 screenshots export --project ./my-app-screenshots/app-store-screenshots.json
 ```
 
+Then run `screenshots` with no command: it must open the project library at
+`http://localhost:4747`, a second `screenshots` while it runs must reopen the same editor without
+starting another, and a project created with **New project** must still be listed after Ctrl+C and
+a new launch. `ss-studio` must run the same CLI: in `./my-app-screenshots`, `ss-studio .` must open
+that project in the running editor, and with no editor running it must start one and open the
+project. In a non-empty folder without a project, `ss-studio .` must offer to create one in
+`./screenshot-studio`, and a second `ss-studio .` there must open it without asking.
+
 `screenshots setup` installs Chromium and the headless shell with the exact Playwright version in the
 package manifest; it is idempotent. The package has no `postinstall` script. In a clean consumer also
 confirm the first-run behaviour with an empty browser cache (`PLAYWRIGHT_BROWSERS_PATH=$(mktemp -d)`):
 `screenshots export` without a TTY must exit non-zero printing the install command and download
-nothing, and in a terminal it must ask before downloading.
+nothing, in a terminal it must ask before downloading, and an export from the editor must show the
+`screenshots setup` command.
 
 Linux machines may require Playwright's documented system packages before Chromium can launch. The
 browser download uses the machine or user cache and is not embedded in the package.
