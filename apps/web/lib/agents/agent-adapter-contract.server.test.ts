@@ -4,6 +4,8 @@ import { readFile } from "node:fs/promises";
 import type { AgentAdapter, AgentEvent } from "./agent-session.server.js";
 import { claudeCodeAdapter } from "./claude-code-adapter.server.js";
 import { codexAdapter } from "./codex-adapter.server.js";
+import { copilotAdapter } from "./copilot-adapter.server.js";
+import { opencodeAdapter } from "./opencode-adapter.server.js";
 
 interface Scenario {
   scenario: string;
@@ -11,12 +13,23 @@ interface Scenario {
   fixture?: "success" | "usage-limit" | "not-authorized";
   lines?: string[];
   exit: { code: number | null; stderr: string };
-  check(events: AgentEvent[]): void;
+  check(events: AgentEvent[], adapter: AdapterCase): void;
 }
 
-const ADAPTERS: { adapter: AgentAdapter; fixture: (kind: string) => string }[] = [
-  { adapter: claudeCodeAdapter, fixture: (kind) => `claude-stream-${kind}.ndjson` },
-  { adapter: codexAdapter, fixture: (kind) => `codex-stream-${kind}.ndjson` },
+interface AdapterCase {
+  adapter: AgentAdapter;
+  fixture: (kind: string) => string;
+  /** False for a CLI whose allowed tools include no plan tool. */
+  progress: boolean;
+}
+
+const ADAPTERS: AdapterCase[] = [
+  { adapter: claudeCodeAdapter, fixture: (kind) => `claude-stream-${kind}.ndjson`, progress: true },
+  { adapter: codexAdapter, fixture: (kind) => `codex-stream-${kind}.ndjson`, progress: true },
+  // Provisional: Copilot and OpenCode fixtures are built from docs, source and user reports, not
+  // captured from local runs; replace them with real output before relying on these adapters.
+  { adapter: copilotAdapter, fixture: (kind) => `copilot-stream-${kind}.ndjson`, progress: false },
+  { adapter: opencodeAdapter, fixture: (kind) => `opencode-stream-${kind}.ndjson`, progress: true },
 ];
 
 const SECRET_STDERR = "Error: EACCES /Users/owner/secret-path token=abc";
@@ -29,8 +42,10 @@ const SCENARIOS: Scenario[] = [
     scenario: "a successful run streams text, progress and the CLI command, then completes",
     fixture: "success",
     exit: { code: 0, stderr: "" },
-    check(events) {
-      expect(events.map(({ type }) => type)).toEqual(expect.arrayContaining(["text", "progress", "tool-use"]));
+    check(events, { progress }) {
+      const types = events.map(({ type }) => type);
+      expect(types).toEqual(expect.arrayContaining(["text", "tool-use"]));
+      expect(types.includes("progress")).toBe(progress);
       expect(events).toContainEqual(expect.objectContaining({
         type: "tool-use", command: expect.stringContaining("screenshots locale add de"),
       }));
@@ -94,13 +109,14 @@ const SCENARIOS: Scenario[] = [
   },
 ];
 
-describe.each(ADAPTERS)("$adapter.agentId adapter contract", ({ adapter, fixture }) => {
+describe.each(ADAPTERS)("$adapter.agentId adapter contract", (adapterCase) => {
+  const { adapter, fixture } = adapterCase;
   it.each(SCENARIOS)("$scenario", async ({ fixture: kind, lines = [], exit, check }) => {
     const output = kind ? await readFile(new URL(`./fixtures/${fixture(kind)}`, import.meta.url), "utf8") : "";
     const normalizer = adapter.normalizer();
     const events = [...[...output.split("\n"), ...lines].flatMap((line) => normalizer.line(line)), ...normalizer.end(exit)];
 
-    check(events);
+    check(events, adapterCase);
     expect(doneEvents(events)).toHaveLength(1);
   });
 });

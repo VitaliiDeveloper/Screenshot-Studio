@@ -48,6 +48,8 @@ export function AgentPicker({
             value={model}
             options={agent.models.map(({ id, label }) => ({ value: id, label }))}
             onChange={onModelChange}
+            // Labels wider than the trigger would push a right-anchored menu past the panel's start edge.
+            menuClassName="!left-0 !right-auto"
             className="min-w-0"
             triggerClassName="font-medium"
           />

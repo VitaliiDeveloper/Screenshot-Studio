@@ -45,6 +45,7 @@ const ACCEPTED = {
 // its argv, cwd, env and stdin before running the scenario. PATH holds only the fake directory.
 const SUCCESS_FIXTURE = fileURLToPath(new URL("./fixtures/claude-stream-success.ndjson", import.meta.url));
 const CODEX_SUCCESS_FIXTURE = fileURLToPath(new URL("./fixtures/codex-stream-success.ndjson", import.meta.url));
+const OPENCODE_SUCCESS_FIXTURE = fileURLToPath(new URL("./fixtures/opencode-stream-success.ndjson", import.meta.url));
 
 let root: string;
 let binDir: string;
@@ -210,6 +211,30 @@ describe.skipIf(process.platform === "win32")("agent session runner", () => {
     expect(argv.slice(0, 4)).toEqual(["exec", "--json", "--sandbox", "workspace-write"]);
     expect(argv.at(-2)).toBe("-");
     expect(await readFile(join(root, "env"), "utf8")).not.toMatch(/CODEX_API_KEY|OPENAI_API_KEY/);
+  });
+
+  it("gives an adapter its own env over the sanitized one and its own stdin", async () => {
+    await writeFake("opencode", `case "$1" in
+  --version) echo '2.1.4' ;;
+  *)
+    /usr/bin/env > '${root}/env'
+    /bin/cat > '${root}/stdin'
+    /bin/cat '${OPENCODE_SUCCESS_FIXTURE}' ;;
+esac`);
+
+    const events = await collect(await start({
+      agentId: "opencode",
+      model: null,
+      env: { NODE_ENV: "test", PATH: binDir, HOME: root, OPENCODE_CONFIG_CONTENT: '{"permission":"allow"}' },
+    }));
+
+    expect(events.at(-1)).toMatchObject({ type: "done", status: "completed" });
+    const env = await readFile(join(root, "env"), "utf8");
+    expect(env).toContain('OPENCODE_PERMISSION={"edit":"deny"');
+    expect(env).not.toContain("OPENCODE_CONFIG_CONTENT");
+    const stdin = await readFile(join(root, "stdin"), "utf8");
+    expect(stdin).toContain(join(await realpath(projectDir), "AGENTS.md"));
+    expect(stdin.endsWith("The user's request:\n--bare Add German")).toBe(true);
   });
 
   it("probes Codex sign-in and runs Codex with the same credentials store", async () => {

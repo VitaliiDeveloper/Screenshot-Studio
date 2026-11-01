@@ -47,6 +47,15 @@ export interface AgentDefinition {
   policy: AgentPolicy;
 }
 
+/** Exact `--model` IDs of the OpenCode Go plan; a run without a picked model uses the first. */
+export const OPENCODE_GO_MODELS: readonly AgentChoice[] = [
+  { id: "opencode-go/kimi-k3", label: "Kimi K3" },
+  { id: "opencode-go/glm-5.3", label: "GLM 5.3" },
+  { id: "opencode-go/deepseek-v4-pro", label: "DeepSeek V4 Pro" },
+  { id: "opencode-go/qwen3.8-max", label: "Qwen3.8 Max" },
+  { id: "opencode-go/minimax-m3", label: "MiniMax M3" },
+];
+
 // Static by design (VTL-30/VTL-51): no remote config. Sources and dates follow the VTL-29 spike.
 export const AGENT_DEFINITIONS: readonly AgentDefinition[] = [
   {
@@ -104,6 +113,45 @@ export const AGENT_DEFINITIONS: readonly AgentDefinition[] = [
     },
   },
   {
+    id: "copilot",
+    name: "GitHub Copilot CLI",
+    binary: "copilot",
+    minVersion: "1.0.93",
+    // No auth-status command; a lost sign-in surfaces as the first run's `not-authorized`.
+    // No model-list command either, and Free and Student plans only get Auto.
+    models: [],
+    efforts: [],
+    setupUrl: "https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/install-copilot-cli",
+    signInCommand: "copilot",
+    policy: {
+      level: "supported",
+      reason: "Runs the official GitHub Copilot CLI that you installed and signed in to with your own Copilot plan.",
+      consequences: "Runs consume your Copilot plan's AI Credits. GitHub's abuse detection can restrict Copilot access for activity it treats as automated.",
+      sourceUrl: "https://docs.github.com/en/site-policy/github-terms/github-terms-of-service#j-ai-features-training-and-your-data",
+      checkedAt: "2026-10-20",
+    },
+  },
+  {
+    id: "opencode",
+    name: "OpenCode",
+    binary: "opencode",
+    // OpenCode 1 ships the same binary with an incompatible CLI; 2.1.0 changed the event contracts.
+    minVersion: "2.1.0",
+    // Go models only: `opencode/*` is Zen, pay-per-request billing outside the subscription rule.
+    // Free and preview models are left out until their use after the Go limit is decided.
+    models: OPENCODE_GO_MODELS,
+    efforts: [],
+    setupUrl: "https://opencode.ai/docs/go/",
+    signInCommand: "opencode auth login",
+    policy: {
+      level: "supported",
+      reason: "Runs the official OpenCode CLI that you installed and connected to your own OpenCode Go subscription.",
+      consequences: "Runs count toward your Go plan's usage limits. With Extra Usage on, runs past the limit are billed to your pay-as-you-go balance.",
+      sourceUrl: "https://opencode.ai/docs/go/",
+      checkedAt: "2026-10-24",
+    },
+  },
+  {
     // No adapter yet: it has no auth-status command and its stream was never run, because
     // running `agy -p` from a coding agent is the case the account-ban risk applies to.
     id: "agy",
@@ -137,7 +185,8 @@ export const AGENT_DEFINITIONS: readonly AgentDefinition[] = [
 
 const PASSTHROUGH_ENV = new Set([
   "PATH", "HOME", "USER", "LOGNAME", "SHELL", "TMPDIR", "TEMP", "TMP", "LANG", "LANGUAGE", "TERM", "TZ",
-  "CLAUDE_CONFIG_DIR", "CODEX_HOME",
+  // No GH_HOST / COPILOT_GH_HOST: Copilot stays on github.com instead of following a host switch.
+  "CLAUDE_CONFIG_DIR", "CODEX_HOME", "COPILOT_HOME",
   "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY", "NODE_EXTRA_CA_CERTS", "SSL_CERT_FILE", "SSL_CERT_DIR",
   "SYSTEMROOT", "WINDIR", "COMSPEC", "PATHEXT", "USERPROFILE", "APPDATA", "LOCALAPPDATA", "PROGRAMDATA",
   "HOMEDRIVE", "HOMEPATH",

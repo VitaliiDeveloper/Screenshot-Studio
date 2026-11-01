@@ -501,8 +501,12 @@ have no path to the plan, upload, or key store, `/api/upload/plan` and `/api/upl
 (`423`) while an editor-started agent runs, and the CLI's agent marker still refuses the command
 inside an agent session. Antigravity `agy` is listed with its
 `at-own-risk` policy but has no adapter (it has no auth-status command, and its stream was never run
-because that is the account-ban case), so it reports `no-adapter` and never runs. A run in the project folder, at most one per project, receives the user
-message on stdin, and streams normalized events. Completion, cancel, timeout, or server exit kills its
+because that is the account-ban case), so it reports `no-adapter` and never runs. An agent whose CLI
+has no auth-status command (GitHub Copilot CLI, OpenCode) reports `ready` from its version alone, with no
+auth mode; a lost sign-in then surfaces as the run's `not-authorized` error. A run in the project folder,
+at most one per project, receives the user message on stdin (prefixed with the project instructions for a
+CLI without a system-prompt flag) plus any variables its adapter sets over the allowlisted environment,
+and streams normalized events. Completion, cancel, timeout, or server exit kills its
 whole process tree.
 
 Codex runs as `codex exec --json` in the `workspace-write` sandbox (writes only to the project folder
@@ -514,6 +518,19 @@ probe and the run; an `ephemeral` store reports not signed in. Unlike Claude Cod
 Codex has no command allowlist and can read the whole disk. It may also edit project files directly;
 only `app-store-screenshots.json` is covered by the run's schema verdict and Undo run, and the run's
 result lists the other files it changed.
+
+GitHub Copilot CLI (1.0.93 or later) and OpenCode 2 (2.1.0 or later, on OpenCode Go models only) have
+provisional adapters: their stream fixtures come from documentation, source, and user reports, not
+from local runs, until runs on test accounts replace them. Copilot runs in prompt mode with
+`--output-format json`, only the `bash`, `view`, `glob`, and `grep` tools, `shell(screenshots:*)`
+allowed and `screenshots dev` denied, its sandbox on, built-in MCP servers, remote access, the temp
+directory, and custom instructions off, and `COPILOT_SKILLS_DIRS` pointing at the bundled skill.
+User hooks and saved approvals still apply, and its sandbox only warns on a host it cannot sandbox,
+so such a warning fails the run. OpenCode runs `run --format json --pure` with an explicit Go model and
+an `OPENCODE_PERMISSION` that denies edits, web tools, other folders, and sub-agents and allows only
+`screenshots` (not `screenshots dev`) in the shell; `OPENCODE_DISABLE_CLAUDE_CODE` keeps the user's
+`~/.claude/CLAUDE.md` out. Its prompt goes on stdin, keeping the user's text out of the process list.
+OpenCode has no sandbox, and a managed OpenCode config can override the permission rules.
 
 A request may carry up to 5 PNG, JPEG, or WebP images of at most 10 MB each as context for that run.
 They travel in the same `POST /api/agents/session` as a multipart body (`agentId`, `message`, `model`,
