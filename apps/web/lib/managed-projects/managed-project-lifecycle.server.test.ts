@@ -14,6 +14,9 @@ import { withManagedProjectReadGuard } from "./managed-project-mutation-guard.se
 import { ManagedProjectNotFoundError, ManagedProjectRepository } from "./managed-project-repository.server.js";
 import { ManagedProjectSourceAdapter, ProjectSessionRegistry } from "@web/lib/session/project-session.server.js";
 
+// A tsx child cold-starts in about 0.6 s on an idle machine and several times slower on a loaded
+// one, so the 5 s default leaves too little headroom for tests that wait on a real child process.
+const CHILD_PROCESS_TIMEOUT_MS = 30_000;
 const roots: string[] = [];
 const childProcesses = new Set<ChildProcess>();
 const managedPutChild = fileURLToPath(new URL("./fixtures/managed-put-child.ts", import.meta.url));
@@ -27,7 +30,7 @@ afterEach(async () => {
   await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
 });
 
-function waitForChildOutput(child: ChildProcess, expected: string, timeoutMs = 5_000): Promise<void> {
+function waitForChildOutput(child: ChildProcess, expected: string, timeoutMs = CHILD_PROCESS_TIMEOUT_MS / 2): Promise<void> {
   return new Promise((resolve, reject) => {
     let stdout = "";
     let stderr = "";
@@ -183,7 +186,7 @@ describe("ManagedProjectLifecycleService", () => {
     await waitForChildOutput(child, "status:409\n");
     childProcesses.delete(child);
     await expect(deleting).resolves.toMatchObject({ state: "complete" });
-  });
+  }, CHILD_PROCESS_TIMEOUT_MS);
 
   it("fails before reservation for unsafe project trees and redirected managed roots", async () => {
     const linked = await fixture();

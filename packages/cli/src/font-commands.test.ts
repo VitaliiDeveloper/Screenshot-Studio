@@ -50,7 +50,7 @@ describe("runFontCommand", () => {
       ["add", source],
       { family: "Inter", weight: "700" },
     )).resolves.toBe("Inter 700 uploaded assets/fonts/inter-700.ttf");
-    expect(await readFile(join(dir, "assets/fonts/inter-700.ttf"))).toEqual(validTtf);
+    expect((await readFile(join(dir, "assets/fonts/inter-700.ttf"))).equals(validTtf)).toBe(true);
     await expect(runFontCommand(path, ["list"], {})).resolves.toContain("Inter 700 uploaded");
     await expect(runFontCommand(
       path,
@@ -70,7 +70,7 @@ describe("runFontCommand", () => {
     await runFontCommand(path, ["add"], { google: "Inter" }, { fetch });
 
     expect(fetch).toHaveBeenCalledTimes(2);
-    expect(await readFile(join(dir, "assets/fonts/inter-400.ttf"))).toEqual(validTtf);
+    expect((await readFile(join(dir, "assets/fonts/inter-400.ttf"))).equals(validTtf)).toBe(true);
     expect((await loadProjectFile(path)).fonts).toEqual([{ family: "Inter", source: "google", path: "assets/fonts/inter-400.ttf", weight: 400 }]);
   });
 
