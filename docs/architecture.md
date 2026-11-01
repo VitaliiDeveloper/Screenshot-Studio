@@ -476,7 +476,9 @@ session's `X-Project-Id` header so a cross-site page cannot grant it, and `/api/
 agent's `consented` outside its probe cache; a grant for an agent without an adapter is refused. Consent
 is checked again after the readiness probe, right before launch. Store upload keys are app-level too: one
 `0600` file per store in `<data root>/store-credentials/` (`0700`, with a `*` `.gitignore`, since the
-default data root `.screenshot-studio` sits under the launch directory): `google-play-service-account.json`
+default data root `.screenshot-studio` sits under the launch directory; the installed CLI instead
+passes its packaged host a per-user data folder, because that host runs from a temporary copy it
+deletes on stop): `google-play-service-account.json`
 is the service-account key as downloaded, and `app-store-connect.json` holds `{ keyId, issuerId }`
 next to `app-store-connect.p8`, the key the Apple upload CLI reads by path. Saving is refused when that
 folder, with symlinks resolved, is inside the active project folder, or when the folder itself is a
