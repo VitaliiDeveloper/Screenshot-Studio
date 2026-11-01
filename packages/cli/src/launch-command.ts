@@ -41,6 +41,51 @@ export function openInBrowser(url: string, log: (message: string) => void, platf
   child.unref();
 }
 
+const APP_WINDOW_BROWSERS: Partial<Record<NodeJS.Platform, readonly string[]>> = {
+  darwin: ["Google Chrome", "Microsoft Edge", "Chromium", "Brave Browser"],
+  // Edge ships with Windows; `start` on a missing Chrome would show an error dialog.
+  win32: ["msedge"],
+  linux: ["google-chrome", "chromium", "chromium-browser", "microsoft-edge", "brave-browser"],
+};
+
+// `open` and `cmd /c start` report a missing browser only through their exit code, so they stay
+// referenced: with no server in this process, an unref'd opener lets Node exit before that code
+// arrives. A browser started directly keeps running, so it counts once it has spawned.
+function startDetached(command: string, args: string[], untilExit: boolean): Promise<boolean> {
+  return new Promise((resolve) => {
+    const child = spawn(command, args, { detached: true, stdio: "ignore" });
+    child.once("error", () => resolve(false));
+    if (untilExit) {
+      child.once("exit", (code) => resolve(code === 0));
+    } else {
+      child.once("spawn", () => {
+        child.unref();
+        resolve(true);
+      });
+    }
+  });
+}
+
+/** `--app`: a Chromium-based browser window without tabs or an address bar, else a normal tab. */
+export async function openInAppWindow(
+  url: string,
+  log: (message: string) => void,
+  warn: (message: string) => void,
+  platform = process.platform,
+): Promise<void> {
+  const browsers = APP_WINDOW_BROWSERS[platform] ?? [];
+  for (const browser of browsers) {
+    const started = platform === "darwin"
+      ? await startDetached("open", ["-na", browser, "--args", `--app=${url}`], true)
+      : platform === "win32"
+        ? await startDetached("cmd", ["/c", "start", "", browser, `--app=${url}`], true)
+        : await startDetached(browser, [`--app=${url}`], false);
+    if (started) return;
+  }
+  warn(`--app found no supported browser (${browsers.join(", ")}), so the editor opens in a browser tab instead.`);
+  openInBrowser(url, log, platform);
+}
+
 // A repository folder gets its project in this subfolder, so init never collides with the repository's
 // own AGENTS.md and a later launch from the same folder finds it again.
 export const PROJECT_SUBFOLDER = "screenshot-studio";
@@ -107,6 +152,7 @@ export interface LaunchDependencies {
   openProject: (baseUrl: string, projectPath: string) => Promise<string>;
   serve: (server: RunningServer) => Promise<void>;
   open: (url: string) => void;
+  openApp: (url: string) => Promise<void>;
   log: (message: string) => void;
   warn: (message: string) => void;
 }
@@ -116,6 +162,7 @@ export function defaultLaunchDependencies(
   ensureBrowsers: () => Promise<void>,
 ): LaunchDependencies {
   const log = (message: string) => console.log(message);
+  const warn = (message: string) => console.warn(message);
   return {
     env: process.env,
     cwd: process.cwd(),
@@ -128,8 +175,9 @@ export function defaultLaunchDependencies(
     openProject: (baseUrl, projectPath) => openProjectInHost(baseUrl, projectPath),
     serve: serveUntilStopped,
     open: (url) => openInBrowser(url, log),
+    openApp: (url) => openInAppWindow(url, log, warn),
     log,
-    warn: (message) => console.warn(message),
+    warn,
   };
 }
 
@@ -147,12 +195,17 @@ export async function runLaunchCommand(
   const projectPath = target === undefined ? undefined : await resolveLaunchProject(target, deps);
   const port = requestedPort ?? DEFAULT_LAUNCH_PORT;
   const shouldOpen = deps.interactive && flags["no-open"] !== "true" && !isSet(deps.env.CI);
+  const open = async (url: string) => {
+    if (!shouldOpen) return;
+    if (flags.app === "true") await deps.openApp(url);
+    else deps.open(url);
+  };
 
   const state = await deps.probe(port);
   if (state === "studio") {
     const url = projectPath ? await deps.openProject(localHostUrl(port), projectPath) : localHostUrl(port);
     deps.log(`Screenshot Studio is already running at ${url}`);
-    if (shouldOpen) deps.open(url);
+    await open(url);
     return;
   }
   if (state === "other") {
@@ -174,6 +227,6 @@ export async function runLaunchCommand(
     }
   }
   deps.log(`Screenshot Studio is running at ${url}\nPress Ctrl+C to stop it.`);
-  if (shouldOpen) deps.open(url);
+  await open(url);
   await deps.serve(server);
 }

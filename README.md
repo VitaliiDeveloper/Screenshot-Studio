@@ -479,8 +479,9 @@ ss-studio
 at `http://localhost:4747` and opens the project library in your browser; running it again reopens
 the editor that is already running. `ss-studio .` opens the project in the current folder in that
 editor, starting it first when needed, and offers to create one (in `./screenshot-studio` inside a
-non-empty folder) when there is none. `--port <port>` and `--no-open` change that, and Ctrl+C in its
-terminal stops it (closing the tab does not). The installed CLI keeps managed projects, recent
+non-empty folder) when there is none. `--port <port>` and `--no-open` change that, `--app` opens a
+Chrome or Edge window without tabs or an address bar instead of a tab (that browser keeps its own
+editor settings), and Ctrl+C in its terminal stops it (closing the tab does not). The installed CLI keeps managed projects, recent
 projects, and store keys in the per-user data folder
 (`~/Library/Application Support/screenshot-studio` on macOS) unless `SCREENSHOT_STUDIO_DATA_ROOT` is
 set. `screenshots dev --project` still starts an editor pinned to one project.

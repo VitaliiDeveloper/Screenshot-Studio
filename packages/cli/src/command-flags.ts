@@ -11,7 +11,7 @@ export interface ParsedCommandFlags {
 }
 
 /** Flags of `screenshots` with no command, which starts or reopens the editor. */
-export const LAUNCH_FLAG_SPEC: CommandFlagSpec = { value: ["port"], boolean: ["no-open"] };
+export const LAUNCH_FLAG_SPEC: CommandFlagSpec = { value: ["port"], boolean: ["no-open", "app"] };
 
 export const COMMAND_FLAG_SPECS = {
   init: { value: ["dir", "name"], boolean: [] },

@@ -65,7 +65,7 @@ export function updateCacheFile(env: NodeJS.ProcessEnv, platform: NodeJS.Platfor
 }
 
 export function formatUpdateNotice(current: string, latest: string): string {
-  return `Update available: ${current} → ${latest}. Run: pnpm add --global ${PACKAGE_NAME}@${latest}`;
+  return `Update available: ${current} → ${latest}. Run: npm install --global ${PACKAGE_NAME}@${latest}`;
 }
 
 interface UpdateCache {
