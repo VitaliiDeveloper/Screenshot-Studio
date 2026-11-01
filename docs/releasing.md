@@ -1,7 +1,7 @@
 # Release and publication
 
-Version `0.1.0` is an unpublished dry-run candidate. No npm publication, Git tag, GitHub release,
-or announcement is implied by a successful local build or CI run.
+Version `0.1.0` is published on npm as `@screenshot-studio/cli`. No npm publication, Git tag,
+GitHub release, or announcement is implied by a successful local build or CI run.
 
 ## Build and inspect the candidate
 
