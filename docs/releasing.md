@@ -43,7 +43,8 @@ project. In a non-empty folder without a project, `ss-studio .` must offer to cr
 package manifest; it is idempotent. The package has no `postinstall` script. In a clean consumer also
 confirm the first-run behaviour with an empty browser cache (`PLAYWRIGHT_BROWSERS_PATH=$(mktemp -d)`):
 `screenshots export` without a TTY must exit non-zero printing the install command and download
-nothing, and in a terminal it must ask before downloading.
+nothing, in a terminal it must ask before downloading, and an export from the editor must show the
+`screenshots setup` command.
 
 Linux machines may require Playwright's documented system packages before Chromium can launch. The
 browser download uses the machine or user cache and is not embedded in the package.

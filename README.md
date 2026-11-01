@@ -488,8 +488,9 @@ set. `screenshots dev --project` still starts an editor pinned to one project.
 `screenshots setup` downloads the Chromium builds (about 550 MB, in Playwright's shared per-user
 cache) using the Playwright version the CLI depends on; it is safe to re-run. Without it,
 `screenshots export` asks before downloading on first use and, in CI or other non-interactive
-runs, exits with the install command instead of downloading. On Linux, Chromium may also need
-Playwright's [system packages](https://playwright.dev/docs/browsers#install-system-dependencies).
+runs, exits with the install command instead of downloading. Exporting from the editor without it
+shows the `screenshots setup` command. On Linux, Chromium may also need Playwright's
+[system packages](https://playwright.dev/docs/browsers#install-system-dependencies).
 
 To skip the download, `screenshots export` can use a Chrome or Edge you already have installed:
 `--browser chrome`, `--browser msedge`, or `--browser auto` (the downloaded Chromium if present,
