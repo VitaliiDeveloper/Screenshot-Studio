@@ -15,6 +15,8 @@ import {
   previewCaptures,
 } from "./import-command.js";
 
+// One scenario runs four sequential imports plus a Sharp re-encode, about 0.35 s idle.
+const FOUR_IMPORTS_TIMEOUT_MS = 30_000;
 const temporaryRoots: string[] = [];
 
 afterEach(async () => {
@@ -225,7 +227,7 @@ describe("importCaptures", () => {
         { assetUrl: importedCapturePath("apple-iphone-en-01", first) },
         { assetUrl: importedCapturePath("apple-iphone-en-01", first) },
       ]);
-  });
+  }, FOUR_IMPORTS_TIMEOUT_MS);
 
   it("marks a different existing receiver asset invalid during no-write preview", async () => {
     const receiver = await workspace("screenshot-studio-import-receiver-conflict-");
