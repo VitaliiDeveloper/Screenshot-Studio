@@ -7,6 +7,7 @@ export type ExportProgressPhase =
   | "rendering"
   | "packaging"
   | "finalizing"
+  | "uploading"
   | "ready"
   | "failed";
 
@@ -22,6 +23,7 @@ const phases = new Set<ExportProgressPhase>([
   "rendering",
   "packaging",
   "finalizing",
+  "uploading",
   "ready",
   "failed",
 ]);

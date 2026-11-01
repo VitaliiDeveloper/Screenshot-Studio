@@ -1,0 +1,42 @@
+{
+  "meta": {
+    "name": "Publishing identifiers",
+    "schemaVersion": 1
+  },
+  "fonts": [],
+  "preferredExportLayoutId": "default",
+  "layouts": [
+    {
+      "id": "default",
+      "name": "Default",
+      "mode": "isolated",
+      "screens": [
+        {
+          "id": "phone",
+          "name": "Phone",
+          "platform": "android",
+          "device": "phone",
+          "locale": "en",
+          "direction": "ltr",
+          "artboard": {
+            "width": 1080,
+            "height": 1920
+          },
+          "background": {
+            "type": "solid",
+            "color": "#101418"
+          },
+          "elements": []
+        }
+      ]
+    }
+  ],
+  "publishing": {
+    "apple": {
+      "appId": "1234567890"
+    },
+    "google": {
+      "packageName": "com.example.screenshots"
+    }
+  }
+}

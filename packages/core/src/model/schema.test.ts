@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { readFile } from "node:fs/promises";
 import { describe, it, expect } from "vitest";
 import {
   DEFAULT_FONT_WEIGHT,
@@ -11,6 +12,7 @@ import {
   ProjectValidationError,
   SCHEMA_VERSION,
   Screen,
+  setPublishing,
 } from "./index.js";
 import { validProject } from "./schema-test-fixtures.js";
 
@@ -699,5 +701,44 @@ describe("Screen direction", () => {
     (project.layouts[0]!.screens[1] as Record<string, unknown>).direction = "rtl";
 
     expect(() => parseProject(project)).toThrow(ProjectValidationError);
+  });
+});
+
+describe("publishing identifiers", () => {
+  it("accepts app identifiers for either store and omits nothing on parse", () => {
+    const project = { ...validProject(), publishing: { apple: { appId: "1234567890" }, google: { packageName: "com.example.app_2" } } };
+    expect(parseProject(project).publishing).toEqual(project.publishing);
+    expect(parseProject({ ...validProject(), publishing: {} }).publishing).toEqual({});
+  });
+
+  it.each([
+    ["an unknown store", { amazon: { appId: "1" } }],
+    ["a credential next to the identifier", { google: { packageName: "com.example.app", serviceAccount: "key.json" } }],
+    ["a package name that is a path", { google: { packageName: "com.example/../edits" } }],
+    ["a single-segment package name", { google: { packageName: "example" } }],
+    ["a non-numeric Apple app id", { apple: { appId: "com.example.app" } }],
+  ])("rejects %s", (_case, publishing) => {
+    expect(() => parseProject({ ...validProject(), publishing })).toThrow(ProjectValidationError);
+  });
+
+  it("parses the tracked publishing fixture with both stores", async () => {
+    const raw = await readFile(new URL("../../../../fixtures/publishing/app-store-screenshots.json", import.meta.url), "utf8");
+    expect(Project.parse(JSON.parse(raw)).publishing).toEqual({
+      apple: { appId: "1234567890" },
+      google: { packageName: "com.example.screenshots" },
+    });
+  });
+
+  it("sets, clears and drops the block through setPublishing", () => {
+    const base = Project.parse(validProject());
+    const google = setPublishing(base, { google: { packageName: "com.example.app" } });
+    expect(google.publishing).toEqual({ google: { packageName: "com.example.app" } });
+    expect(setPublishing(google, { google: { packageName: "com.example.app" } })).toBe(google);
+    const both = setPublishing(google, { apple: { appId: "42" } });
+    expect(both.publishing).toEqual({ google: { packageName: "com.example.app" }, apple: { appId: "42" } });
+    const cleared = setPublishing(setPublishing(both, { google: null }), { apple: null });
+    expect(cleared).toEqual(base);
+    expect("publishing" in cleared).toBe(false);
+    expect(() => setPublishing(base, { google: { packageName: "bad" } })).toThrow();
   });
 });

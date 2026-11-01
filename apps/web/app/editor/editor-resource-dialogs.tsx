@@ -8,6 +8,7 @@ import { AssetPickerDialog } from "@web/components/AssetPickerDialog";
 import { FontManagerDialog } from "@web/components/FontManagerDialog";
 import { LocaleManagerDialog } from "@web/components/LocaleManagerDialog";
 import { ProjectImagesDialog } from "@web/components/ProjectImagesDialog";
+import { StoresDialog } from "@web/components/StoresDialog";
 import { TemplateLibraryDialog } from "@web/components/TemplateLibraryDialog";
 import { ThemeManagerDialog } from "@web/components/ThemeManagerDialog";
 import type { CachedAssetDimensions } from "@web/components/asset-picker-model";
@@ -79,6 +80,7 @@ export function EditorResourceDialogs({
         />
       ) : null}
       {dialog === "project-images" ? <ProjectImagesDialog cacheAsset={cacheImage} onClose={closeDialog} /> : null}
+      {dialog === "stores" ? <StoresDialog onClose={closeDialog} /> : null}
       {localeDialogOpen ? <LocaleManagerDialog issues={issues} specs={specs} onClose={closeLocaleDialog} /> : null}
     </>
   );

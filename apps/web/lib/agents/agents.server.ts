@@ -150,11 +150,14 @@ const PASSTHROUGH_PREFIXES = ["LC_", "XDG_"];
  * the user's subscription, and the server environment may hold unrelated secrets.
  */
 export function agentEnv(source: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
-  return Object.fromEntries(Object.entries(source).filter(([name, value]) => {
+  const env = Object.fromEntries(Object.entries(source).filter(([name, value]) => {
     const key = name.toUpperCase();
     return value !== undefined
       && (PASSTHROUGH_ENV.has(key) || PASSTHROUGH_PREFIXES.some((prefix) => key.startsWith(prefix)));
   })) as NodeJS.ProcessEnv;
+  // `screenshots upload` refuses to run under this marker, so an agent does not run it by accident.
+  env.SCREENSHOT_STUDIO_AGENT = "1";
+  return env;
 }
 
 export interface AgentSpawnOptions {
