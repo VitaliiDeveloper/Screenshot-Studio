@@ -92,8 +92,26 @@ Export the checked destinations, sizes, and locales as one store bundle, with a 
 
 ## Quick start
 
-Requirements: Node.js 22.13+ and pnpm 12.10.1, the version pinned in `package.json`. Install pnpm
-once with `npm install -g pnpm@12.10.1`; an existing Corepack setup also works.
+Requirements: Node.js 22.13+.
+
+```bash
+npm install --global @screenshot-studio/cli
+screenshots setup
+ss-studio
+```
+
+`screenshots setup` downloads the Chromium build that exact exports use (about 550 MB, once).
+`ss-studio` opens the project library at `http://localhost:4747`: choose **New project** and a
+built-in starter, or use **Import** to create a managed copy of an existing Folder, project ZIP, or
+complete `app-store-screenshots.json` project. `ss-studio .` opens the project in the current
+folder, or offers to create one. [Installed CLI](#installed-cli) covers the flags, updates, and
+where data is kept.
+
+### From source
+
+To work on Screenshot Studio itself, you need Node.js 22.13+ and pnpm 12.10.1, the version pinned in
+`package.json`. Install pnpm once with `npm install -g pnpm@12.10.1`; an existing Corepack setup
+also works.
 
 ```bash
 git clone https://github.com/VitaliiDeveloper/Screenshot-Studio.git && cd Screenshot-Studio
@@ -295,12 +313,11 @@ Inputs: `project` (the JSON file or its folder), `layout` (default: the layout `
 unique in a run, so a matrix or a job that runs the action twice sets one per entry). Outputs:
 `out`, `check-log` and `cache-hit`.
 
-The CLI package is not published yet, so the action builds it from its own source at the ref you
-pin (`pnpm install --frozen-lockfile` and `pnpm build:cli-package`, a few minutes per run). That ref
-selects both the action and the CLI. To build from a checkout instead, for example a fork, check it
-out with `actions/checkout` (`repository: VitaliiDeveloper/Screenshot-Studio`, `ref: <commit-sha>`,
-`path: .screenshot-studio`) and use `uses: ./.screenshot-studio`. Once the package is published,
-an npm install will replace the build step.
+The action builds the CLI from its own source at the ref you pin (`pnpm install --frozen-lockfile`
+and `pnpm build:cli-package`, a few minutes per run), so that ref selects both the action and the
+CLI. To build from a checkout instead, for example a fork, check it out with `actions/checkout`
+(`repository: VitaliiDeveloper/Screenshot-Studio`, `ref: <commit-sha>`, `path: .screenshot-studio`)
+and use `uses: ./.screenshot-studio`.
 
 The action lives at the root rather than in `action/` so the short `owner/repo@ref` form works and
 the action's own folder is the CLI source it builds. It supports Linux runners only. The Playwright
@@ -463,14 +480,10 @@ Four living starter workflows cover isolated, connected, RTL/multi-locale, and c
 The self-contained projects under [`examples/`](examples/README.md) are also validated and exported
 as part of the repository's release surfaces.
 
-## Installable CLI candidate
-
-To build the local installable artifact without publishing it:
+## Installed CLI
 
 ```bash
-pnpm build:cli-package
-pnpm --dir packages/cli/package pack
-pnpm add --global ./packages/cli/package/screenshot-studio-cli-0.1.0.tgz
+npm install --global @screenshot-studio/cli
 screenshots setup
 ss-studio
 ```
@@ -481,8 +494,8 @@ the editor that is already running. `ss-studio .` opens the project in the curre
 editor, starting it first when needed, and offers to create one (in `./screenshot-studio` inside a
 non-empty folder) when there is none. `--port <port>` and `--no-open` change that, `--app` opens a
 Chrome or Edge window without tabs or an address bar instead of a tab (that browser keeps its own
-editor settings), and Ctrl+C in its terminal stops it (closing the tab does not). The installed CLI keeps managed projects, recent
-projects, and store keys in the per-user data folder
+editor settings), and Ctrl+C in its terminal stops it (closing the tab does not). The installed CLI
+keeps managed projects, recent projects, and store keys in the per-user data folder
 (`~/Library/Application Support/screenshot-studio` on macOS) unless `SCREENSHOT_STUDIO_DATA_ROOT` is
 set. `screenshots dev --project` still starts an editor pinned to one project.
 
@@ -509,10 +522,20 @@ version exists. Nothing is sent but the request itself, and failures are ignored
 `SCREENSHOTS_NO_UPDATE_CHECK=1` or `NO_UPDATE_NOTIFIER=1`; it is also skipped when `CI` is set or
 output is not a terminal.
 
+Upgrade with `npm install --global @screenshot-studio/cli@latest` and remove the CLI with
+`npm uninstall --global @screenshot-studio/cli`; projects, exports, and the Chromium cache stay.
+
 The package contains the built `screenshots` binary, shared store specifications, and prebuilt Next
-render host. Version `0.1.0` is an unpublished dry-run candidate; it is not a registry release.
-Building or verifying it does not create an npm publication, Git tag, GitHub release, or
-announcement. Publication requires explicit owner authorization under
+render host. To build and install a local package from a checkout instead:
+
+```bash
+pnpm build:cli-package
+pnpm --dir packages/cli/package pack
+pnpm add --global ./packages/cli/package/screenshot-studio-cli-0.1.0.tgz
+```
+
+Building or verifying a local package does not create an npm publication, Git tag, GitHub release,
+or announcement. Publication requires explicit owner authorization under
 [`docs/releasing.md`](docs/releasing.md).
 
 ## Repository structure
