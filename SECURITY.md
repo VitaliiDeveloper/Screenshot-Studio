@@ -2,14 +2,14 @@
 
 ## Supported code
 
-No package has been published yet. Security fixes are prepared only for the current code on `main`.
+Security fixes are prepared on `main` and ship in a new patch release of the latest published
+`@screenshot-studio/cli` minor version.
 
 | Code | Supported |
 |------|-----------|
+| Latest `0.1.x` release of `@screenshot-studio/cli` | Yes |
 | Current `main` branch | Yes |
-| Earlier commits, feature branches, and unpublished artifacts | No |
-
-After the first public release, this policy will identify the supported release lines.
+| Earlier releases, commits, feature branches, and unpublished artifacts | No |
 
 ## Report a vulnerability
 
@@ -19,7 +19,7 @@ Do not include exploit details, secrets, personal data, or a proof of concept in
 If the private form is unavailable, open a minimal public issue asking the maintainer for a private
 contact route without disclosing the vulnerability.
 
-Include the affected commit, operating system and Node version, impact, reproduction steps, and any
+Include the affected package version or commit, operating system and Node version, impact, reproduction steps, and any
 safe mitigation you know. Reports are triaged privately; response, remediation, and coordinated
 disclosure timing depend on impact and reproducibility.
 

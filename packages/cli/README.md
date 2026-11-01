@@ -4,10 +4,10 @@ Built command-line distribution for Screenshot Studio. It manages strict Apple A
 Play, Microsoft Store, and Web screenshot projects, opens the local editor, and exports exact output
 PNGs through the packaged shared web renderer.
 
-After installing the `0.1.0` dry-run package artifact and its matching Chromium builds:
+Install it with Node.js 22.13+, download its matching Chromium builds once, and open the editor:
 
 ```bash
-pnpm add --global ./screenshot-studio-cli-0.1.0.tgz
+npm install --global @screenshot-studio/cli
 screenshots setup
 ss-studio
 ```
@@ -18,8 +18,11 @@ while the editor runs opens the same editor instead of starting a second one, an
 keeps the editor's layout and agent choice between launches. If another program holds port 4747,
 the editor starts on a free port with a warning, and those settings start from defaults for that
 run. `--port <port>` picks the port (and fails if another program holds it); `--no-open` skips the
-browser, which also stays closed when `CI` is set or output is not a terminal. The editor keeps
-running after you close the tab: stop it with Ctrl+C in its terminal.
+browser, which also stays closed when `CI` is set or output is not a terminal. `--app` opens the
+editor in its own window without tabs or an address bar, in Chrome, Edge, Chromium, or Brave (Edge
+on Windows), and falls back to a tab with a warning when none is installed. That browser keeps its
+own copy of the editor settings when it is not your default browser. The editor keeps running after
+you close the tab: stop it with Ctrl+C in its terminal.
 
 Managed projects, recent projects, agent consents, and store keys live in the per-user data folder
 (`~/Library/Application Support/screenshot-studio` on macOS, `$XDG_DATA_HOME/screenshot-studio` or
@@ -254,6 +257,7 @@ Project before an atomic write:
 - `screen set <id> --background '<json>'` replaces one screen's solid, linear-gradient, or image background.
 
 Node.js 22.13 or newer is required. The package is local-first and does not include an AI provider.
-The artifact carries its Apache-2.0 `LICENSE`, `NOTICE`, and generated third-party notices. Presence
-of this package manifest does not mean a registry release has been published. See the repository's
-`docs/releasing.md` for upgrade, uninstall, limitations, and the owner-only publication boundary.
+The package carries its Apache-2.0 `LICENSE`, `NOTICE`, and generated third-party notices. Upgrade
+with `npm install --global @screenshot-studio/cli@latest` and remove it with
+`npm uninstall --global @screenshot-studio/cli`; projects, exports, and the shared Chromium cache
+stay. See the repository's `docs/releasing.md` for limitations and the release process.

@@ -97,7 +97,7 @@ describe("checkForUpdate", () => {
     const notice = formatUpdateNotice("0.1.0", "0.2.0");
     expect(notice).not.toContain("\n");
     expect(notice).toContain("0.1.0 → 0.2.0");
-    expect(notice).toContain("pnpm add --global @screenshot-studio/cli@0.2.0");
+    expect(notice).toContain("npm install --global @screenshot-studio/cli@0.2.0");
   });
 
   it("stays quiet when current or ahead", async () => {

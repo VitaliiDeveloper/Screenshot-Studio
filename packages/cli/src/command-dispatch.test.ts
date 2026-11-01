@@ -7,7 +7,7 @@ import { dispatchCommand } from "./command-dispatch.js";
 import type { LaunchDependencies } from "./launch-command.js";
 
 const USAGE = [
-  "Usage: screenshots [./project-folder] [--port <port>] [--no-open]",
+  "Usage: screenshots [./project-folder] [--port <port>] [--no-open] [--app]",
   "       screenshots <init|export|check|screen|dev|import|font|theme|locale|asset|layout|setup|template|element|copy|publishing|upload> [flags]",
   "ss-studio is another name for screenshots.",
 ].join("\n");
@@ -28,6 +28,7 @@ function launchDeps(cwd = "/work"): LaunchDependencies {
     openProject: vi.fn(async (baseUrl: string) => `${baseUrl}/editor/recent_1`),
     serve: vi.fn(async () => {}),
     open: vi.fn(),
+    openApp: vi.fn(async () => {}),
     log: vi.fn(),
     warn: vi.fn(),
   };
@@ -61,6 +62,13 @@ describe("command dispatch", () => {
     const launch = launchDeps();
     await dispatchCommand("--port", ["4800"], { storeSpecsPath: "/store-specs.json", launch });
     expect(launch.probe).toHaveBeenCalledWith(4800);
+  });
+
+  it("opens an app window with --app", async () => {
+    const launch = { ...launchDeps(), interactive: true };
+    await dispatchCommand("--app", [], { storeSpecsPath: "/store-specs.json", launch });
+    expect(launch.openApp).toHaveBeenCalledWith("http://localhost:4747");
+    expect(launch.open).not.toHaveBeenCalled();
   });
 
   it.each([
