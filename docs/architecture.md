@@ -177,7 +177,8 @@ profile consume PNGs produced by the shared browser renderer; Web Share only pac
 with local HTML, CSS, metadata, and an Open Graph image, and is not another pixel renderer. The
 CLI-only `fastlane` profile renames the same store-bundle PNGs into the `fastlane deliver`/`supply`
 tree and skips sizes fastlane cannot upload. An unfiltered fastlane export then removes generated
-images the new set no longer contains, inside the same publication guard (`packages/cli/src/fastlane-prune.ts`).
+images the new set no longer contains, inside the same publication guard
+(`packages/cli/src/fastlane-prune.ts`).
 
 `screenshots upload --store google` renders through the same bundle export into a temporary folder,
 laid out by the shared store upload plan (`packages/cli/src/store-upload-plan.ts`), which also owns

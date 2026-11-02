@@ -407,6 +407,19 @@ describe("runExportCommand fastlane stale files", () => {
     expect(log).not.toHaveBeenCalledWith(expect.stringMatching(/^Removed stale/));
   });
 
+  it("holds the export lease until the prune finishes", async () => {
+    const fixture = await fastlaneFixture();
+
+    // Returning without awaiting the guard is what a render-host exit race does to the caller.
+    const { done } = run(fixture.path, { out: fixture.outDir }, async (options) => {
+      void publishRendered(options);
+      return join(fixture.outDir, "app-store-screenshots-bundle.zip");
+    });
+    await done;
+
+    expect(await readdir(join(fixture.outDir, "fastlane/screenshots/en-US"))).toEqual([basename(CURRENT)]);
+  });
+
   it("removes nothing when publishing the new set fails", async () => {
     const fixture = await fastlaneFixture();
     await symlink(join(fixture.root, "elsewhere.png"), join(fixture.outDir, CURRENT));
