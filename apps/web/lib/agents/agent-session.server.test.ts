@@ -247,6 +247,10 @@ describe.skipIf(process.platform === "win32")("agent session runner", () => {
     expect((await collect(await start())).at(-1)).toMatchObject({ status: "completed" });
   }, 20_000);
 
+  it("has nothing to cancel in a folder that no longer exists", async () => {
+    expect(await cancelAgentRun(join(root, "removed-project"))).toBe(false);
+  });
+
   it("never launches a run cancelled during its readiness check", async () => {
     await fakeClaude(`/bin/cat '${SUCCESS_FIXTURE}'`, undefined, "/bin/sleep 1; echo '2.1.296 (Claude Code)'");
     const pending = start();

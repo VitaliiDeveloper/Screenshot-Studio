@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { access, cp, mkdtemp, rm } from "node:fs/promises";
+import { access, cp, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -79,6 +79,18 @@ describe("agent consent", () => {
     await consent.grant(agy);
     expect((await handleAgentConsentPost(post({ agentId: "agy", action: "revoke" }), { consent })).status).toBe(200);
     expect(await consent.isGranted(agy)).toBe(false);
+  });
+
+  it("answers a consent store write failure with a JSON error", async () => {
+    // A file where the data root should be makes every write fail.
+    await writeFile(join(root, "data"), "");
+    const consent = createAgentConsentStore(join(root, "data"));
+
+    for (const action of ["grant", "revoke"]) {
+      const response = await handleAgentConsentPost(post({ agentId: "claude-code", action }), { consent, definitions: [risky] });
+      expect(response.status).toBe(500);
+      expect(await response.json()).toEqual({ error: expect.any(String) });
+    }
   });
 
   it("takes no consent for agents that are supported or unavailable, unknown, or malformed", async () => {

@@ -575,7 +575,8 @@ function finishedRun(event: AgentEvent): AgentRun {
 
 /** Cancels the project's run, if any; a run still in its readiness check never launches. */
 export async function cancelAgentRun(projectDir: string): Promise<boolean> {
-  const cancel = activeRuns().get(await realpath(projectDir));
+  const resolved = await realProjectDir(projectDir);
+  const cancel = resolved === null ? undefined : activeRuns().get(resolved);
   cancel?.();
   return cancel !== undefined;
 }
