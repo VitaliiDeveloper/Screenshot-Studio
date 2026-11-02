@@ -2,7 +2,8 @@ name: Action smoke
 
 # Runs the root composite action the way a consumer would: this repository is checked out into a
 # subfolder and the project lives outside it. It runs on dispatch, on every pull request from `dev`
-# into `main`, and on pull requests into `dev` that change the action or this workflow.
+# into `main`, and on pull requests into `dev` that change the action or this workflow. The action
+# gets a tarball packed from this commit, so it tests the candidate CLI, not the last npm release.
 on:
   workflow_dispatch:
   pull_request:
@@ -46,14 +47,43 @@ jobs:
           fi
           echo "run=$run" | tee -a "$GITHUB_OUTPUT"
 
-  export:
+  pack:
     needs: gate
     if: needs.gate.outputs.run == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: "22"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build:cli-package
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+      - run: |
+          mkdir -p "$RUNNER_TEMP/cli-tarball"
+          pnpm --dir packages/cli/package pack --pack-destination "$RUNNER_TEMP/cli-tarball"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: action-smoke-cli
+          path: ${{ runner.temp }}/cli-tarball
+          if-no-files-found: error
+          overwrite: true
+
+  export:
+    needs: pack
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           path: studio
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: action-smoke-cli
+          path: ${{ runner.temp }}/cli-tarball
+      - run: echo "SCREENSHOT_STUDIO_CLI_SPEC=$(echo "$RUNNER_TEMP"/cli-tarball/*.tgz)" >> "$GITHUB_ENV"
       - run: cp -R studio/examples/connected-launch app
       - id: action
         uses: ./studio
@@ -71,13 +101,17 @@ jobs:
         run: node studio/scripts/check-export-sizes.mjs "$OUT" app/app-store-screenshots.json studio/store-specs.json default
 
   blocked:
-    needs: gate
-    if: needs.gate.outputs.run == 'true'
+    needs: pack
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           path: studio
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: action-smoke-cli
+          path: ${{ runner.temp }}/cli-tarball
+      - run: echo "SCREENSHOT_STUDIO_CLI_SPEC=$(echo "$RUNNER_TEMP"/cli-tarball/*.tgz)" >> "$GITHUB_ENV"
       - run: |
           cp -R studio/examples/connected-launch app
           rm app/assets/demo-logistics-app.png

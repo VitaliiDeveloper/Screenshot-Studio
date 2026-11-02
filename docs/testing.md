@@ -237,7 +237,9 @@ builder, lockfile, or package manifests change. It can also be dispatched manual
 candidate head. These checks build and inspect the packed CLI archive but do not publish it:
 publication remains a separate, owner-authorized action under [`docs/releasing.md`](releasing.md).
 
-The `Action smoke` workflow runs the root GitHub Action as a consumer would: one job exports
+The `Action smoke` workflow runs the root GitHub Action as a consumer would, except that it installs
+a CLI tarball packed from the tested commit instead of the npm release, so a version bump can pass
+before publication and the registry install itself is not covered: one job exports
 `examples/connected-launch` and checks every PNG size with `scripts/check-export-sizes.mjs`, and one
 job removes an asset and expects `screenshots check` to fail with no export. It runs on dispatch, on
 every pull request from `dev` into `main`, and on pull requests into `dev` that change `action.yml`,

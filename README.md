@@ -321,19 +321,19 @@ Inputs: `project` (the JSON file or its folder), `layout` (default: the layout `
 unique in a run, so a matrix or a job that runs the action twice sets one per entry). Outputs:
 `out`, `check-log` and `cache-hit`.
 
-The action builds the CLI from its own source at the ref you pin (`pnpm install --frozen-lockfile`
-and `pnpm build:cli-package`, a few minutes per run), so that ref selects both the action and the
-CLI. To build from a checkout instead, for example a fork, check it out with `actions/checkout`
-(`repository: VitaliiDeveloper/Screenshot-Studio`, `ref: <commit-sha>`, `path: .screenshot-studio`)
-and use `uses: ./.screenshot-studio`.
+The action installs `@screenshot-studio/cli` from npm at the version in `packages/cli/package.json`
+at the ref you pin, so a commit between releases runs the last release's CLI, not that commit's
+source, and a commit whose version is not on npm yet fails at the install step. A fork's CLI changes
+do not reach the action until they are published.
 
-The action lives at the root rather than in `action/` so the short `owner/repo@ref` form works and
-the action's own folder is the CLI source it builds. It supports Linux runners only. The Playwright
+The action lives at the root rather than in `action/` so the short `owner/repo@ref` form works. It
+supports Linux runners only. The Playwright
 Chromium is cached under a key that includes the Playwright version the CLI depends on; the
 download happens only on a cache miss. On every run the action installs Playwright's system
 packages and fonts, as this repository's E2E job does. While it installs them, it moves apt sources
 from `packages.microsoft.com` aside and puts them back afterwards. The action sets up Node 22, which
-stays active for the job's later steps; its pnpm stays private to the action.
+stays active for the job's later steps; the CLI goes into a private temporary folder, not your
+project.
 
 ## Use an agent in the editor
 
