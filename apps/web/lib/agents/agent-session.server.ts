@@ -79,8 +79,7 @@ export type AgentEvent =
   | { type: "done"; status: AgentDoneStatus; summary: string | null; durationMs: number | null };
 
 export interface AgentRunContext {
-  agentGuidePath: string | null;
-  /** The guide that ships with the app; set only when the project has no AGENTS.md of its own. */
+  /** The guide that ships with the CLI; a project's own AGENTS.md may come from an imported archive. */
   bundledGuidePath: string | null;
   skillPath: string | null;
   /** The Codex credentials store the readiness probe used; null for other agents. */
@@ -356,7 +355,7 @@ async function otherFileChanges(projectDir: string, before: FolderManifest | nul
     if (previous !== fingerprint) files.push({ path, change: previous === undefined ? "added" : "modified" });
   }
   for (const path of before.keys()) if (!after.has(path)) files.push({ path, change: "removed" });
-  // The guides steer every later run of either agent, so their changes lead the list.
+  // The guides steer agents the user starts outside the editor, so their changes lead the list.
   files.sort(comparePaths);
   return { files: files.slice(0, OTHER_FILES_LIMIT), count: files.length };
 }
@@ -429,19 +428,16 @@ function bundledSkillPath(): string {
   return join(dirname(resolveStoreSpecsPath()), "skills", "screenshot-studio", "SKILL.md");
 }
 
-function runContext(projectDir: string, codexAuthStore: CodexAuthStore | null): AgentRunContext {
-  const agentGuidePath = join(projectDir, "AGENTS.md");
-  const hasAgentGuide = existsSync(agentGuidePath);
+function runContext(codexAuthStore: CodexAuthStore | null): AgentRunContext {
   const appRoot = dirname(resolveStoreSpecsPath());
   const skillPath = bundledSkillPath();
-  // Editor-created projects have no AGENTS.md. A checkout keeps the guide in the CLI source; the
-  // packaged CLI copies it to dist/, beside the runtime/ folder that holds store-specs.json.
-  const bundledGuidePath = hasAgentGuide ? null : [
+  // A checkout keeps the guide in the CLI source; the packaged CLI copies it to dist/, beside the
+  // runtime/ folder that holds store-specs.json.
+  const bundledGuidePath = [
     join(appRoot, "packages", "cli", "src", "project-agent-guide.md"),
     join(appRoot, "..", "dist", "project-agent-guide.md"),
   ].find((path) => existsSync(path)) ?? null;
   return {
-    agentGuidePath: hasAgentGuide ? agentGuidePath : null,
     bundledGuidePath,
     skillPath: existsSync(skillPath) ? skillPath : null,
     codexAuthStore,
@@ -544,7 +540,7 @@ export async function startAgentRun(options: AgentRunOptions): Promise<AgentRun>
       mode,
       model: options.model ?? null,
       effort: options.effort ?? null,
-      context: runContext(projectDir, codexAuthStore),
+      context: runContext(codexAuthStore),
       attachments: folder.files,
     };
     const run = launchRun(definition, adapter, request, {

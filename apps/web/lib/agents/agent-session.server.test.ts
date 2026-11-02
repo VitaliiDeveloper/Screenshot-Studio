@@ -169,16 +169,15 @@ describe.skipIf(process.platform === "win32")("agent session runner", () => {
     const argv = (await readFile(join(root, "argv"), "utf8")).split("\n");
     expect(argv).not.toContain("--bare");
     expect(argv).toEqual(expect.arrayContaining(["-p", "--restricted", "--model", "claude-sonnet-5-5", "--effort", "max"]));
-    expect(argv.join("\n")).toContain(join(await realpath(projectDir), "AGENTS.md"));
     const env = await readFile(join(root, "env"), "utf8");
     expect(env).not.toContain("ANTHROPIC_API_KEY");
     expect(env).not.toContain("GOOGLE_PLAY_SERVICE_ACCOUNT_PATH");
     expect(env).toContain("SCREENSHOT_STUDIO_AGENT=1\n");
+    expect(env).toContain("CLAUDE_CODE_DISABLE_CLAUDE_MDS=1\n");
     expect(env).toContain(`HOME=${root}`);
   });
 
-  it("points an editor-created project without AGENTS.md at the bundled guide", async () => {
-    await rm(join(projectDir, "AGENTS.md"));
+  it("points every run at the bundled guide, never at the project's own AGENTS.md", async () => {
     await fakeClaude(`/bin/cat '${SUCCESS_FIXTURE}'`);
 
     await collect(await start());
@@ -186,6 +185,7 @@ describe.skipIf(process.platform === "win32")("agent session runner", () => {
     const bundledGuide = fileURLToPath(new URL("../../../../packages/cli/src/project-agent-guide.md", import.meta.url));
     const argv = (await readFile(join(root, "argv"), "utf8")).split("\n");
     expect(argv.join("\n")).toContain(`read ${bundledGuide} completely`);
+    expect(argv.join("\n")).not.toContain(join(await realpath(projectDir), "AGENTS.md"));
     expect(argv.filter((_, index) => argv[index - 1] === "--add-dir")).toContain(dirname(bundledGuide));
   });
 
