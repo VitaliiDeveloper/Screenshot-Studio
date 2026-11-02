@@ -634,9 +634,13 @@ The agent is untrusted and the broker runs with the user's rights, so:
   lifecycle read guard, the stable-export publish guard, pinned Chromium with `SCREENSHOTS_BROWSER`
   ignored), but skips the agent-run write fence, which would answer 423 for its own run. The project file
   must be a regular file with one link at its exact real path, before the job and again before it
-  publishes; otherwise an export would write beside a link's target. That check narrows but cannot close a
-  race, the limit [Safe file publication](safe-file-publication.md) states, so an agent winning it can at
-  most put a PNG or ZIP with a generated name in another folder.
+  publishes, and publication must target the pinned `export` folder; otherwise an export would write beside
+  a link's target. These checks narrow but cannot close a race, the limit
+  [Safe file publication](safe-file-publication.md) states. An agent that swaps the project file right
+  after the check makes the editor read the swapped file and briefly create its lock directory beside it,
+  but the fixed messages below keep the content from it and the pinned root refuses the output. One that
+  swaps `export` or an ancestor during publication can at most put a PNG or ZIP with a generated name in
+  another folder.
 - Only messages a command raises on purpose reach the agent. A project parse error can quote the file it
   read, which a swapped-in link could make a key, so every other error class, the render host's error
   text, and `check`'s `invalid-project` message are fixed text pointing at a plain `screenshots check`,
