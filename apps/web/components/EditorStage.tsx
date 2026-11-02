@@ -20,9 +20,10 @@ import {
 } from "@screenshot-studio/core/engine";
 import type { ImageCache } from "@screenshot-studio/core/assets";
 import type { ProjectIssue } from "@screenshot-studio/core/validation";
-import { editorStore, selectEditorLayout, type CommonElementPatch } from "@web/lib/editor/editor-store";
+import { editorStore, selectApplyScope, selectEditorLayout, type CommonElementPatch } from "@web/lib/editor/editor-store";
 import { isSelected } from "@web/lib/editor/editor-selection";
 import { mutateAndSave, mutateAndScheduleSave } from "@web/lib/editor/mutate-and-save";
+import { applyElementPatchToScope } from "@web/lib/editor/editor-apply-to";
 import { applyTextFit } from "@web/lib/editor/editor-text-fit";
 import { elementLabel } from "@web/lib/panel-helpers";
 import { deriveStageModel } from "./editor-stage/stage-model";
@@ -147,12 +148,13 @@ export function EditorStage({
   const selectedKeepsAspectRatio = elementKeepsAspectRatio(selectedElement);
 
   const commit = (ownerScreenId: string, element: Element, patch: CommonElementPatch) => {
-    mutateAndSave(() => editorStore.getState().patchElement({
+    applyElementPatchToScope({
       id: element.id,
       type: element.type,
       patch,
       screenId: ownerScreenId,
-    }));
+      scope: "screen",
+    });
   };
 
   const liveElement = (ownerScreenId: string, id: string): Element | undefined => {
@@ -214,12 +216,13 @@ export function EditorStage({
     canEdit,
     getLiveElement: liveElement,
     selectElement: (screen, element) => editorStore.getState().select(element, screen),
-    commitText: (screen, element, value) => mutateAndSave(() => editorStore.getState().patchElement({
+    commitText: (screen, element, value) => applyElementPatchToScope({
       id: element,
       type: "text",
       patch: { content: value },
       screenId: screen,
-    })),
+      scope: "screen",
+    }),
   });
 
   useTransformerSelection({
@@ -546,6 +549,7 @@ export function EditorStage({
             type: "text",
             patch,
             screenId: toolbarTarget.screenId,
+            scope: selectApplyScope(editorStore.getState()),
           }))}
           onFit={(size) => applyTextFit(toolbarTarget.screenId, toolbarTarget.element.id, size)}
         />

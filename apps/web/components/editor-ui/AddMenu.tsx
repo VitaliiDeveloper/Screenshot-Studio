@@ -93,9 +93,10 @@ export function AddMenu<T extends string>({
       aria-label={option.label}
       className="flex min-h-11 w-full flex-col justify-center border-b border-[var(--editor-color-surface-muted)] px-2.5 py-1.5 text-left font-normal leading-4 text-[color:var(--editor-color-text-muted)] transition-colors last:border-b-0 hover:bg-[var(--editor-color-surface-subtle)] hover:text-[color:var(--editor-color-text-strong)] focus-visible:relative focus-visible:z-10 focus-visible:rounded-[var(--editor-radius-compact)] focus-visible:outline-none focus-visible:ring-[length:var(--editor-focus-width)] focus-visible:ring-inset focus-visible:ring-[var(--editor-color-focus)]"
       onClick={() => {
+        // Focus the live trigger first so a dialog opened here returns focus to it, not to this item.
+        triggerRef.current?.focus();
         onSelect(option.value);
         setOpen(false);
-        requestAnimationFrame(() => triggerRef.current?.focus());
       }}
     >
       <span className="break-words text-[11px] font-normal leading-4"><WrapAtSeparators text={option.label} /></span>

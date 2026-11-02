@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import { Fragment, useId, useState } from "react";
+import { Fragment, useId, useRef, useState } from "react";
 import { useStore } from "zustand";
 import {
   AlignCenterHorizontal,
@@ -24,19 +24,14 @@ import {
 import { findStoreTarget, leadStoreSizeId, type StoreSpecs } from "@screenshot-studio/core/export";
 import { getScreen, type Element } from "@screenshot-studio/core/model";
 import type { ProjectIssue } from "@screenshot-studio/core/validation";
-import type { ApplyScope } from "@web/lib/editor/editor-apply-scope";
-import { editorStore, type ElementPatchFor } from "@web/lib/editor/editor-store";
+import { editorStore, selectApplyScope, type ElementPatchFor } from "@web/lib/editor/editor-store";
 import { mutateAndSave, mutateAndScheduleSave } from "@web/lib/editor/mutate-and-save";
 import { flushScheduledSave } from "@web/lib/editor/debounced-save";
 import { typeCountLabel } from "@web/lib/panel-helpers";
 import type { MediaAssetTarget } from "@web/lib/editor/editor-workspace";
 import { cx, editorUi } from "@web/components/editor-ui";
-import {
-  ApplyScopeFooter,
-  ApplyScopeSelect,
-  resolveApplyScope,
-  type ApplyScopeChoice,
-} from "./ApplyScopeControl";
+import { useFocusRescue } from "@web/components/editor-ui/use-focus-rescue";
+import { ApplyScopeFooter, ApplyScopeSelect } from "./ApplyScopeControl";
 import { percentToUnit, SliderNumberField, unitToPercent } from "./inspector-fields";
 import { ElementTypeInspectorSections } from "./ElementTypeInspectorSections";
 import { TextSizeStatusSection } from "./TextSizeStatusSection";
@@ -92,8 +87,12 @@ export function Inspector({
   const activeScreenId = useStore(editorStore, (state) => state.activeScreenId);
   const selectedItems = useStore(editorStore, (state) => state.selectedItems);
   const [tabChoice, setTabChoice] = useState<InspectorTabChoice | null>(null);
-  const [scopeChoice, setScopeChoice] = useState<ApplyScopeChoice | null>(null);
+  const applyScope = useStore(editorStore, selectApplyScope);
   const idPrefix = useId();
+  const asideRef = useRef<HTMLElement>(null);
+  const focusRescue = useFocusRescue(
+    () => asideRef.current?.querySelector<HTMLElement>("[role='tab'][aria-selected='true']"),
+  );
 
   if (!project || !activeLayoutId || !activeScreenId) {
     return <aside className={cx("w-72 shrink-0 border-l border-[var(--editor-color-border)] bg-[var(--editor-color-surface)]", className)} />;
@@ -115,9 +114,7 @@ export function Inspector({
     sharedOpacity,
   } = deriveInspectorSelection(project, activeLayoutId, activeScreenId, selectedItems);
   const selectionKey = inspectorSelectionKey(selectedItems);
-  const scopeKey = `${activeScreenId}|${selectionKey}`;
-  const applyScope = resolveApplyScope(scopeChoice, scopeKey);
-  const setApplyScope = (scope: ApplyScope) => setScopeChoice({ scope, key: scopeKey });
+  const { setApplyScope } = editorStore.getState();
   const tab = resolveInspectorTab(selectionKey, tabChoice);
   const activeScreen = getScreen(project, activeLayoutId, activeScreenId);
   const [title, subtitle] = inspectorHeading({
@@ -157,11 +154,14 @@ export function Inspector({
   ) : null;
   return (
     <aside
+      ref={asideRef}
       className={cx(
         "flex h-full w-[min(18rem,calc(100vw-3.75rem))] editor-scroll-area shrink-0 flex-col overflow-y-auto overflow-x-hidden border-l border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] shadow-xl shadow-slate-950/10 xl:w-72 xl:shadow-[-1px_0_0_rgba(15,23,42,0.02)]",
         className,
       )}
+      onFocusCapture={focusRescue.onFocusCapture}
       onBlurCapture={() => {
+        focusRescue.onBlurCapture();
         editorStore.getState().endHistoryGroup();
         void flushScheduledSave().catch(() => undefined);
       }}

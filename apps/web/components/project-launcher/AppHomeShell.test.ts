@@ -215,7 +215,7 @@ describe("AppHomeShell", () => {
   });
 
   it("keeps the folder confirmation disclosure inside the dialog focus trap", () => {
-    const focusableSelector = dialogShellSource.match(/querySelectorAll<HTMLElement>\(\s*\n?\s*"([^"]+)"/)?.[1];
+    const focusableSelector = dialogShellSource.match(/const FOCUSABLE = "([^"]+)"/)?.[1];
 
     expect(dialogSource).toContain("<DialogShell");
     expect(focusableSelector).toContain("summary");

@@ -33,11 +33,13 @@ import {
 import { getScreen, type Element } from "@screenshot-studio/core/model";
 import { editorStore, selectEditorLayout, type CommonElementPatch } from "@web/lib/editor/editor-store";
 import { isSelected } from "@web/lib/editor/editor-selection";
+import { applyElementPatchToScope } from "@web/lib/editor/editor-apply-to";
 import { mutateAndSave } from "@web/lib/editor/mutate-and-save";
 import { elementLabel, elementTextDescription, viewToArrayIndex } from "@web/lib/panel-helpers";
 import { rowHoverControl, SortableRow, treeRowButton } from "./SortableRow";
 import { handleMenuKeyboardNavigation, shouldOpenMenuUpward } from "./editor-ui/menu-behavior.js";
 import { cx, editorUi } from "./editor-ui";
+import { useFocusRescue } from "./editor-ui/use-focus-rescue";
 
 export function LayersHeading({
   count,
@@ -178,6 +180,10 @@ export function LayersSection({ onOpenAdd, screenId }: { onOpenAdd: () => void; 
   const [openActionsUpward, setOpenActionsUpward] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const actionButtonRefs = useRef(new Map<string, HTMLButtonElement>());
+  const addButtonRef = useRef<HTMLButtonElement>(null);
+  const lastActionRowRef = useRef<string | null>(null);
+  const focusRescue = useFocusRescue(() =>
+    actionButtonRefs.current.get(lastActionRowRef.current ?? "") ?? addButtonRef.current);
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -234,17 +240,18 @@ export function LayersSection({ onOpenAdd, screenId }: { onOpenAdd: () => void; 
   };
 
   const patch = (element: Element, p: CommonElementPatch) =>
-    mutateAndSave(() => editorStore.getState().patchElement({
+    applyElementPatchToScope({
       id: element.id,
       type: element.type,
       patch: p,
       screenId: activeScreenId,
-    }));
+      scope: "screen",
+    });
 
   const toneFor = (selected: boolean): LayerTone => !selected ? "idle" : selectedItems.length > 1 ? "soft" : "solid";
 
   return (
-    <div className="pb-1">
+    <div className="pb-1" {...focusRescue}>
       <header className="flex items-center justify-between py-1 pl-[42px] pr-3">
         <LayersHeading
           count={rows.length}
@@ -252,6 +259,7 @@ export function LayersSection({ onOpenAdd, screenId }: { onOpenAdd: () => void; 
           showScreenContext={layout.mode === "connected"}
         />
         <button
+          ref={addButtonRef}
           type="button"
           aria-label="Add element"
           title="Add element"
@@ -299,8 +307,17 @@ export function LayersSection({ onOpenAdd, screenId }: { onOpenAdd: () => void; 
                     onChange={(ev) => setRenaming({ id: el.id, value: ev.target.value })}
                     onBlur={() => { patch(el, { name: renaming.value }); setRenaming(null); }}
                     onKeyDown={(ev) => {
-                      if (ev.key === "Enter") { patch(el, { name: renaming.value }); setRenaming(null); }
-                      if (ev.key === "Escape") setRenaming(null);
+                      if (ev.key === "Enter") {
+                        // Focus moves to the row's menu button before keypress, which would click it.
+                        ev.preventDefault();
+                        patch(el, { name: renaming.value });
+                        setRenaming(null);
+                      }
+                      if (ev.key === "Escape") {
+                        ev.preventDefault();
+                        ev.stopPropagation();
+                        setRenaming(null);
+                      }
                     }}
                     className="h-7 min-w-0 flex-1 rounded-[var(--editor-radius-compact)] border border-[var(--editor-color-focus-border)] bg-[var(--editor-color-surface)] px-2 text-xs text-[color:var(--editor-color-text)] outline-none ring-2 ring-[var(--editor-color-focus-subtle)]"
                   />
@@ -315,7 +332,10 @@ export function LayersSection({ onOpenAdd, screenId }: { onOpenAdd: () => void; 
                         event.shiftKey || event.metaKey || event.ctrlKey ? "toggle" : "replace",
                       );
                     }}
-                    onDoubleClick={() => setRenaming({ id: el.id, value: el.name ?? "" })}
+                    onDoubleClick={() => {
+                      lastActionRowRef.current = el.id;
+                      setRenaming({ id: el.id, value: el.name ?? "" });
+                    }}
                     aria-pressed={selected}
                     className={layerNameClass(el, tone)}
                   />
@@ -336,6 +356,7 @@ export function LayersSection({ onOpenAdd, screenId }: { onOpenAdd: () => void; 
                       : cx(layerButtonTone[tone], rowHoverControl, overlayBeforeThat),
                   )}
                   onClick={() => {
+                    lastActionRowRef.current = el.id;
                     setOpenActionsUpward(false);
                     setOpenActionsId((current) => current === el.id ? null : el.id);
                   }}
@@ -481,7 +502,10 @@ export function LayersSection({ onOpenAdd, screenId }: { onOpenAdd: () => void; 
                           : "text-[color:var(--editor-color-danger-text)] hover:bg-[var(--editor-color-danger-surface)] focus-visible:ring-[var(--editor-color-focus)]",
                       )}
                       aria-label={`Delete ${elementLabel(child)}`}
-                      onClick={() => mutateAndSave(() => editorStore.getState().removeElement(child.id, activeScreenId))}
+                      onClick={() => {
+                        lastActionRowRef.current = el.id;
+                        mutateAndSave(() => editorStore.getState().removeElement(child.id, activeScreenId));
+                      }}
                     >
                       <Trash2 size={12} />
                     </button>

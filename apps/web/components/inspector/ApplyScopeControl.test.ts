@@ -4,7 +4,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { createTextElement, getLayout, parseProject, type Element, type Screen } from "@screenshot-studio/core/model";
 import { DEFAULT_STORE_SPECS } from "@screenshot-studio/core/export";
-import { ApplyScopeFooter, applyScopeOptions, applyScopeSummary, resolveApplyScope } from "./ApplyScopeControl";
+import { resolveApplyScope } from "@web/lib/editor/editor-apply-scope";
+import { ApplyScopeFooter, applyScopeOptions, applyScopeSummary } from "./ApplyScopeControl";
 
 function screen(id: string, name: string, elements: Element[], extra: Record<string, unknown> = {}) {
   return {
