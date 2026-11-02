@@ -8,7 +8,7 @@ import {
   type FontAsset,
   type ThemeRole,
 } from "@screenshot-studio/core/model";
-import { cx, editorUi, MenuSelect } from "@web/components/editor-ui";
+import { ColorInput, cx, editorUi, MenuSelect } from "@web/components/editor-ui";
 import { fontIdentityOptions } from "@web/lib/editor/font-identity-options";
 
 /** Small, dumb inspector inputs. One label + control per row; all controlled. */
@@ -196,12 +196,9 @@ export function ColorField({
   return (
     <label className="flex items-center justify-between gap-3 text-xs">
       <span className="shrink-0 whitespace-nowrap text-[color:var(--editor-color-text-secondary)]">{label}</span>
-      <input
-        type="color"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className={editorUi.colorField}
-      />
+      <span className={cx(editorUi.colorField, "focus-within:ring-[length:var(--editor-focus-width)] focus-within:ring-[var(--editor-color-focus)]")}>
+        <ColorInput value={value} onChange={onChange} className="size-full rounded-sm" />
+      </span>
     </label>
   );
 }

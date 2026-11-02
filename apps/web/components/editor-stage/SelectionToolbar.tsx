@@ -4,7 +4,7 @@
 import type { CSSProperties } from "react";
 import { fontIdentityKey, type FontAsset, type TextElement } from "@screenshot-studio/core/model";
 import { editorStore, type ElementPatchFor } from "@web/lib/editor/editor-store";
-import { MenuSelect } from "@web/components/editor-ui";
+import { ColorInput, MenuSelect } from "@web/components/editor-ui";
 import { fontIdentityOptions } from "@web/lib/editor/font-identity-options";
 
 const item = "flex h-6 items-center gap-1.5 rounded-md px-2 hover:bg-[var(--editor-color-inverse-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)]";
@@ -52,12 +52,11 @@ export function SelectionToolbar({
         }}
       />
       <label className={`${item} cursor-pointer focus-within:ring-2 focus-within:ring-[var(--editor-color-focus)]`}>
-        <input
-          type="color"
+        <ColorInput
           aria-label="Selection color"
           value={element.color}
-          onChange={(event) => onChange({ color: event.currentTarget.value })}
-          className="size-3.5 shrink-0 cursor-pointer rounded-sm border-0 bg-transparent p-0"
+          onChange={(color) => onChange({ color })}
+          className="size-3.5 rounded-sm"
         />
         Color
       </label>

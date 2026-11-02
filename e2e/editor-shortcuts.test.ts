@@ -479,6 +479,48 @@ describe("dialog focus", () => {
   });
 });
 
+describe("inspector colours", () => {
+  const writeProject = (mutate: (root: { layouts: Array<{ screens: Array<{ elements: Array<Record<string, unknown>> }> }> }) => void) => {
+    const root = JSON.parse(readFileSync(sample, "utf8"));
+    mutate(root);
+    writeFileSync(projectFile, JSON.stringify(root));
+  };
+
+  it("shows short, translucent, and transparent colours truthfully without rewriting them", async () => {
+    writeProject((root) => {
+      const elements = root.layouts[0]!.screens[0]!.elements;
+      elements.find((element) => element.id === "headline")!.color = "#abc";
+      elements.find((element) => element.id === "hero-support")!.color = "#11223380";
+    });
+    const page = await openEditor({ width: 1440, height: 1000 });
+    const text = page.getByRole("button", { name: "Hero support", exact: true });
+    const color = page.getByLabel("Text color", { exact: true });
+
+    await text.click();
+    expect(await color.inputValue()).toBe("#112233");
+    await page.waitForTimeout(800);
+    expect(heroLayer("hero-support")!.color).toBe("#11223380");
+    expect(heroLayer("headline")!.color).toBe("#abc");
+
+    await color.fill("#ff0000");
+    await expect.poll(() => heroLayer("hero-support")!.color).toBe("#ff000080");
+
+    await page.getByRole("button", { name: "Hero headline", exact: true }).click();
+    expect(await color.inputValue()).toBe("#aabbcc");
+  });
+
+  it("makes a fully transparent colour opaque when a colour is picked", async () => {
+    writeProject((root) => {
+      root.layouts[0]!.screens[0]!.elements.find((element) => element.id === "hero-support")!.color = "#00000000";
+    });
+    const page = await openEditor({ width: 1440, height: 1000 });
+    await page.getByRole("button", { name: "Hero support", exact: true }).click();
+    const color = page.getByLabel("Text color", { exact: true });
+    await color.fill("#00ff00");
+    await expect.poll(() => heroLayer("hero-support")!.color).toBe("#00ff00");
+  });
+});
+
 describe("canvas toolbar", () => {
   it("writes canvas toolbar edits to the screens Apply to names", async () => {
     const page = await openEditor({ width: 1440, height: 1000 });

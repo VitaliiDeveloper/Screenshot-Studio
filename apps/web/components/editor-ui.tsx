@@ -4,6 +4,7 @@
 export { cx, editorUi } from "./editor-ui/styles.js";
 export { AddMenu, type AddMenuOption } from "./editor-ui/AddMenu.js";
 export { MenuSelect, type MenuSelectOption } from "./editor-ui/MenuSelect.js";
+export { ColorInput } from "./editor-ui/ColorInput.js";
 export { DialogShell } from "./editor-ui/DialogShell.js";
 export { ConfirmationDialog } from "./editor-ui/ConfirmationDialog.js";
 export {
