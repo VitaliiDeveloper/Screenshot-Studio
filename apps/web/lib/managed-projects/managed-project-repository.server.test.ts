@@ -221,6 +221,45 @@ describe("ManagedProjectRepository", () => {
     await expect(readdir(observer.config.recoveryRoot)).resolves.toEqual([]);
   });
 
+  it("opens a valid project while other catalog entries are unsafe or missing their directory", async () => {
+    const repository = await createRepository();
+    const valid = await repository.publishStage({ token: (await validStage(repository, "Valid")).token });
+    const unsafe = await repository.publishStage({ token: (await validStage(repository, "Unsafe")).token });
+    const missing = await repository.publishStage({ token: (await validStage(repository, "Missing")).token });
+    await symlink(join(repository.config.root, "outside"), join(unsafe.projectDirectory, "escape"));
+    await rm(missing.projectDirectory, { recursive: true });
+    const restarted = new ManagedProjectRepository(repository.config);
+
+    await expect(restarted.open(valid.id)).resolves.toEqual(valid);
+    await expect(restarted.open(unsafe.id)).rejects.toThrow(/symbolic link/i);
+    await expect(restarted.open(missing.id)).rejects.toThrow(/missing its project directory/i);
+    await expect(restarted.list()).resolves.toHaveLength(3);
+  });
+
+  it("runs crash recovery once per repository instead of on every open and list", async () => {
+    const repository = await createRepository();
+    const published = await repository.publishStage({ token: (await validStage(repository)).token });
+    await repository.open(published.id);
+    const stage = await validStage(repository, "Rolled back");
+    const intentPath = join(repository.config.recoveryRoot, "project_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee.json");
+    await writeFile(intentPath, `${JSON.stringify({
+      version: 1,
+      operation: "publish",
+      id: "project_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      token: stage.token,
+      name: "Rolled back",
+      createdAt: "2026-07-19T00:00:00.000Z",
+      phase: "directory-published",
+    })}\n`);
+
+    await repository.open(published.id);
+    await repository.list();
+    await expect(lstat(intentPath)).resolves.toMatchObject({ isFile: expect.any(Function) });
+
+    await repository.initialize();
+    await expect(lstat(intentPath)).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
   it("reports a missing catalog entry with the dedicated recovery error", async () => {
     const repository = await createRepository();
 

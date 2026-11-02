@@ -132,6 +132,7 @@ export class ManagedProjectRepository {
   readonly #randomId: () => string;
   readonly #now: () => Date;
   readonly #rename: (oldPath: string, newPath: string) => Promise<void>;
+  #initialized?: Promise<void>;
 
   constructor(
     readonly config: ManagedProjectStorageConfig,
@@ -148,10 +149,16 @@ export class ManagedProjectRepository {
     await this.#catalog.read();
     await new ManagedProjectLifecycleService(this.config).reconcileAll();
     await this.reconcile();
-    for (const entry of await this.#catalog.list()) {
-      await this.#validatePublishedEntry(entry);
-    }
     await this.#cleanupStages();
+  }
+
+  // Crash recovery runs once per instance, and its failure must not make every other project unopenable.
+  async #initializeOnce(): Promise<void> {
+    this.#initialized ??= this.initialize().catch((error: unknown) => {
+      console.error("Managed project recovery failed", error);
+    });
+    await this.#initialized;
+    await this.#ensureDirectories();
   }
 
   async createStage(): Promise<{ token: string; path: string }> {
@@ -257,7 +264,7 @@ export class ManagedProjectRepository {
     id: string,
     lifecycleLock?: ManagedProjectLifecycleLock,
   ): Promise<ManagedProjectRecord> {
-    await this.initialize();
+    await this.#initializeOnce();
     const openActive = async () => {
       const entry = await this.#catalog.get(id);
       if (!entry || entry.lifecycle !== "active") throw new ManagedProjectNotFoundError();
@@ -272,7 +279,7 @@ export class ManagedProjectRepository {
   }
 
   async list(): Promise<ActiveManagedProjectCatalogEntry[]> {
-    await this.initialize();
+    await this.#initializeOnce();
     return this.#catalog.list();
   }
 
