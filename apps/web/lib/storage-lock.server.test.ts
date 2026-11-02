@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, rm, utimes } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { acquireStorageLock } from "./storage-lock.server.js";
+import { acquireStorageLock, StorageLockTimeoutError } from "./storage-lock.server.js";
 
 type Acquire = typeof acquireStorageLock;
 
@@ -59,7 +59,7 @@ describe("acquireStorageLock", () => {
 
     expect(results.map(({ status }) => status).sort()).toEqual(["fulfilled", "rejected"]);
     expect(results.find(({ status }) => status === "rejected"))
-      .toMatchObject({ reason: { code: "ELOCKED" } });
+      .toMatchObject({ reason: expect.any(StorageLockTimeoutError) });
   });
 
   it("serializes attempts between separately bundled copies of this module", async () => {
@@ -77,7 +77,7 @@ describe("acquireStorageLock", () => {
     const patient = acquireStorageLock(lockPath, { ...quiet, timeoutMs: 30_000 });
 
     await expect(acquireStorageLock(lockPath, { ...quiet, timeoutMs: 20 }))
-      .rejects.toMatchObject({ code: "ELOCKED" });
+      .rejects.toBeInstanceOf(StorageLockTimeoutError);
 
     await releaseHolder();
     const releasePatient = await patient;
@@ -88,7 +88,7 @@ describe("acquireStorageLock", () => {
     const releaseHolder = await acquireStorageLock(lockPath, { ...quiet, timeoutMs: 0 });
 
     await expect(acquireStorageLock(lockPath, { ...quiet, timeoutMs: 0 }))
-      .rejects.toMatchObject({ code: "ELOCKED" });
+      .rejects.toMatchObject({ name: "StorageLockTimeoutError", cause: { code: "ELOCKED" } });
     await releaseHolder();
 
     await rm(root, { recursive: true, force: true });

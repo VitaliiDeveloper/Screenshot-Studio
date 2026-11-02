@@ -12,6 +12,7 @@ import {
   type ManagedProjectRecord,
 } from "@web/lib/managed-projects/managed-project-repository.server.js";
 import { resolveManagedProjectStorageConfig } from "@web/lib/managed-projects/managed-project-config.server.js";
+import { jsonError } from "@web/lib/api-error-response.server.js";
 import { resolveConfiguredProjectPath } from "./project-path.js";
 import type { ActiveProjectDescriptor } from "@web/lib/clients/project-session.js";
 
@@ -372,7 +373,34 @@ export async function resolveActiveProjectSession(
   throw new NoActiveProjectError();
 }
 
+/**
+ * The answer every project route gives to a changed lifecycle or a busy lock. It matches by name
+ * because the shared registry can hold a source whose errors come from another route bundle's copy.
+ */
+export function projectLockErrorResponse(error: unknown): Response | undefined {
+  if (!(error instanceof Error)) return undefined;
+  if (error.name === "ManagedProjectLifecycleChangedError") {
+    return jsonError(409, "This project changed or was deleted elsewhere; reload it before continuing", "lifecycle-changed");
+  }
+  if (error.name === "StorageLockTimeoutError") {
+    return jsonError(423, "The project is busy with another operation; try again in a moment", "project-busy");
+  }
+  return undefined;
+}
+
+async function answeringLockErrors(operation: () => Promise<Response>): Promise<Response> {
+  try {
+    return await operation();
+  } catch (error) {
+    const response = projectLockErrorResponse(error);
+    if (response) return response;
+    throw error;
+  }
+}
+
 export function projectSessionErrorResponse(error: unknown): Response {
+  const lockError = projectLockErrorResponse(error instanceof ManagedProjectRecoveryError ? error.cause : error);
+  if (lockError) return lockError;
   const status = error instanceof NoActiveProjectError ? 409
     : error instanceof ProjectValidationError ? 422
       : error instanceof ProjectPathError ? 400
@@ -394,7 +422,7 @@ export async function withActiveProjectSession(
   } catch (error) {
     return projectSessionErrorResponse(error);
   }
-  return operation(session);
+  return answeringLockErrors(() => operation(session));
 }
 
 export async function withExistingProjectSessionReadOnly(
@@ -406,9 +434,10 @@ export async function withExistingProjectSessionReadOnly(
   const sessionId = sessionIdFromRequest(request);
   const session = sessionId ? registry.peek(sessionId) : undefined;
   if (!session) return projectSessionErrorResponse(new NoActiveProjectError());
-  if (session.descriptor.sourceKind !== "managed-project") return operation(session);
+  if (session.descriptor.sourceKind !== "managed-project") return answeringLockErrors(() => operation(session));
   try {
-    return operation(await registry.revalidateManagedSession(session, false));
+    const revalidated = await registry.revalidateManagedSession(session, false);
+    return answeringLockErrors(() => operation(revalidated));
   } catch (error) {
     return projectSessionErrorResponse(
       isManagedProjectNotFoundError(error) ? new NoActiveProjectError() : new ManagedProjectRecoveryError(error),

@@ -15,7 +15,7 @@ import {
   withManagedProjectMutationGuard,
   withManagedProjectReadGuard,
 } from "@web/lib/managed-projects/managed-project-mutation-guard.server.js";
-import { withActiveProjectSession } from "@web/lib/session/project-session.server.js";
+import { projectLockErrorResponse, withActiveProjectSession } from "@web/lib/session/project-session.server.js";
 import { jsonError } from "@web/lib/api-error-response.server.js";
 
 /**
@@ -50,7 +50,7 @@ function projectWriteErrorResponse(error: unknown): Response {
   }
   const status = error instanceof ProjectPathError ? 400 : 500;
   const message = error instanceof Error ? error.message : String(error);
-  return jsonError(status, message);
+  return projectLockErrorResponse(error) ?? jsonError(status, message);
 }
 
 export async function GET(req: Request): Promise<Response> {

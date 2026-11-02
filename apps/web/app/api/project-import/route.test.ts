@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resolveManagedProjectStorageConfig } from "@web/lib/managed-projects/managed-project-config.server.js";
 import { ManagedProjectRepository } from "@web/lib/managed-projects/managed-project-repository.server.js";
 import { ProjectSessionRegistry } from "@web/lib/session/project-session.server.js";
+import { StorageLockTimeoutError } from "@web/lib/storage-lock.server.js";
 import { handleProjectImportPost } from "./handler.js";
 import { POST } from "./route.js";
 
@@ -139,6 +140,18 @@ describe("POST /api/project-import", () => {
 
     expect(response.status).toBe(400);
     expect(await response.json()).toMatchObject({ code: "invalid", error: expect.stringContaining("app-store-screenshots.json") });
+    await expect(repository.list()).resolves.toEqual([]);
+  });
+
+  it("answers 423 when publication times out on the catalog lock", async () => {
+    vi.spyOn(repository, "publishStage").mockRejectedValue(new StorageLockTimeoutError("Timed out"));
+
+    const response = await handleProjectImportPost(uploadRequest("json", [
+      ["app-store-screenshots.json", new Blob([projectJson()], { type: "application/json" }), "project.json"],
+    ]), { repository, registry });
+
+    expect(response.status).toBe(423);
+    expect(await response.json()).toMatchObject({ code: "project-busy", error: expect.stringContaining("busy") });
     await expect(repository.list()).resolves.toEqual([]);
   });
 

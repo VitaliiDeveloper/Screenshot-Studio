@@ -2,7 +2,7 @@
 import { lstat, mkdir, realpath } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { ManagedProjectStorageConfig } from "./managed-project-config.server.js";
-import { acquireStorageLock } from "@web/lib/storage-lock.server.js";
+import { acquireStorageLock, StorageLockTimeoutError } from "@web/lib/storage-lock.server.js";
 import { errorCode } from "@screenshot-studio/core/storage";
 
 const PROJECT_ID_PATTERN = /^project_[0-9a-f]{32}$/;
@@ -121,8 +121,8 @@ export async function acquireManagedProjectLifecycleLock(
       onCompromised(error) { throw error; },
     });
   } catch (error) {
-    if (errorCode(error) === "ELOCKED") {
-      throw new Error(`Timed out waiting for managed project lifecycle lock for ${id}`, { cause: error });
+    if (error instanceof StorageLockTimeoutError) {
+      throw new StorageLockTimeoutError(`Timed out waiting for managed project lifecycle lock for ${id}`, { cause: error });
     }
     throw new Error(`Failed to acquire managed project lifecycle lock for ${id}`, { cause: error });
   }
