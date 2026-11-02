@@ -8,6 +8,8 @@ import { cx, editorUi } from "./styles.js";
 
 export const DIALOG_EXIT_DURATION_MS = 180;
 
+const FOCUSABLE = "button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), summary, [tabindex]:not([tabindex='-1'])";
+
 function prefersReducedMotion(): boolean {
   return typeof window !== "undefined"
     && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -44,6 +46,7 @@ export function DialogShell({
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
   const descriptionId = useId();
   const onCloseRef = useRef(onClose);
   const closeDisabledRef = useRef(closeDisabled);
@@ -76,10 +79,15 @@ export function DialogShell({
   useEffect(() => {
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const frame = requestAnimationFrame(() => {
-      const first = dialogRef.current?.querySelector<HTMLElement>(
-        "button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), summary, [tabindex]:not([tabindex='-1'])",
-      );
-      (initialFocus === "heading" ? headingRef.current : first ?? dialogRef.current)?.focus();
+      if (initialFocus === "heading") {
+        headingRef.current?.focus();
+        return;
+      }
+      const body = bodyRef.current;
+      // A body control that already took focus, such as an autoFocus field, keeps it.
+      if (body?.contains(document.activeElement)) return;
+      const dialog = dialogRef.current;
+      (body?.querySelector<HTMLElement>(FOCUSABLE) ?? dialog?.querySelector<HTMLElement>(FOCUSABLE) ?? dialog)?.focus();
     });
     const onKeyDown = (event: KeyboardEvent) => {
       const dialog = dialogRef.current;
@@ -94,9 +102,7 @@ export function DialogShell({
         return;
       }
       if (event.key !== "Tab") return;
-      const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(
-        "button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), summary, [tabindex]:not([tabindex='-1'])",
-      )).filter((element) => element.tabIndex >= 0 && !element.hasAttribute("hidden"));
+      const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(FOCUSABLE)).filter((element) => element.tabIndex >= 0 && !element.hasAttribute("hidden"));
       if (focusable.length === 0) {
         event.preventDefault();
         (initialFocus === "heading" ? headingRef.current : dialog)?.focus();
@@ -105,11 +111,11 @@ export function DialogShell({
       const first = focusable[0]!;
       const last = focusable[focusable.length - 1]!;
       const active = document.activeElement;
-      if (event.shiftKey && (active === first || active === headingRef.current
-        || !dialog.contains(active))) {
+      const outside = !dialog.contains(active);
+      if (event.shiftKey && (active === first || active === headingRef.current || outside)) {
         event.preventDefault();
         last.focus();
-      } else if (!event.shiftKey && active === last) {
+      } else if (!event.shiftKey && (active === last || outside)) {
         event.preventDefault();
         first.focus();
       }
@@ -182,7 +188,7 @@ export function DialogShell({
             <X size={density === "compact" ? 14 : 16} strokeWidth={1.8} />
           </button>
         </header>
-        <div className={cx(
+        <div ref={bodyRef} className={cx(
           "overflow-y-auto",
           density === "compact" ? "p-4" : "p-4 sm:p-5",
           bodyClassName,

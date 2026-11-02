@@ -434,3 +434,47 @@ describe("undo steps", () => {
     await expect.poll(() => heroLayer("headline")!.color).toBe(color);
   });
 });
+
+describe("dialog focus", () => {
+  const openCreateLayout = async (page: Page) => {
+    await page.getByRole("button", { name: "Active layout: Default", exact: true }).click();
+    await page.getByRole("menuitem", { name: /Create layout/ }).click();
+    return page.getByRole("dialog", { name: "Create layout" });
+  };
+
+  it("honours a body control that took focus and keeps Space away from the Close button", async () => {
+    const page = await openEditor({ width: 1440, height: 1000 });
+    const dialog = await openCreateLayout(page);
+    await dialog.waitFor({ state: "visible" });
+    await page.waitForTimeout(100);
+    await page.keyboard.type("My layout");
+    expect(await dialog.getByRole("textbox", { name: "Name" }).inputValue()).toBe("My layout");
+    await dialog.waitFor({ state: "visible" });
+  });
+
+  it("starts in the body rather than on the header Close button", async () => {
+    const page = await openEditor({ width: 1440, height: 1000 });
+    await page.keyboard.press("Control+e");
+    const exportDialog = page.getByRole("dialog", { name: "Export" });
+    await exportDialog.waitFor({ state: "visible" });
+    await expect.poll(() => page.evaluate(() => document.activeElement?.closest("[role='dialog'] header") === null
+      && document.activeElement?.closest("[role='dialog']") !== null)).toBe(true);
+  });
+
+  it("brings Tab and Shift+Tab back when focus has left the modal", async () => {
+    const page = await openEditor({ width: 1440, height: 1000 });
+    const dialog = await openCreateLayout(page);
+    await dialog.waitFor({ state: "visible" });
+    const focusBehindDialog = () => page.getByRole("button", { name: "Find screen or layer", exact: true }).focus();
+    const inDialog = () => page.evaluate(() => document.activeElement?.closest("[role='dialog']") !== null);
+
+    await focusBehindDialog();
+    expect(await inDialog()).toBe(false);
+    await page.keyboard.press("Tab");
+    expect(await inDialog()).toBe(true);
+
+    await focusBehindDialog();
+    await page.keyboard.press("Shift+Tab");
+    expect(await inDialog()).toBe(true);
+  });
+});
