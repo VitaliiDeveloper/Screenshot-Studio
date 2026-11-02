@@ -599,6 +599,57 @@ the sandbox, because the critic must export to see the set: a critic run that ch
 drops or replaces the pending outcome of the run it reviews; after such a restore that outcome's
 revision follows the rewritten file, so Undo run still works. Its exports are listed in `otherFiles`.
 
+Agent sandboxes cannot render: `listen` is denied, and with local binding allowed Chromium still dies on a
+denied Mach port. So the editor renders for its run, outside the sandbox, through one inbox folder per
+run, whose path reaches only that run's process as `SCREENSHOT_STUDIO_RENDER_INBOX` (never `agentEnv`, so
+neither the probes nor the server's own environment can set it). With that variable set, `screenshots
+export` and `check --render` write a request file and print the answer; every other command, and every
+command without the variable, behaves as in a terminal. The protocol is `@screenshot-studio/core/agent-render`,
+the broker `apps/web/lib/agents/agent-render-*.server.ts`. The inbox lives under `/tmp/claude-<uid>/`
+because that is the one temp folder both sandboxes can already write: Claude Code's sandbox cannot write
+the operating-system temp folder or other `/tmp` paths, and Codex's workspace profile covers `/tmp`. It
+is outside the project, so `folderManifest` never lists it.
+
+The agent is untrusted and the broker runs with the user's rights, so:
+
+- A request names only what the agent chooses: `screen`, `size`, `layout`, `locale`, `platform`, `device`,
+  `profile` for export; `render`, `json`, `strict`, `layout` for check. The strict schema refuses anything
+  else, and the CLI refuses `--project`, `--out`, `--browser`, and `--store-specs` first with a clear
+  message. The editor passes its own project path and no `out`, because an explicit `--out` follows links
+  and the default `<project>/export` never does. `upload` is not routable.
+- The agent can write the inbox's parent, so the folder's identity (no link, same device and inode, same
+  real path) is checked on every poll and before each read and write; a mismatch or more than 1,024
+  entries stops the broker. Request names match a strict pattern, and a request is read no-follow,
+  non-blocking, as one regular file with one link and at most 4 KiB. An invalid one gets one fixed answer
+  that quotes nothing, since a request can be a link to a key. Markers are exclusive no-follow creates
+  touched through their held handle, and responses are `publishFileSafely` create-only publications, so a
+  planted file costs the agent only its own answer.
+- One job runs at a time, with up to 4 queued and 128 requests per run; a response is at most 1 MiB. The
+  editor marks a request as picked up when it sees it, queued or not, and heartbeats the marker every
+  2 s. The CLI fails after 10 s without a marker or 20 s without a beat, so a long bundle stays alive and
+  a dead editor still ends the wait.
+- A job calls `runExportCommand` or `runCheckCommand` with `startWebServer` returning this Next host, as
+  `/api/upload` does, so there is no second render path. It holds what `/api/export` holds (the managed
+  lifecycle read guard, the stable-export publish guard, pinned Chromium with `SCREENSHOTS_BROWSER`
+  ignored), but skips the agent-run write fence, which would answer 423 for its own run. The project file
+  must be a regular file with one link at its exact real path, before the job and again before it
+  publishes; otherwise an export would write beside a link's target. That check narrows but cannot close a
+  race, the limit [Safe file publication](safe-file-publication.md) states, so an agent winning it can at
+  most put a PNG or ZIP with a generated name in another folder.
+- Only messages a command raises on purpose reach the agent. A project parse error can quote the file it
+  read, which a swapped-in link could make a key, so every other error class, the render host's error
+  text, and `check`'s `invalid-project` message are fixed text pointing at a plain `screenshots check`,
+  which runs inside the sandbox and can only read what the agent can.
+- A run owns its broker. Before the verdict the broker stops listening, cancels, waits for any job that
+  holds the guard, and removes the inbox. Undo run and project deletion wait for the same verdict, so
+  nothing publishes after the snapshot is judged or the folder moves. A job still waiting for the guard
+  is not awaited, because deletion holds that lock while it stops the run; it sees the cancel when it
+  gets the lock. A cancelled job finishes its current render at most, and publishes nothing.
+
+Broker output goes to `<project>/export`, like an export a run made itself: `otherFiles` lists it,
+Undo run and a rejected verdict leave it in place, and a critic run stays accepted because the project
+file did not change. A CLI older than this protocol ignores the variable and fails to render as before.
+
 The agent resolves `screenshots` from the server's `PATH`. In a source checkout `pnpm dev` puts
 `apps/web/node_modules/.bin` first, and its `screenshots` runs `packages/cli/bin/screenshots.mjs`. That
 launcher registers tsx's loader in-process with its disk cache off and the CLI's own `tsconfig.json`,

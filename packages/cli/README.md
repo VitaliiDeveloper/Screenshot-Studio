@@ -155,6 +155,10 @@ Agents the editor starts carry `SCREENSHOT_STUDIO_AGENT=1` and none of the crede
 accidental run, not a determined agent; agents you start yourself in a terminal carry no marker and
 are kept from uploading only by the project guide.
 
+Inside a run the editor started, `export` and `check --render` ask that editor to render, because the
+agent's sandbox cannot start a browser. They take the same flags except `--project`, `--out`, and
+`--browser`: the editor fixes the project, writes to its `export/` folder, and uses the pinned Chromium.
+
 ### Upload to App Store Connect
 
 `screenshots upload --store apple [--layout <id>] [--version <string>] [--dry-run] [--json] [--key-path <path>]`
