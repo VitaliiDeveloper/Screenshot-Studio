@@ -17,7 +17,7 @@ const REQUEST: AgentRunRequest = {
   mode: "edit",
   model: null,
   effort: null,
-  context: { bundledGuidePath: "/app/cli/project-agent-guide.md", skillPath: "/app/skills/screenshot-studio/SKILL.md", codexAuthStore: "keyring" },
+  context: { bundledGuidePath: "/app/cli/project-agent-guide.md", skillPath: "/app/skills/screenshot-studio/SKILL.md", codexAuthStore: "keyring", storeCredentialsDir: '/data dir/store"keys' },
   attachments: [],
 };
 
@@ -86,11 +86,16 @@ describe("Codex adapter", () => {
 
   it("keeps the sandbox and approvals non-interactive and reads the message from stdin", () => {
     const args = codexAdapter.args(REQUEST);
-    const value = (flag: string) => args[args.indexOf(flag) + 1];
     const overrides = args.filter((_, index) => args[index - 1] === "-c");
 
     expect(args.slice(0, 2)).toEqual(["exec", "--json"]);
-    expect(value("--sandbox")).toBe("workspace-write");
+    expect(overrides).toEqual(expect.arrayContaining([
+      'default_permissions="studio"',
+      'permissions.studio.extends=":workspace"',
+      'permissions.studio.filesystem={"/data dir/store\\"keys"="none"}',
+    ]));
+    // `--sandbox` would silently override the profile above.
+    expect(args).not.toContain("--sandbox");
     expect(args).toEqual(expect.arrayContaining(["--ignore-user-config", "--ignore-rules", "--skip-git-repo-check"]));
     expect(args.join(" ")).not.toMatch(/dangerously|danger-full-access|--add-dir|--yolo/);
     expect(args).not.toContain(REQUEST.message);

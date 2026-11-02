@@ -11,6 +11,8 @@ import {
   writeProjectAtomic,
   type ProjectSnapshot,
 } from "@screenshot-studio/core/storage";
+import { resolveManagedProjectStorageConfig } from "@web/lib/managed-projects/managed-project-config.server.js";
+import { realPathOf, storeKeyFolder } from "@web/lib/store-key-folder.server.js";
 import { resolveStoreSpecsPath } from "@web/lib/store-specs-path.js";
 import { detectAgent } from "./agent-registry.server.js";
 import {
@@ -85,6 +87,8 @@ export interface AgentRunContext {
   skillPath: string | null;
   /** The Codex credentials store the readiness probe used; null for other agents. */
   codexAuthStore: CodexAuthStore | null;
+  /** The store key folder, closed to every agent; may not exist yet. */
+  storeCredentialsDir: string;
 }
 
 /** `critic` reviews the exported set and must not change the project; a change it makes is rolled back. */
@@ -386,6 +390,8 @@ async function settleRun(
       status: "failed",
     };
   };
+  // A restore would `mkdir -p` a deleted project back as an uncatalogued folder.
+  if (!existsSync(projectDir)) return rejected("The project folder was removed during the run", snapshot);
   // The lock path resolves through the project file, so a deleted file cannot be locked by anyone;
   // it is restored without the lock.
   if (!existsSync(projectFile)) {
@@ -426,7 +432,7 @@ function bundledSkillPath(): string {
   return join(dirname(resolveStoreSpecsPath()), "skills", "screenshot-studio", "SKILL.md");
 }
 
-function runContext(codexAuthStore: CodexAuthStore | null): AgentRunContext {
+async function runContext(codexAuthStore: CodexAuthStore | null): Promise<AgentRunContext> {
   const appRoot = dirname(resolveStoreSpecsPath());
   const skillPath = bundledSkillPath();
   // A checkout keeps the guide in the CLI source; the packaged CLI copies it to dist/, beside the
@@ -439,6 +445,7 @@ function runContext(codexAuthStore: CodexAuthStore | null): AgentRunContext {
     bundledGuidePath,
     skillPath: existsSync(skillPath) ? skillPath : null,
     codexAuthStore,
+    storeCredentialsDir: await realPathOf(storeKeyFolder(resolveManagedProjectStorageConfig().root)),
   };
 }
 
@@ -538,7 +545,7 @@ export async function startAgentRun(options: AgentRunOptions): Promise<AgentRun>
       mode,
       model: options.model ?? null,
       effort: options.effort ?? null,
-      context: runContext(codexAuthStore),
+      context: await runContext(codexAuthStore),
       attachments: folder.files,
     };
     const run = launchRun(definition, adapter, request, {

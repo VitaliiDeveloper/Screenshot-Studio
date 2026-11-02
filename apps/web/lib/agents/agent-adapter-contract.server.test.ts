@@ -112,7 +112,7 @@ describe("project instructions", () => {
     mode: "edit",
     model: null,
     effort: null,
-    context: { bundledGuidePath: "/app/cli/project-agent-guide.md", skillPath: null, codexAuthStore: null },
+    context: { bundledGuidePath: "/app/cli/project-agent-guide.md", skillPath: null, codexAuthStore: null, storeCredentialsDir: "/data/store-keys" },
     attachments: [],
   };
 

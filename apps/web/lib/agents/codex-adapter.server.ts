@@ -49,6 +49,15 @@ export function tomlString(value: string): string {
   return JSON.stringify(value.replace(LONE_SURROGATE, "\uFFFD")).replaceAll("\u007f", "\\u007F");
 }
 
+/** The workspace-write profile plus one folder the sandbox can neither read nor write. */
+function storeKeysClosed(directory: string): string[] {
+  return [
+    "-c", 'default_permissions="studio"',
+    "-c", 'permissions.studio.extends=":workspace"',
+    "-c", `permissions.studio.filesystem={${tomlString(directory)}="none"}`,
+  ];
+}
+
 function itemEvents(event: unknown, item: Record<string, unknown>): AgentEvent[] {
   if (item.type === "todo_list") {
     if (!Array.isArray(item.items)) return [];
@@ -72,7 +81,7 @@ function itemEvents(event: unknown, item: Record<string, unknown>): AgentEvent[]
   }));
 }
 
-/** Codex `exec --json` (ThreadEvent JSONL) in the workspace-write sandbox of the project folder. */
+/** Codex `exec --json` (ThreadEvent JSONL), sandboxed to the project folder as `workspace-write` is. */
 export const codexAdapter: AgentAdapter = {
   agentId: "codex",
   args(request) {
@@ -82,16 +91,16 @@ export const codexAdapter: AgentAdapter = {
       // The flag takes several values, so each image is a value of its own flag and a later flag
       // keeps the trailing `-` out of the list. The files are named by the server, never the client.
       ...request.attachments.flatMap((file) => ["--image", file]),
-      // Writes only to the project folder and temp directories, without network. Never
-      // `--dangerously-bypass-approvals-and-sandbox`, and no `--add-dir`: it adds writable roots,
-      // while the sandbox already reads the skill.
-      "--sandbox", "workspace-write",
       // Drops $CODEX_HOME/config.toml (MCP servers, hooks, project trust) and the execpolicy rules
       // whose `allow` decisions run commands outside the sandbox. Auth still comes from CODEX_HOME.
       "--ignore-user-config",
       "--ignore-rules",
       // Project folders are rarely Git checkouts; the run snapshot and Undo run stand in for Git.
       "--skip-git-repo-check",
+      // Writes only to the project folder and temp directories, without network. Never
+      // `--dangerously-bypass-approvals-and-sandbox`, and no `--add-dir`: it adds writable roots,
+      // while the sandbox already reads the skill. No `--sandbox`: it overrides this profile.
+      ...storeKeysClosed(request.context.storeCredentialsDir),
       "-c", 'approval_policy="never"',
       "-c", 'web_search="disabled"',
       // No budget for the project's AGENTS.md, which an imported project may ship as instructions.

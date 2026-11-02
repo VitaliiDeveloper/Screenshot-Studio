@@ -20,6 +20,7 @@ import {
   type ProjectSessionRegistry,
 } from "@web/lib/session/project-session.server.js";
 import { expiredProjectSessionResponseHeaders } from "@web/app/api/project-session/handler.js";
+import { stopAgentRun } from "@web/lib/agents/agent-run-guard.server.js";
 import { jsonError } from "@web/lib/api-error-response.server.js";
 import { hasExactKeys, isRecord } from "@web/lib/json-guards.js";
 
@@ -45,6 +46,7 @@ export interface ProjectDeleteRouteDependencies {
   registry?: ProjectSessionRegistry;
   managedStorageConfig?: ManagedProjectStorageConfig;
   managedReadGuard?: ProjectReadRequestDependencies["managedReadGuard"];
+  stopAgentRun?: typeof stopAgentRun;
 }
 
 export interface ProjectDeleteOperationRouteDependencies {
@@ -247,6 +249,9 @@ export async function handleProjectDeletePost(
         operationId: parsed.operationId,
         statusSecretHash: hashedSecret,
       };
+      if (!await (dependencies.stopAgentRun ?? stopAgentRun)(session.projectPath)) {
+        return jsonError(423, "An agent is still running in this project; stop it and try again", "agent-running");
+      }
       try {
         const evidence = await resolved.lifecycle.permanentlyDelete(deletionInput, lifecycleLock);
         return acceptedDeletionResponse(request, parsed.operationId, evidence);

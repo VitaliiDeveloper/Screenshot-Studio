@@ -515,18 +515,25 @@ inside an agent session. Antigravity `agy` is listed with its
 `at-own-risk` policy but has no adapter (it has no auth-status command, and its stream was never run
 because that is the account-ban case), so it reports `no-adapter` and never runs. A run in the project folder, at most one per project, receives the user
 message on stdin, and streams normalized events. Completion, cancel, timeout, a SIGTERM or SIGINT to
-the server, or server exit kills its whole process tree. Its instructions name the guide bundled with
+the server, or server exit kills its whole process tree. Permanently deleting a managed project stops
+its run and waits for the verdict before the folder moves, and a run whose folder is gone never writes
+it back. Its instructions name the guide bundled with
 the CLI as the workflow contract and call every project file, `AGENTS.md` and `CLAUDE.md` included,
 untrusted data, since a project can come from someone else's archive; Claude Code runs with
 `CLAUDE_CODE_DISABLE_CLAUDE_MDS=1` and Codex with `project_doc_max_bytes=0`, so neither loads them.
 
-Codex runs as `codex exec --json` in the `workspace-write` sandbox (writes only to the project folder
-and temp directories, no network) with approvals set to `never`. It ignores `$CODEX_HOME/config.toml`
+Codex runs as `codex exec --json` in a permission profile that extends the built-in `:workspace` one
+(writes only to the project folder and temp directories, no network) with approvals set to `never`.
+`--sandbox` would override the profile, so the adapter does not pass it, and Codex below the version
+floor reports `unsupported-version`, because the profile was only verified from that version on. It ignores `$CODEX_HOME/config.toml`
 and the execpolicy rules, whose `allow` decisions bypass the sandbox. Web search and the connector,
 plugin, browser, computer-use, memory, hook, and sub-agent features are off. The server reads only
 `cli_auth_credentials_store` from that file (`file` when absent) and passes it to both the readiness
 probe and the run; an `ephemeral` store reports not signed in. Unlike Claude Code's restricted tools,
-Codex has no command allowlist and can read the whole disk. It may also edit project files directly;
+Codex has no command allowlist and can read the whole disk except `<data root>/store-credentials/`, the
+one folder its profile closes. Claude Code gets the same folder as a `Read` deny rule, which also binds
+Glob and Grep, and as `sandbox.filesystem` entries for Bash. `Bash(screenshots *)` can still leave Claude
+Code's sandbox, because `screenshots export` cannot run its render host inside it. Codex may also edit project files directly;
 only `app-store-screenshots.json` is covered by the run's schema verdict and Undo run, and the run's
 result lists the other files it changed.
 

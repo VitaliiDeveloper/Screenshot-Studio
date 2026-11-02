@@ -63,6 +63,8 @@ export const claudeCodeAdapter: AgentAdapter = {
     return [
       "-p",
       "--output-format", "stream-json",
+      // Print mode refuses stream-json without it, unless the user's own config sets `verbose`.
+      "--verbose",
       // Never `--bare`: it ignores the subscription login. `--restricted` drops user/project
       // settings, hooks and MCP, and keeps shell and web tools off unless named in `--tools`.
       "--restricted",
@@ -71,7 +73,21 @@ export const claudeCodeAdapter: AgentAdapter = {
       "--disallowedTools", "Bash(screenshots dev *)", "WebSearch", "WebFetch", "mcp__*",
       "--permission-mode", "dontAsk",
       "--permission-prompts", "none",
-      "--settings", JSON.stringify({ sandbox: { enabled: true, failIfUnavailable: true } }),
+      "--settings", JSON.stringify({
+        sandbox: {
+          enabled: true,
+          failIfUnavailable: true,
+          // `allowUnsandboxedCommands` stays on: `screenshots export` cannot run its render host inside.
+          filesystem: {
+            denyRead: [request.context.storeCredentialsDir],
+            denyWrite: [request.context.storeCredentialsDir],
+          },
+        },
+        // The sandbox covers Bash only; `//` marks an absolute path in a permission rule.
+        // shortcut: glob characters in the data root are not escaped, so this rule would miss and only
+        // `--restricted`'s working-directory limit remains; escape them once the CLI documents how.
+        permissions: { deny: [`Read(/${request.context.storeCredentialsDir}/**)`] },
+      }),
       "--append-system-prompt", [
         projectInstructions(
           request,

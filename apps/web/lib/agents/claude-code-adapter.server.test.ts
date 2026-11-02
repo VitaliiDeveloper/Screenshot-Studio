@@ -17,7 +17,7 @@ const REQUEST: AgentRunRequest = {
   mode: "edit",
   model: "claude-sonnet-5-5",
   effort: "high",
-  context: { bundledGuidePath: "/app/cli/project-agent-guide.md", skillPath: "/app/skills/screenshot-studio/SKILL.md", codexAuthStore: null },
+  context: { bundledGuidePath: "/app/cli/project-agent-guide.md", skillPath: "/app/skills/screenshot-studio/SKILL.md", codexAuthStore: null, storeCredentialsDir: "/data/store-keys" },
   attachments: [],
 };
 
@@ -40,6 +40,15 @@ describe("Claude Code adapter", () => {
       { type: "tool-use", tool: "Read", command: null, path: "/project/AGENTS.md" },
       { type: "done", status: "completed", summary: "Added DE to 4 screens.", durationMs: 100000 },
     ]);
+  });
+
+  it("ignores the init and tool-result lines that verbose output adds", () => {
+    const normalizer = claudeCodeAdapter.normalizer();
+    expect(normalizer.line(JSON.stringify({ type: "system", subtype: "init", cwd: "/project", tools: ["Bash"] }))).toEqual([]);
+    expect(normalizer.line(JSON.stringify({
+      type: "user",
+      message: { role: "user", content: [{ type: "tool_result", tool_use_id: "toolu_1", content: "secret tool output" }] },
+    }))).toEqual([]);
   });
 
   it("reports usage limits and lost sign-in as typed states", async () => {
@@ -83,10 +92,16 @@ describe("Claude Code adapter", () => {
       .toEqual(["--permission-mode", "dontAsk"]);
     expect(args.slice(args.indexOf("--output-format"), args.indexOf("--output-format") + 2))
       .toEqual(["--output-format", "stream-json"]);
+    expect(args).toContain("--verbose");
     const disallowed = args.slice(args.indexOf("--disallowedTools") + 1, args.indexOf("--permission-mode"));
     expect(disallowed).toEqual(expect.arrayContaining(["WebSearch", "WebFetch", "mcp__*", "Bash(screenshots dev *)"]));
     expect(JSON.parse(args[args.indexOf("--settings") + 1] ?? "")).toEqual({
-      sandbox: { enabled: true, failIfUnavailable: true },
+      sandbox: {
+        enabled: true,
+        failIfUnavailable: true,
+        filesystem: { denyRead: ["/data/store-keys"], denyWrite: ["/data/store-keys"] },
+      },
+      permissions: { deny: ["Read(//data/store-keys/**)"] },
     });
     expect(args[args.indexOf("--append-system-prompt") + 1]).toContain("/app/cli/project-agent-guide.md");
     expect(args.slice(-8)).toEqual([
