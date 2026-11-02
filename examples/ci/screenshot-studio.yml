@@ -1,6 +1,6 @@
 # Copy to .github/workflows/screenshot-studio.yml in your app repository and adjust `project`.
 # The action builds the Screenshot Studio CLI from its own source at the pinned ref (a few minutes
-# per run) until the npm package is published.
+# per run).
 name: Screenshots
 
 on:

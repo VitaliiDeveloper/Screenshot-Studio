@@ -73,7 +73,7 @@ runs:
           echo "check-log=$RUNNER_TEMP/screenshot-studio-check.log"
         } >> "$GITHUB_OUTPUT"
 
-    # shortcut: builds the CLI from source on every run; replace with an npm install of the CLI once it is published.
+    # shortcut: builds the CLI from source at the action's ref on every run; switch to the published npm package once the action pins a matching CLI version.
     # pnpm goes into a private prefix so the consumer's later steps keep their own pnpm.
     - id: build
       shell: bash
