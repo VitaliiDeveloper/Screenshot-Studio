@@ -94,4 +94,31 @@ describe("stage model", () => {
     expect(model.canEdit).toBe(true);
     expect(model.selectedElement?.id).toBe("text-first");
   });
+
+  it("derives RTL connected overview and Focus crops from the right-to-left strip", () => {
+    const rtl = (layout: DesignLayout): DesignLayout => ({
+      ...layout,
+      screens: layout.screens.map((screen) => ({ ...screen, direction: "rtl" })),
+    });
+    const overview = deriveStageModel({
+      layout: rtl(fixture("connected")),
+      requestedScreenId: "second",
+      activeScreenId: "second",
+      selectedItems: [],
+      interactive: true,
+      connectedOverview: true,
+    });
+    expect(overview.projections.map(({ screen, x }) => [screen.id, x])).toEqual([["first", 120], ["second", 0]]);
+    expect({ width: overview.stageWidth, height: overview.stageHeight }).toEqual({ width: 220, height: 200 });
+
+    const focus = deriveStageModel({
+      layout: rtl(fixture("connected")),
+      requestedScreenId: "first",
+      activeScreenId: "first",
+      selectedItems: [],
+      interactive: false,
+      connectedOverview: false,
+    });
+    expect(focus.baseX).toBe(-120);
+  });
 });

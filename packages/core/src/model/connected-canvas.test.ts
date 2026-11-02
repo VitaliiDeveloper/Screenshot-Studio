@@ -8,6 +8,7 @@ import {
   rotatedElementBounds,
   sameScreenGroup,
 } from "./connected-canvas.js";
+import { cloneLocaleSet, copyScreenToLocale, setLocaleDirection } from "./project-locale-ops.js";
 
 function project(): Project {
   return {
@@ -198,3 +199,79 @@ function shape(id: string, x: number, width: number, height: number, rotation: n
     radius: 0,
   };
 }
+
+describe("connected strip direction", () => {
+  const shape = (x: number): DesignLayout["screens"][number]["elements"][number] => ({
+    id: "art", type: "shape", x, y: 40, width: 300, height: 60,
+    rotation: 0, opacity: 1, locked: false, visible: true,
+    kind: "rect", fill: "#ff0000", radius: 0,
+  });
+
+  function strip(widths: readonly number[], art: Record<number, number>): Project {
+    return {
+      meta: { name: "Strip", schemaVersion: 1 },
+      fonts: [],
+      preferredExportLayoutId: "connected",
+      layouts: [{
+        id: "connected", name: "Connected", mode: "connected",
+        screens: widths.map((width, index) => ({
+          ...screen(`s${index}`, "apple", "en", width),
+          elements: index in art ? [shape(art[index]!)] : [],
+        })),
+      }],
+    };
+  }
+
+  /** Every visible span of the art in strip coordinates, as a viewer of the strip sees it. */
+  function artSpans(source: Project, locale: string): [number, number][] {
+    const first = source.layouts[0]!.screens.find((candidate) => candidate.locale === locale)!;
+    return projectScreenGroup(source, "connected", first.id).flatMap(({ screen: owner, x }) =>
+      owner.elements.map((element): [number, number] => [x + element.x, x + element.x + element.width]));
+  }
+
+  it("lays an RTL group right to left and keeps project order for export and z-order", () => {
+    const rtl = setLocaleDirection(strip([400, 500, 600], {}), "connected", "en", "rtl");
+    expect(projectScreenGroup(rtl, "connected", "s1").map(({ screen: owner, x }) => [owner.id, x]))
+      .toEqual([["s0", 1100], ["s1", 600], ["s2", 0]]);
+  });
+
+  it("mirrors seam-crossing art across the whole strip when a locale is cloned as RTL", () => {
+    const source = strip([400, 400, 400], { 0: 300 });
+    expect(artSpans(source, "en")).toEqual([[300, 600]]);
+
+    const cloned = cloneLocaleSet(source, "connected", "en", "ar", "rtl");
+
+    expect(cloned.layouts[0]!.screens.filter(({ locale }) => locale === "ar").map(({ name }) => name))
+      .toEqual(["s0", "s1", "s2"]);
+    expect(artSpans(cloned, "ar")).toEqual([[600, 900]]);
+  });
+
+  it("keeps seam-crossing art inside the strip on unequal widths and restores it on the way back", () => {
+    const source = strip([400, 500, 600], { 1: 450 });
+    const total = 1500;
+    const [[start, end]] = artSpans(source, "en") as [[number, number]];
+
+    const rtl = setLocaleDirection(source, "connected", "en", "rtl");
+    expect(artSpans(rtl, "en")).toEqual([[total - end, total - start]]);
+
+    const back = setLocaleDirection(rtl, "connected", "en", "ltr");
+    expect(back.layouts[0]!.screens[1]!.elements[0]!.x).toBe(450);
+    expect(artSpans(back, "en")).toEqual([[start, end]]);
+  });
+
+  it("keeps the art continuous when one screen is copied into an RTL locale", () => {
+    const base = cloneLocaleSet(strip([400, 400], { 0: 300 }), "connected", "en", "ar", "rtl");
+    const sourceId = base.layouts[0]!.screens[0]!.id;
+    const withoutArt: Project = {
+      ...base,
+      layouts: [{
+        ...base.layouts[0]!,
+        screens: base.layouts[0]!.screens.filter(({ locale, name }) => locale === "en" || name === "s1"),
+      }],
+    };
+    const { project: copied } = copyScreenToLocale(withoutArt, "connected", sourceId, "ar");
+    const ar = copied.layouts[0]!.screens.filter(({ locale }) => locale === "ar").map(({ name }) => name);
+    expect(ar).toEqual(["s0", "s1"]);
+    expect(artSpans(copied, "ar")).toEqual([[200, 500]]);
+  });
+});

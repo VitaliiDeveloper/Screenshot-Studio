@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { fileURLToPath } from "node:url";
-import { resolve } from "node:path";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { PNG } from "pngjs";
 import pixelmatch from "pixelmatch";
+import { cloneLocaleSet, parseProjectJson } from "@screenshot-studio/core/model";
 import { stripAlpha } from "./support/strip-alpha.js";
 import { startWebServer } from "@screenshot-studio/cli/server";
 import {
@@ -79,5 +82,56 @@ describe("connected crop parity", () => {
 
     const mismatchFraction = mismatch(headedSecond, headlessSecond) / (target.width * target.height);
     expect(mismatchFraction).toBeLessThan(MAX_MISMATCH_FRACTION);
+  });
+
+  it("exports an RTL clone as the exact mirror of the LTR strip, keeping the seam continuous", async () => {
+    const directory = mkdtempSync(join(tmpdir(), "connected-canvas-rtl-"));
+    try {
+      const rtlPath = join(directory, "app-store-screenshots.json");
+      const source = parseProjectJson(readFileSync(fixturePath, "utf8"));
+      const rtl = cloneLocaleSet(source, "default", "en", "ar", "rtl");
+      writeFileSync(rtlPath, JSON.stringify(rtl));
+      const [arFirst, arSecond] = rtl.layouts[0]!.screens.filter(({ locale, platform }) => locale === "ar" && platform === "apple");
+
+      const crop = async (projectPath: string, screenId: string) => PNG.sync.read(stripAlpha(await harness.headless.renderScreenToPng({
+        baseUrl: harness.server.url,
+        projectPath,
+        layoutId: "default",
+        screenId,
+        pixelRatio,
+      })));
+      const ltrStrip = [await crop(fixturePath, "connected-first"), await crop(fixturePath, "connected-second")];
+      const rtlStrip = [await crop(rtlPath, arSecond!.id), await crop(rtlPath, arFirst!.id)];
+      for (const png of rtlStrip) expect({ width: png.width, height: png.height }).toEqual(target);
+
+      const stitched = (crops: PNG[], flip: boolean) => {
+        const out = new PNG({ width: target.width * 2, height: target.height });
+        crops.forEach((png, index) => PNG.bitblt(png, out, 0, 0, target.width, target.height, index * target.width, 0));
+        if (flip) {
+          for (let y = 0; y < out.height; y += 1) {
+            for (let x = 0; x < out.width / 2; x += 1) {
+              const left = (y * out.width + x) * 4;
+              const right = (y * out.width + out.width - 1 - x) * 4;
+              for (let channel = 0; channel < 4; channel += 1) {
+                const held = out.data[left + channel]!;
+                out.data[left + channel] = out.data[right + channel]!;
+                out.data[right + channel] = held;
+              }
+            }
+          }
+        }
+        return out;
+      };
+      const expected = stitched(ltrStrip, false);
+      const actual = stitched(rtlStrip, true);
+      const diff = new PNG({ width: expected.width, height: expected.height });
+      const mismatched = pixelmatch(expected.data, actual.data, diff.data, expected.width, expected.height, { threshold: 0.1 });
+      expect(mismatched / (expected.width * expected.height)).toBeLessThan(MAX_MISMATCH_FRACTION);
+      // The bridge continues out of the first screen's left edge into the second screen's right edge.
+      expect(pixel(rtlStrip[1]!, 100, 500)).toEqual([255, 0, 0]);
+      expect(pixel(rtlStrip[0]!, target.width - 100, 500)).toEqual([255, 0, 0]);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
   });
 });

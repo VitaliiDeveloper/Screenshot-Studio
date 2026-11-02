@@ -145,7 +145,8 @@ editor's **Keep 1:1** mode and requires every exact-size target to match the roo
 order. The policy changes structural screen operations, not rendered pixels.
 
 `isolated` clips every screen independently. In `connected`, each exact
-platform/device/locale/`storeTargetId` group forms a gapless horizontal strip in layout order;
+platform/device/locale/`storeTargetId` group forms a gapless horizontal strip in layout order, running
+right to left in an RTL locale so the first screen is rightmost and its left edge meets the second;
 root screens have no `storeTargetId`, while explicit variants pair `variantOf` with a target id and
 must not be mistaken for duplicate roots. Elements stay owned by one screen with owner-local coordinates,
 and export crops the requested artboard through the
@@ -247,7 +248,8 @@ text overflow. The JSON report is:
 }
 ```
 
-`kind` is one of `missing-locale-screen`, `missing-image`, `text-overflow`, `invalid-project`,
+`kind` is one of `missing-locale-screen`, `missing-image`, `text-overflow`,
+`unequal-connected-artboard`, `invalid-project`,
 `unresolved-font`, `missing-font-file`, `unknown-size`, `artboard-size`, `export-path`, or
 `android-tablet-screen-count`; fields that do not apply are `null`. For `missing-locale-screen`,
 `screenId` is the first-locale screen to copy and `locale` is the locale that lacks it. Fix each

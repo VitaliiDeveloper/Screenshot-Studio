@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import {
-  sameScreenGroup,
+  projectLayoutScreenGroup,
   type DesignLayout,
   type Element,
   type Screen,
@@ -38,18 +38,10 @@ export function deriveStageModel({
 
   if (layout && requestedScreen) {
     if (layout.mode === "connected") {
-      let x = 0;
-      projections = layout.screens
-        .filter((screen) => sameScreenGroup(screen, requestedScreen))
-        .map((screen) => {
-          const projection = { screen, x, y: 0 };
-          x += screen.artboard.width;
-          return projection;
-        });
+      projections = projectLayoutScreenGroup(layout, requestedScreen);
       const target = projections.find((entry) => entry.screen.id === requestedScreen.id)!;
       if (connectedOverview) {
-        const last = projections.at(-1)!;
-        stageWidth = last.x + last.screen.artboard.width;
+        stageWidth = projections.reduce((sum, entry) => sum + entry.screen.artboard.width, 0);
         stageHeight = Math.max(...projections.map((entry) => entry.screen.artboard.height));
       } else {
         baseX = -target.x;

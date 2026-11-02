@@ -150,6 +150,20 @@ export function issueRowCopy(
       fixLabel: "Replace",
     };
   }
+  if (issue.kind === "unequal-connected-artboard") {
+    const screen = layout.screens.find((candidate) => candidate.id === issue.screenId);
+    if (!screen) return null;
+    return {
+      title: "Screen size differs from its connected strip",
+      detail: [
+        screen.name,
+        `${screen.artboard.width}×${screen.artboard.height}, strip ${issue.stripArtboard.width}×${issue.stripArtboard.height}`,
+        screenSizeLabel(screen, specs),
+        ...(multipleLocales ? [screen.locale] : []),
+      ].join(" · "),
+      fixLabel: "Match strip",
+    };
+  }
   const target = overflowTarget(project, issue);
   if (!target) return null;
   const { screen, element } = target;

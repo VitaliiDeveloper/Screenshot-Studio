@@ -71,6 +71,22 @@ describe("editor issues copy", () => {
     });
   });
 
+  it("names the sizes of a screen that differs from its connected strip", () => {
+    expect(issueRowCopy(project, {
+      kind: "unequal-connected-artboard",
+      id: "unequal-connected-artboard:hero",
+      level: "warning",
+      layoutId: "default",
+      screenId: "hero",
+      elementId: null,
+      stripArtboard: { width: 100, height: 200 },
+    })).toEqual({
+      title: "Screen size differs from its connected strip",
+      detail: expect.stringMatching(/^Hero · \d+×\d+, strip 100×200 · iPhone/),
+      fixLabel: "Match strip",
+    });
+  });
+
   it("names an unnamed text layer by its text, as the layers tree does", () => {
     const overflow = issues.find((issue): issue is Extract<ProjectIssue, { kind: "text-overflow" }> =>
       issue.kind === "text-overflow"

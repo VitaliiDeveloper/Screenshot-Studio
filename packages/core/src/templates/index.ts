@@ -6,6 +6,7 @@ import {
   Screen as ScreenSchema,
   SCREEN_DEVICES_BY_PLATFORM,
   addScreenToProject,
+  assertStandaloneSizeAllowed,
   cloneElementWithFreshIds,
   deviceFramePreset,
   elementLeaves,
@@ -557,9 +558,7 @@ export function createScreenFromTemplate(
       candidate.variantOf === undefined && candidate.storeTargetId === undefined
     ));
     if (!screen) throw new Error(`Template "${template.id}" did not create a root screen`);
-    const exactScreen = storeTargetId
-      ? ScreenSchema.parse({ ...screen, storeTargetId })
-      : screen;
+    const exactScreen = storeTargetId ? ScreenSchema.parse({ ...screen, storeTargetId }) : screen;
     // Template geometry is authored as physical LTR literals. Bake locale direction once.
     const localized = exactScreen.direction === "ltr"
       ? exactScreen
@@ -588,6 +587,7 @@ export function createScreenFromTemplate(
   const target = findStoreTarget(specs, template.platform, template.device, template.targetId);
   exportPixelRatio(template.artboard, target);
   if (options.exactTargetMode === "standalone") {
+    assertStandaloneSizeAllowed(getLayout(project, layoutId), { platform: template.platform, device: template.device, locale });
     return append(project, template.artboard, template.elements, target.id);
   }
   const lead = findStoreTarget(

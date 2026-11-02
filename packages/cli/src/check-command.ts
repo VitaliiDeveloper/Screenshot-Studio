@@ -137,7 +137,9 @@ function fromEngine(issue: ProjectIssue, project: Project, specs: StoreSpecs): C
     level: issue.level,
     message: issue.kind === "missing-image"
       ? `Image missing from the project folder: ${issue.assetUrl}`
-      : "Text overflows its layer box",
+      : issue.kind === "unequal-connected-artboard"
+        ? `Artboard differs from its connected strip (${issue.stripArtboard.width}×${issue.stripArtboard.height}), so seams mix scales`
+        : "Text overflows its layer box",
     layoutId: issue.layoutId,
     screenId: screen.id,
     size: screenSizeId(screen, specs),

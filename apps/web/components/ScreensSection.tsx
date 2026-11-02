@@ -88,6 +88,8 @@ export function screenRowWarning(
         return onSize(issue.screenId, "image missing");
       case "text-overflow":
         return onSize(issue.screenId, "text overflows");
+      case "unequal-connected-artboard":
+        return onSize(issue.screenId, "size differs from strip");
       default:
         return assertNever(issue);
     }

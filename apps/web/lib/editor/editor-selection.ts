@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import {
+  projectLayoutScreenGroup,
   rotatedElementBounds,
   findElementLocation,
   sameScreenGroup,
@@ -133,13 +134,8 @@ function selectedStageBounds(
   selections: readonly SelectionRef[],
 ): { selection: SelectionRef; bounds: ElementBounds }[] {
   const active = layout.screens.find((screen) => screen.id === activeScreenId);
-  let x = 0;
   const connectedOrigins = active
-    ? layout.screens.filter((screen) => sameScreenGroup(screen, active)).map((screen) => {
-        const entry = [screen.id, x] as const;
-        x += screen.artboard.width;
-        return entry;
-      })
+    ? projectLayoutScreenGroup(layout, active).map((entry) => [entry.screen.id, entry.x] as const)
     : [];
   const origins = new Map(layout.mode === "connected"
     ? connectedOrigins

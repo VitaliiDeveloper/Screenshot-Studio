@@ -139,4 +139,42 @@ describe("missing-image issues", () => {
   it("skips missing images until the image cache is supplied", () => {
     expect(collectLayoutIssues(media, "default").map((issue) => issue.kind)).toEqual([]);
   });
+
+  describe("unequal connected artboards", () => {
+    const strip = (mode: "connected" | "isolated", second: { width: number; height: number }) => parseProject({
+      meta: { name: "T", schemaVersion: 1 },
+      fonts: [],
+      preferredExportLayoutId: "default",
+      layouts: [{
+        id: "default",
+        name: "Default",
+        mode,
+        screens: [
+          screen("first", "First", "en"),
+          { ...screen("second", "Second", "en"), artboard: second },
+          { ...screen("other-locale", "Other", "de"), artboard: { width: 1000, height: 2000 } },
+        ],
+      }],
+    });
+
+    const unequal = (mode: "connected" | "isolated", second: { width: number; height: number }) =>
+      collectLayoutIssues(strip(mode, second), "default").filter(({ kind }) => kind === "unequal-connected-artboard");
+
+    it("warns on a screen whose artboard differs from its strip", () => {
+      expect(unequal("connected", { width: 1320, height: 2778 })).toEqual([{
+        kind: "unequal-connected-artboard",
+        id: "unequal-connected-artboard:second",
+        level: "warning",
+        layoutId: "default",
+        screenId: "second",
+        elementId: null,
+        stripArtboard: { width: 1320, height: 2868 },
+      }]);
+    });
+
+    it("stays quiet on an equal strip, across exact groups, and in isolated layouts", () => {
+      expect(unequal("connected", { width: 1320, height: 2868 })).toEqual([]);
+      expect(unequal("isolated", { width: 1320, height: 2778 })).toEqual([]);
+    });
+  });
 });

@@ -283,6 +283,10 @@ size and offers **Go to** and a fix:
   load. It is reported per screen and layer once the image cache has loaded, and the row names the
   project path. **Replace** goes to the screen and opens the existing picker for that background or
   layer. Project Home's missing-asset readiness reads the same check across every layout.
+- *Screen size differs from its connected strip* (warning) flags a connected screen whose artboard
+  differs from the first screen of its exact strip, because seams would then mix scales and heights.
+  **Match strip** resizes every screen of that strip that differs and fits its composition, as one
+  undo step.
 
 Export folders apply only to the CLI (`--out`, or `export/` next to the project); UI export renders
 into a private staging folder and hands the bundle to the browser as a download, so Issues has no
