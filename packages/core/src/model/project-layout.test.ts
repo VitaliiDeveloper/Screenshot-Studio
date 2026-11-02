@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   addLayout,
   addScreenToProject,
@@ -113,6 +113,23 @@ describe("independent design layout schema", () => {
       { message: 'duplicate layout id: "launch"', path: ["layouts", 1, "id"] },
       { message: 'duplicate layout name: "LAUNCH"', path: ["layouts", 1, "name"] },
     ]));
+  });
+
+  it("compares layout names independently of the host locale", () => {
+    const turkishLowerCase = vi.spyOn(String.prototype, "toLocaleLowerCase")
+      .mockImplementation(function (this: string) { return this.replaceAll("I", "ı").toLowerCase(); });
+    const input = projectInput();
+    input.layouts[0]!.name = "Info";
+    input.layouts.push({ ...structuredClone(input.layouts[0]!), id: "other", name: "info" });
+
+    try {
+      expect(issues(input)).toContainEqual({
+        message: 'duplicate layout name: "info"',
+        path: ["layouts", 1, "name"],
+      });
+    } finally {
+      turkishLowerCase.mockRestore();
+    }
   });
 
   it("rejects untrimmed layout names", () => {
