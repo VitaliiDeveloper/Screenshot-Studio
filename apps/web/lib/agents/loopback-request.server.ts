@@ -12,8 +12,12 @@ export function isLoopbackHost(host: string | null): boolean {
   }
 }
 
+export function requestHost(req: Request): string {
+  return req.headers.get("host") ?? new URL(req.url).host;
+}
+
 export function isLoopbackRequest(req: Request): boolean {
-  return isLoopbackHost(req.headers.get("host") ?? new URL(req.url).host);
+  return isLoopbackHost(requestHost(req));
 }
 
 export function rejectNonLoopbackRequest(
