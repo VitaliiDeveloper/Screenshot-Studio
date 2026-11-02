@@ -21,7 +21,7 @@
     "check:clean": "node --test scripts/clean.check.mjs",
     "clean": "node scripts/clean.mjs",
     "dev": "pnpm --filter @screenshot-studio/web dev",
-    "build:cli-package": "pnpm --filter @screenshot-studio/web build && node scripts/build-cli-package.mjs",
+    "build:cli-package": "node scripts/build-cli-package.mjs",
     "audit:release": "pnpm build:cli-package && node scripts/release-audit.mjs",
     "check:release-candidate": "pnpm audit:release && node scripts/check-release-candidate.mjs",
     "check:community": "node scripts/check-community.mjs",
