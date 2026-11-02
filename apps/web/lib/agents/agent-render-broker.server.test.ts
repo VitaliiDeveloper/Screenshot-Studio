@@ -7,7 +7,9 @@ import { link, lstat, mkdir, mkdtemp, readdir, readFile, rename, rm, stat, symli
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { AgentRenderRequest, AgentRenderResponse } from "@screenshot-studio/core/agent-render";
+import { sweepStaleRunFolders } from "./agent-attachment-store.server.js";
 import { startRenderBroker, type RenderBroker, type RenderBrokerOptions } from "./agent-render-broker.server.js";
+import { renderInboxRoot } from "./agent-render-inbox.server.js";
 import type { RenderJobContext } from "./agent-render-job.server.js";
 
 const SECRET = "FAKE-KEY-BYTES-123";
@@ -86,6 +88,16 @@ describe.skipIf(process.platform === "win32")("render broker", () => {
     expect(broker.inboxDir.startsWith(join(root, ""))).toBe(false);
     expect(broker.inboxDir).toMatch(new RegExp(`/tmp/claude-${process.getuid!()}/screenshot-studio-render/${process.pid}/run-`));
     expect((await stat(broker.inboxDir)).mode & 0o077).toBe(0);
+  });
+
+  it("leaves a live server's inbox to it, and server start sweeps a dead server's", async () => {
+    await start();
+    // A pid far above any live process: kill(pid, 0) answers ESRCH.
+    const dead = join(renderInboxRoot(), String(4_194_000 + Math.floor(Math.random() * 1_000)));
+    await mkdir(join(dead, "run-old"), { recursive: true });
+    await sweepStaleRunFolders(renderInboxRoot());
+    expect(existsSync(dead)).toBe(false);
+    expect(existsSync(broker.inboxDir)).toBe(true);
   });
 
   it("marks a request as picked up, runs it with the validated flags, and answers", async () => {
@@ -298,11 +310,14 @@ describe.skipIf(process.platform === "win32")("render broker", () => {
       release.open();
     });
 
-    it("answers with a limit once a run used its requests", async () => {
+    it("answers with a limit once a run used its requests, then stops listening", async () => {
       await start(undefined, { maxRequests: 2 });
       await response(await send());
       await response(await send());
       await expect(response(await send())).resolves.toMatchObject({ ok: false, message: expect.stringContaining("limit") });
+      const late = await send();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(existsSync(pickedPath(late))).toBe(false);
       expect(jobs).toHaveLength(2);
     });
   });

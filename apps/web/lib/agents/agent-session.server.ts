@@ -338,7 +338,9 @@ export async function startAgentRun(options: AgentRunOptions): Promise<AgentRun>
     // never leaves a file behind or fails on the temp directory.
     const folder = options.attachments?.length ? await createRunFolder(options.attachments) : { dir: null, files: [] };
     runFolder = folder.dir;
-    if (options.renderHost) broker = await startRenderBroker({ projectDir, host: options.renderHost });
+    // Rendering is one part of a run, so a temp folder that cannot be used costs only that: the CLI
+    // then fails to render exactly as it does without a broker.
+    if (options.renderHost) broker = await startRenderBroker({ projectDir, host: options.renderHost }).catch(() => null);
     // Stop can arrive during any await above; DELETE already answered it, so the run must not launch.
     if (cancelledBeforeLaunch) {
       runs.delete(projectDir);

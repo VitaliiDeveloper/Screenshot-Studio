@@ -35,6 +35,18 @@ vi.mock("./agent-run-process.server.js", async (original) => {
   };
 });
 
+const inboxFailure = vi.hoisted(() => ({ fail: false }));
+vi.mock("./agent-render-inbox.server.js", async (original) => {
+  const actual = await original<typeof import("./agent-render-inbox.server.js")>();
+  return {
+    ...actual,
+    createRenderInbox: () => {
+      if (inboxFailure.fail) throw new Error("no temp folder");
+      return actual.createRenderInbox();
+    },
+  };
+});
+
 const PROJECT = {
   meta: { name: "Agents", schemaVersion: 1 },
   fonts: [],
@@ -146,6 +158,7 @@ beforeEach(async () => {
     return { ok: true, output: "Exported", exitCode: 0 };
   };
   launch.fail = false;
+  inboxFailure.fail = false;
 });
 
 afterEach(async () => {
@@ -172,6 +185,14 @@ describe.skipIf(process.platform === "win32")("a run's render broker", () => {
       env: { NODE_ENV: "test", PATH: binDir, HOME: root, SCREENSHOT_STUDIO_RENDER_INBOX: "/planted" },
     }));
     expect(await readFile(join(root, "env"), "utf8")).not.toContain("/planted");
+  });
+
+  it("still runs without the variable when the inbox cannot be created", async () => {
+    inboxFailure.fail = true;
+    await fakeClaude(`/bin/cat '${SUCCESS_FIXTURE}'`);
+    const events = await collect(await start());
+    expect(events.at(-1)).toMatchObject({ type: "done", status: "completed" });
+    expect(await readFile(join(root, "env"), "utf8")).not.toContain("SCREENSHOT_STUDIO_RENDER_INBOX");
   });
 
   describe("removes the inbox", () => {

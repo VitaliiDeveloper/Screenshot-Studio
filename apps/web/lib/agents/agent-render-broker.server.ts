@@ -100,7 +100,11 @@ export async function startRenderBroker({
     markers.add(marker);
     const request = parseRequest(await inbox.readRequest(id));
     if (!request) return answer(id, { ok: false, message: INVALID_REQUEST }, marker);
-    if (seen.size > maxRequests) return answer(id, { ok: false, message: LIMIT_REACHED }, marker);
+    if (seen.size > maxRequests) {
+      // A job in flight still finishes; only new requests stop being heard.
+      listening = false;
+      return answer(id, { ok: false, message: LIMIT_REACHED }, marker);
+    }
     if (queue.length >= MAX_QUEUED) return answer(id, { ok: false, message: QUEUE_FULL }, marker);
     queue.push({ id, request, marker });
     pump();

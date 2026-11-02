@@ -141,7 +141,7 @@ export async function runRenderJob(request: AgentRenderRequest, context: RenderJ
   } catch (error) {
     return { ok: false, message: agentMessage(error) };
   }
-  return JSON.stringify(response).length > MAX_RENDER_RESPONSE_BYTES ? { ok: false, message: TOO_LARGE } : response;
+  return Buffer.byteLength(JSON.stringify(response)) > MAX_RENDER_RESPONSE_BYTES ? { ok: false, message: TOO_LARGE } : response;
 }
 
 /**
