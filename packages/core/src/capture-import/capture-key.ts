@@ -2,7 +2,7 @@
 import { posix } from "node:path";
 import { collectImageUrlReferences } from "@screenshot-studio/core/assets";
 import { getLayout, slugify, type Project } from "@screenshot-studio/core/model";
-import type { CaptureImportIssue, DiscoveredCapture } from "./index.js";
+import type { CaptureImportIssue, DiscoveredCapture } from "./types.js";
 
 const IMPORT_DIGEST_LENGTH = 12;
 
