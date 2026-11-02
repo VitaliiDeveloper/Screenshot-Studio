@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createImageElement, createTextElement } from "@screenshot-studio/core/model";
@@ -125,6 +125,17 @@ describe("screenshots check", () => {
         "textMeasured": false,
       }
     `);
+  });
+
+  it("reports an image the asset route does not serve as missing", async () => {
+    const project = await projectWith([
+      screen("hero", "Hero", "en", [{ ...createImageElement({ assetUrl: "assets/anim.gif" }), id: "gif" }]),
+    ]);
+    await writeFile(join(dirname(project), "assets", "anim.gif"), "gif");
+
+    const result = await runCheckCommand({ project, json: "true" }, storeSpecsPath, noBrowser());
+
+    expect(parse(result.output).issues.map((issue) => issue.id)).toEqual(["missing-image:hero:gif"]);
   });
 
   it("passes warnings unless --strict is set", async () => {

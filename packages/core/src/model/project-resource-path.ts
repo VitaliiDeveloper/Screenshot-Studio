@@ -54,6 +54,10 @@ export function archivableResourceStem(stem: string, fallback: string): string {
   return isSensitiveProjectArchivePath(stem) || isTransientResourceBasename(stem) ? fallback : stem;
 }
 
+/** The only file types the editor and render host load from a project folder. */
+export const PROJECT_ASSET_EXTENSIONS = [".png", ".jpg", ".jpeg", ".webp", ".ttf", ".otf", ".woff", ".woff2"] as const;
+export type ProjectAssetExtension = (typeof PROJECT_ASSET_EXTENSIONS)[number];
+
 export const ProjectRelativePath = z.string().refine(
   isProjectRelativePath,
   "expected a portable project-relative path",
