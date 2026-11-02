@@ -20,15 +20,15 @@ import {
   noFollowFlags,
   syncDirectoryBestEffort,
 } from "@screenshot-studio/core/storage";
+import { ManagedProjectCatalogStore } from "./managed-project-catalog.server.js";
 import {
-  ManagedProjectCatalogStore,
   parseActiveManagedProjectCatalogEntry,
   type ActiveManagedProjectCatalogEntry,
   type ManagedDirectoryIdentity,
   type ManagedProjectDeletionComplete,
   type ManagedProjectDeletionEvidence,
   type ManagedProjectDeletionReservation,
-} from "./managed-project-catalog.server.js";
+} from "./managed-project-catalog-document.server.js";
 import type { ManagedProjectStorageConfig } from "./managed-project-config.server.js";
 import {
   acquireManagedProjectLifecycleLock,

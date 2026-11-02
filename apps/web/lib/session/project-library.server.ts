@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { parseProject, type Project } from "@screenshot-studio/core/model";
 import { readProjectSnapshot } from "@screenshot-studio/core/storage";
-import type { ActiveManagedProjectCatalogEntry } from "@web/lib/managed-projects/managed-project-catalog.server.js";
+import type { ActiveManagedProjectCatalogEntry } from "@web/lib/managed-projects/managed-project-catalog-document.server.js";
 import { ManagedProjectCatalogStore } from "@web/lib/managed-projects/managed-project-catalog.server.js";
 import { resolveManagedProjectStorageConfig } from "@web/lib/managed-projects/managed-project-config.server.js";
 import { ManagedProjectRepository } from "@web/lib/managed-projects/managed-project-repository.server.js";

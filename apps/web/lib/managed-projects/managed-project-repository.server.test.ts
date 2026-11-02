@@ -14,7 +14,7 @@ import {
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import type { ActiveManagedProjectCatalogEntry, ManagedProjectCatalogEntry } from "./managed-project-catalog.server.js";
+import type { ActiveManagedProjectCatalogEntry, ManagedProjectCatalogEntry } from "./managed-project-catalog-document.server.js";
 import { ManagedProjectCatalogStore } from "./managed-project-catalog.server.js";
 import { resolveManagedProjectStorageConfig } from "./managed-project-config.server.js";
 import {
