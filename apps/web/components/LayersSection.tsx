@@ -33,6 +33,7 @@ import {
 import { getScreen, type Element } from "@screenshot-studio/core/model";
 import { editorStore, selectEditorLayout, type CommonElementPatch } from "@web/lib/editor/editor-store";
 import { isSelected } from "@web/lib/editor/editor-selection";
+import { applyElementPatchToScope } from "@web/lib/editor/editor-apply-to";
 import { mutateAndSave } from "@web/lib/editor/mutate-and-save";
 import { elementLabel, elementTextDescription, viewToArrayIndex } from "@web/lib/panel-helpers";
 import { rowHoverControl, SortableRow, treeRowButton } from "./SortableRow";
@@ -239,12 +240,13 @@ export function LayersSection({ onOpenAdd, screenId }: { onOpenAdd: () => void; 
   };
 
   const patch = (element: Element, p: CommonElementPatch) =>
-    mutateAndSave(() => editorStore.getState().patchElement({
+    applyElementPatchToScope({
       id: element.id,
       type: element.type,
       patch: p,
       screenId: activeScreenId,
-    }));
+      scope: "screen",
+    });
 
   const toneFor = (selected: boolean): LayerTone => !selected ? "idle" : selectedItems.length > 1 ? "soft" : "solid";
 

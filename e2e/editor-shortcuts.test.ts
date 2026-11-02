@@ -386,3 +386,51 @@ describe("keyboard focus never drops to the page behind a selection", () => {
     await expectKeysLeave(page, "hero-support");
   });
 });
+
+describe("undo steps", () => {
+  it("keeps a canvas drag or rename apart from typing that follows, and coalesces the typing", async () => {
+    const page = await openEditor({ width: 1440, height: 1000 });
+    const undo = page.getByRole("button", { name: "Undo", exact: true });
+    const before = heroLayer("headline")!.x;
+
+    const stage = page.locator("[data-stage-screen-ids='hero']").first();
+    const box = (await stage.boundingBox())!;
+    const scale = box.width / 1206;
+    const from = { x: box.x + 600 * scale, y: box.y + 250 * scale };
+    await page.mouse.click(from.x, from.y);
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    await page.mouse.move(from.x + 60 * scale, from.y, { steps: 8 });
+    await page.mouse.up();
+    await expect.poll(() => heroLayer("headline")!.x).not.toBe(before);
+    const dragged = heroLayer("headline")!.x;
+
+    const fieldX = page.getByRole("spinbutton", { name: "X", exact: true });
+    await fieldX.click();
+    await fieldX.fill("");
+    await page.keyboard.type("123");
+    await page.keyboard.press("Tab");
+    await expect.poll(() => heroLayer("headline")!.x).toBe(123);
+
+    await undo.click();
+    await expect.poll(() => heroLayer("headline")!.x).toBe(dragged);
+
+    await undo.click();
+    await expect.poll(() => heroLayer("headline")!.x).toBe(before);
+
+    // A canvas toolbar edit stays apart from the inspector field edited next.
+    const color = heroLayer("headline")!.color;
+    await page.getByLabel("Selection color", { exact: true }).fill("#ff0000");
+    await expect.poll(() => heroLayer("headline")!.color).toBe("#ff0000");
+    await fieldX.click();
+    await fieldX.fill("");
+    await page.keyboard.type("45");
+    await page.keyboard.press("Tab");
+    await expect.poll(() => heroLayer("headline")!.x).toBe(45);
+    await undo.click();
+    await expect.poll(() => heroLayer("headline")!.x).toBe(before);
+    expect(heroLayer("headline")!.color).toBe("#ff0000");
+    await undo.click();
+    await expect.poll(() => heroLayer("headline")!.color).toBe(color);
+  });
+});

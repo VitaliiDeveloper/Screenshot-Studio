@@ -18,6 +18,7 @@ import {
   defaultDeviceFrameInputForScreen,
   type MediaAssetTarget,
 } from "@web/lib/editor/editor-workspace";
+import { applyElementPatchToScope } from "@web/lib/editor/editor-apply-to";
 import { mutateAndSave } from "@web/lib/editor/mutate-and-save";
 import { projectJsonRequest } from "@web/lib/clients/project-api-client";
 import { resolveActiveProjectAssetUrl } from "@web/lib/clients/save-project";
@@ -115,32 +116,34 @@ export function AssetPickerDialog({
   const insert = (path: string, dimensions: CachedAssetDimensions) => {
     if (!isCurrent()) return;
     if (targetMedia) {
-      mutateAndSave(() => editorStore.getState().patchElement({
+      applyElementPatchToScope({
         id: targetMedia.elementId,
         screenId: targetMedia.screenId,
         type: targetMedia.elementType,
         patch: { assetUrl: path },
-      }));
+        scope: "screen",
+      });
       requestClose();
       return;
     }
     if (isBackground) {
-      mutateAndSave(() => editorStore.getState().setBackground({
-        type: "image",
-        assetUrl: path,
-        fit: "cover",
-        color: "#000000",
-      }));
+      mutateAndSave(() => {
+        const store = editorStore.getState();
+        store.endHistoryGroup();
+        store.setBackground({ type: "image", assetUrl: path, fit: "cover", color: "#000000" });
+        store.endHistoryGroup();
+      });
       requestClose();
       return;
     }
     if (isFrame && targetDeviceFrame) {
-      mutateAndSave(() => editorStore.getState().patchElement({
+      applyElementPatchToScope({
         id: targetDeviceFrame.elementId,
         screenId: targetDeviceFrame.screenId,
         type: "device-frame",
         patch: { assetUrl: path },
-      }));
+        scope: "screen",
+      });
       requestClose();
       return;
     }

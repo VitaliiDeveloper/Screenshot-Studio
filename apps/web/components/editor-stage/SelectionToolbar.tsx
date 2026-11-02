@@ -3,7 +3,7 @@
 
 import type { CSSProperties } from "react";
 import { fontIdentityKey, type FontAsset, type TextElement } from "@screenshot-studio/core/model";
-import type { ElementPatchFor } from "@web/lib/editor/editor-store";
+import { editorStore, type ElementPatchFor } from "@web/lib/editor/editor-store";
 import { MenuSelect } from "@web/components/editor-ui";
 import { fontIdentityOptions } from "@web/lib/editor/font-identity-options";
 
@@ -35,6 +35,7 @@ export function SelectionToolbar({
       className="absolute z-20 flex items-center gap-0.5 whitespace-nowrap rounded-lg bg-[var(--editor-color-surface-inverse)] p-1 text-[11px] text-[color:var(--editor-color-on-inverse)] shadow-lg shadow-slate-950/30"
       style={style}
       onClick={(event) => event.stopPropagation()}
+      onBlurCapture={() => editorStore.getState().endHistoryGroup()}
     >
       <MenuSelect
         ariaLabel="Selection font"
