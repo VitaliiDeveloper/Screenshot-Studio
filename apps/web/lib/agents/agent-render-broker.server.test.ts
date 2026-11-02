@@ -100,6 +100,18 @@ describe.skipIf(process.platform === "win32")("render broker", () => {
     expect(existsSync(broker.inboxDir)).toBe(true);
   });
 
+  it("removes a dead server's entry that the agent turned into a link, and not what it points at", async () => {
+    await start();
+    const victim = join(root, "victim");
+    await mkdir(victim);
+    await writeFile(join(victim, "keep.txt"), "kept");
+    const planted = join(renderInboxRoot(), String(4_194_000 + Math.floor(Math.random() * 1_000)));
+    await symlink(victim, planted);
+    await sweepStaleRunFolders(renderInboxRoot());
+    expect(existsSync(planted)).toBe(false);
+    expect(await readFile(join(victim, "keep.txt"), "utf8")).toBe("kept");
+  });
+
   it("marks a request as picked up, runs it with the validated flags, and answers", async () => {
     await start();
     const id = await send({ command: "export", flags: { screen: "hero" } });

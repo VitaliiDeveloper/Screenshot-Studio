@@ -35,13 +35,14 @@ vi.mock("./agent-run-process.server.js", async (original) => {
   };
 });
 
-const inboxFailure = vi.hoisted(() => ({ fail: false }));
+const inboxFailure = vi.hoisted(() => ({ fail: false, onCreate: null as null | (() => Promise<unknown>) }));
 vi.mock("./agent-render-inbox.server.js", async (original) => {
   const actual = await original<typeof import("./agent-render-inbox.server.js")>();
   return {
     ...actual,
-    createRenderInbox: () => {
+    createRenderInbox: async () => {
       if (inboxFailure.fail) throw new Error("no temp folder");
+      await inboxFailure.onCreate?.();
       return actual.createRenderInbox();
     },
   };
@@ -159,6 +160,7 @@ beforeEach(async () => {
   };
   launch.fail = false;
   inboxFailure.fail = false;
+  inboxFailure.onCreate = null;
 });
 
 afterEach(async () => {
@@ -199,6 +201,15 @@ describe.skipIf(process.platform === "win32")("a run's render broker", () => {
     it("when the run succeeds", async () => {
       await fakeClaude(renderThen(`/bin/cat '${SUCCESS_FIXTURE}'`));
       await collect(await start());
+      expect(await liveInboxes()).toEqual([]);
+    });
+
+    it("when Stop arrives after the inbox exists and before the launch", async () => {
+      await fakeClaude(`/bin/cat '${SUCCESS_FIXTURE}'`);
+      inboxFailure.onCreate = () => cancelAgentRun(projectDir);
+      const events = await collect(await start());
+      expect(events).toEqual([expect.objectContaining({ type: "done", status: "cancelled" })]);
+      expect(existsSync(join(root, "env"))).toBe(false);
       expect(await liveInboxes()).toEqual([]);
     });
 
