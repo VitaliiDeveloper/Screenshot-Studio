@@ -17,5 +17,14 @@ export function exportPixelRatio(
         `${target.width}×${target.height}; export would distort.`,
     );
   }
+  // Konva assigns `side * pixelRatio` to the integer canvas size, which truncates.
+  const width = Math.trunc(artboard.width * ratioX);
+  const height = Math.trunc(artboard.height * ratioX);
+  if (width !== target.width || height !== target.height) {
+    throw new Error(
+      `Artboard ${artboard.width}×${artboard.height} would render at ${width}×${height}, not the ` +
+        `exact target ${target.width}×${target.height}.`,
+    );
+  }
   return ratioX;
 }
