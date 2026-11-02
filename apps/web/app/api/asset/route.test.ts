@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { writeFileSync, mkdtempSync, rmSync, mkdirSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { PROJECT_ASSET_EXTENSIONS } from "@screenshot-studio/core/model";
 import {
   PROJECT_SESSION_COOKIE,
   projectSessionRegistry,
@@ -154,6 +155,15 @@ describe("GET /api/asset", () => {
 
     expect(response.status).toBe(403);
     expect(response.headers.get("cache-control")).toBe("private, no-store");
+  });
+
+  it.each(PROJECT_ASSET_EXTENSIONS)("serves every shared project asset extension: %s", async (extension) => {
+    writeFileSync(join(dir, "assets", `file${extension}`), "bytes");
+
+    const response = await GET(explicitRequest(`assets/file${extension}`));
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toMatch(/^(image|font)\//);
   });
 
   it("does not serve a project file that is not an image or font", async () => {

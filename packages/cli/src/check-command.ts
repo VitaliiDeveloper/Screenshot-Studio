@@ -14,6 +14,7 @@ import {
 import {
   findUnresolvedFonts,
   getLayout,
+  PROJECT_ASSET_EXTENSIONS,
   ProjectValidationError,
   resolveLayoutReference,
   type Project,
@@ -79,7 +80,7 @@ function message(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-const SERVED_ASSET_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp", ".ttf", ".otf", ".woff", ".woff2"]);
+const SERVED_ASSET_EXTENSIONS = new Set<string>(PROJECT_ASSET_EXTENSIONS);
 
 /**
  * Mirrors `/api/asset`: a path that escapes the project folder, has an unserved extension, or is not

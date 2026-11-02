@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { readFile, realpath, stat } from "node:fs/promises";
 import { dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import type { ProjectAssetExtension } from "@screenshot-studio/core/model";
 import { jsonError } from "./api-error-response.server.js";
 
 const ASSET_CACHE_CONTROL = "private, no-store";
@@ -14,7 +15,7 @@ const CONTENT_TYPES: Record<string, string> = {
   ".otf": "font/otf",
   ".woff": "font/woff",
   ".woff2": "font/woff2",
-};
+} satisfies Record<ProjectAssetExtension, string>;
 
 export function withPrivateAssetPolicy(response: Response, varyByCookie: boolean): Response {
   response.headers.set("cache-control", ASSET_CACHE_CONTROL);
