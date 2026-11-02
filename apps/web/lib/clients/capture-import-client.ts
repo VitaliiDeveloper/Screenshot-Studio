@@ -1,13 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { ProjectScaffoldInput } from "@screenshot-studio/core/scaffold";
 import type { ActiveProjectDescriptor } from "./project-session.js";
-import { isStrongQuotedETag } from "@web/lib/http-etag.js";
 import { readJsonBody, responseErrorMessage } from "@web/lib/json-response.js";
+import { projectRequestHeaders } from "./save-project.js";
 
 export interface CaptureImportCurrentDestination {
   kind: "current-project";
-  projectId: string;
-  revision: string;
   projectName: string;
   layoutId: string;
 }
@@ -132,14 +130,10 @@ export function buildCaptureImportForm(
   return form;
 }
 
+// The revision is read per request: saves made after the dialog opened advance it.
 function requestHeaders(destination: CaptureImportDestination): Record<string, string> | undefined {
   if (destination.kind !== "current-project") return undefined;
-  const projectId = destination.projectId.trim();
-  if (!projectId) throw new TypeError("Capture import target project identity is missing");
-  if (!isStrongQuotedETag(destination.revision)) {
-    throw new TypeError("Capture import target revision is invalid");
-  }
-  return { "x-project-id": projectId, "if-match": destination.revision };
+  return Object.fromEntries(projectRequestHeaders({ conditional: true }));
 }
 
 const fetchCaptureImport: CaptureImportTransport = (endpoint, form, init) => fetch(endpoint, {

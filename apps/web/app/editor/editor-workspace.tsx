@@ -100,7 +100,7 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
   const saveStatus = useStore(editorStore, (state) => state.saveStatus);
   const saveError = useStore(editorStore, (state) => state.saveError);
   const project = useStore(editorStore, (state) => state.project);
-  const captureImport = useEditorCaptureImport(project, activeProjectId, reloadResources, specs);
+  const captureImport = useEditorCaptureImport(project, activeProjectId, reloadResources, reloadFromDisk, specs);
   const workspaceNavigationState = useMemo(() => ({
     zoom,
     view,

@@ -10,13 +10,19 @@ import { GET, PUT } from "@web/app/api/project/route";
 import {
   applyEditorResourceResult,
   loadEditorResources,
+  runEditorResourceReload,
 } from "@web/app/editor/editor-resources";
+import {
+  applyCaptureImport,
+  type CaptureImportTransport,
+} from "@web/lib/clients/capture-import-client";
 import { clearProjectPersistenceIdentity } from "@web/lib/clients/save-project";
 import {
   cancelScheduledSave,
   saveLatestProject,
   scheduleSave,
   switchActiveProject,
+  withDrainedProjectSaves,
   withFlushedProject,
 } from "./debounced-save";
 import { editorStore } from "./editor-store";
@@ -150,6 +156,41 @@ describe("external project changes", () => {
     expect(editorStore.getState().saveStatus).toBe("idle");
     await expect(switchActiveProject(async () => "opened")).resolves.toBe("opened");
     expect(diskName()).toBe("Agent rename");
+  });
+
+  it("imports captures into the open project after its pending edit and reloads without a save conflict", async () => {
+    editProjectName("Edited before import");
+    scheduleSave(editorStore.getState().project!);
+    const applyRoute: CaptureImportTransport = async (_endpoint, _form, init) => {
+      const before = await GET(new Request("http://editor.test/api/project"));
+      if (init.headers?.["if-match"] !== before.headers.get("etag")) return new Response(null, { status: 412 });
+      await writeProjectAtomic(file, projectNamed(`${diskName()} + captures`));
+      const after = await GET(new Request("http://editor.test/api/project"));
+      return Response.json({
+        project: { sessionId: "session", name: "Imported", sourceKind: "managed-project", capabilities: {} },
+        imported: 1,
+      }, { headers: { etag: after.headers.get("etag")!, "x-project-id": after.headers.get("x-project-id")! } });
+    };
+    const request = {
+      files: [new File(["png"], "01.png", { type: "image/png" })],
+      destination: { kind: "current-project" as const, projectName: "Original", layoutId: "primary" },
+    };
+
+    await withFlushedProject(() => applyCaptureImport(request, "a".repeat(64), { transport: applyRoute }));
+    await runEditorResourceReload({
+      serialize: withDrainedProjectSaves,
+      load: () => loadEditorResources({
+        loadImages: async () => new Map(),
+        registerFonts: async () => undefined,
+        fetchStoreSpecs: async () => Response.json(DEFAULT_STORE_SPECS),
+      }),
+      apply: applyEditorResourceResult,
+      isCurrent: () => true,
+    });
+
+    expect(diskName()).toBe("Edited before import + captures");
+    expect(editorStore.getState().project?.meta.name).toBe("Edited before import + captures");
+    expect(editorStore.getState().saveStatus).toBe("idle");
   });
 
   it("leaves a buffered edit alone so it saves or conflicts instead of being dropped", async () => {

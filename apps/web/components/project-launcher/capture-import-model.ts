@@ -9,8 +9,6 @@ import type {
 } from "@web/lib/clients/capture-import-client.js";
 
 export interface CaptureImportCurrentTarget {
-  projectId: string;
-  revision: string;
   projectName: string;
   preferredLayoutId: string;
   layouts: Array<{ id: string; name: string }>;
@@ -115,8 +113,6 @@ export function captureImportRequest(state: Exclude<CaptureImportState, { status
     if (!value.currentTarget || !value.currentLayoutId) return null;
     destination = {
       kind: "current-project",
-      projectId: value.currentTarget.projectId,
-      revision: value.currentTarget.revision,
       projectName: value.currentTarget.projectName,
       layoutId: value.currentLayoutId,
     };
