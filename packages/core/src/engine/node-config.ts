@@ -24,6 +24,8 @@ export type ImageCache = Map<string, HTMLImageElement>;
 export interface ElementRenderContext {
   images?: ImageCache;
   direction?: LayoutDirection;
+  /** Editor stage scale. Export leaves it unset: its stage stays at 1 and scales by pixelRatio. */
+  zoom?: number;
 }
 
 export type NodeFilter = { kind: "blur"; radius: number };
@@ -198,7 +200,7 @@ export function elementToNodeConfig(
   element: Element,
   context: ElementRenderContext = {},
 ): NodeConfig {
-  const { images, direction = "ltr" } = context;
+  const { images, direction = "ltr", zoom = 1 } = context;
   const common = {
     id: element.id,
     x: element.x,
@@ -291,7 +293,8 @@ export function elementToNodeConfig(
               scaleX: element.width / 24,
               scaleY: element.height / 24,
               stroke: element.color,
-              strokeWidth: element.strokeWidth,
+              // strokeScaleEnabled: false keeps pixelRatio but drops the stage scale, so apply it here.
+              strokeWidth: element.strokeWidth * zoom,
               strokeScaleEnabled: false,
               lineCap: "round",
               lineJoin: "round",
