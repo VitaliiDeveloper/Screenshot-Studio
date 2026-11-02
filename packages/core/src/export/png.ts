@@ -26,8 +26,23 @@ function colorTypeOf(buffer: Buffer): number {
   return buffer[25]!;
 }
 
+/** Largest image, in pixels, accepted from untrusted bytes before decoding allocates it. */
+export const MAX_IMAGE_PIXELS = 80_000_000;
+
+const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+/** IHDR is always the first chunk, so the size is known from bytes 16-23 without decoding. */
+function assertPixelLimit(buffer: Buffer): void {
+  if (buffer.length < 24 || !buffer.subarray(0, 8).equals(PNG_SIGNATURE)
+    || buffer.toString("latin1", 12, 16) !== "IHDR") return;
+  if (buffer.readUInt32BE(16) * buffer.readUInt32BE(20) > MAX_IMAGE_PIXELS) {
+    throw new Error(`PNG exceeds ${MAX_IMAGE_PIXELS} pixels`);
+  }
+}
+
 /** Read dimensions and whether the PNG format includes an alpha channel. */
 export function inspectPng(buffer: Buffer): PngInfo {
+  assertPixelLimit(buffer);
   const png = decode(buffer);
   return { width: png.width, height: png.height, hasAlpha: (colorTypeOf(buffer) & 4) !== 0 };
 }

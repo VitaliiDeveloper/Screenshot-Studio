@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
+import { crc32, deflateSync } from "node:zlib";
 import { PNG } from "pngjs";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { DEFAULT_STORE_SPECS, findStoreTarget } from "@screenshot-studio/core/export";
 import {
   Project,
@@ -260,6 +261,36 @@ describe("discoverCaptureImport", () => {
       path: "apple/iphone/en/01.png",
       message: "Capture is not a valid PNG: apple/iphone/en/01.png",
     }]);
+  });
+
+  it("rejects a capture over the image pixel limit before decoding it", () => {
+    const chunk = (type: string, data: Buffer) => {
+      const body = Buffer.concat([Buffer.from(type, "latin1"), data]);
+      const length = Buffer.alloc(4);
+      length.writeUInt32BE(data.length);
+      const crc = Buffer.alloc(4);
+      crc.writeUInt32BE(crc32(body));
+      return Buffer.concat([length, body, crc]);
+    };
+    const side = 9_000;
+    const header = Buffer.alloc(13);
+    header.writeUInt32BE(side, 0);
+    header.writeUInt32BE(side, 4);
+    header[8] = 1;
+    // 1-bit grayscale zero rows deflate to a few KB but decode to ~324 MB of RGBA.
+    const huge = Buffer.concat([
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      chunk("IHDR", header),
+      chunk("IDAT", deflateSync(Buffer.alloc((1 + Math.ceil(side / 8)) * side))),
+      chunk("IEND", Buffer.alloc(0)),
+    ]);
+    const decode = vi.spyOn(PNG.sync, "read");
+
+    const discovery = discoverCaptureImport({ files: [file("apple/iphone/en/01.png", huge)] });
+
+    expect(discovery.invalidEntries.map(({ code }) => code)).toEqual(["invalid-png"]);
+    expect(decode).not.toHaveBeenCalled();
+    decode.mockRestore();
   });
 
   it("rejects the whole input when configured file or byte limits are exceeded", () => {

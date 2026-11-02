@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { basename, dirname, extname } from "node:path";
 import sharp from "sharp";
+import { MAX_IMAGE_PIXELS } from "@screenshot-studio/core/export";
 import {
   ProjectRevisionConflictError,
   readIdentifiedProjectSnapshot,
@@ -17,7 +18,6 @@ import {
 } from "./managed-resource-file.js";
 
 export const MAX_PROJECT_IMAGE_BYTES = 25 * 1024 * 1024;
-const MAX_PROJECT_IMAGE_PIXELS = 80_000_000;
 const IMPORTED_ASSET_PREFIX = "assets/imported/";
 
 export class ProjectImageValidationError extends Error {
@@ -63,7 +63,7 @@ function invalidImage(): never {
 
 function assertDimensions(width: number, height: number): void {
   if (!Number.isInteger(width) || !Number.isInteger(height)
-    || width <= 0 || height <= 0 || width * height > MAX_PROJECT_IMAGE_PIXELS) {
+    || width <= 0 || height <= 0 || width * height > MAX_IMAGE_PIXELS) {
     invalidImage();
   }
 }
@@ -150,7 +150,7 @@ async function assertImageDecodes(bytes: Uint8Array, inspection: ImageInspection
   try {
     const decoded = await sharp(bytes, {
       failOn: "error",
-      limitInputPixels: MAX_PROJECT_IMAGE_PIXELS,
+      limitInputPixels: MAX_IMAGE_PIXELS,
     }).raw().toBuffer({ resolveWithObject: true });
     if (decoded.info.width !== inspection.width || decoded.info.height !== inspection.height) {
       invalidImage();
