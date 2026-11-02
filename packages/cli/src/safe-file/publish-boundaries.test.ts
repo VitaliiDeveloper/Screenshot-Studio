@@ -96,19 +96,22 @@ describe("publishFileSafely", () => {
     expect(await readFile(join(outside, "sentinel.txt"), "utf8")).toBe("outside");
   });
 
-  it("rejects a symbolic link in the ancestry of a missing root", async () => {
+  it("creates a missing root below a symbolic-link ancestor the caller chose", async () => {
     const base = await workspace("safe-file-missing-root-symlink-");
-    const outside = await workspace("safe-file-missing-root-outside-");
+    const target = await workspace("safe-file-missing-root-target-");
     const linked = join(base, "linked");
-    await symlink(outside, linked);
+    await symlink(target, linked);
 
     await expect(publishFileSafely({
-      root: join(linked, "new-root"),
+      root: join(linked, "new", "root"),
       relativePath: "resource.txt",
       bytes: utf8("bytes"),
-    })).rejects.toThrow(/symbolic link.*root/i);
+    })).resolves.toEqual({
+      path: join(await realpath(target), "new", "root", "resource.txt"),
+      created: true,
+    });
 
-    expect(await readdir(outside)).toEqual([]);
+    expect(await readFile(join(target, "new", "root", "resource.txt"), "utf8")).toBe("bytes");
   });
 
   it("rejects a non-directory root", async () => {

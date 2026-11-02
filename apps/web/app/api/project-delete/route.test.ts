@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from "node:crypto";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { lstat, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { readProjectSnapshot } from "@screenshot-studio/core/storage";
+import { startAgentRun, type AgentEvent } from "@web/lib/agents/agent-session.server.js";
 import { resolveManagedProjectStorageConfig } from "@web/lib/managed-projects/managed-project-config.server.js";
 import { ManagedProjectLifecycleService } from "@web/lib/managed-projects/managed-project-lifecycle.server.js";
 import {
@@ -183,6 +184,82 @@ describe("POST /api/project-delete", () => {
     ), { lifecycle, managedStorageConfig: config });
     expect(status.status).toBe(200);
     expect(await status.json()).toEqual({ operationId: OPERATION_ID, status: "deleted-complete" });
+  });
+
+  it.skipIf(process.platform === "win32")("stops the project's agent run so its exit cannot bring the folder back", async () => {
+    const root = await mkdtemp(join(tmpdir(), "project-delete-route-"));
+    roots.push(root);
+    const bin = join(root, "bin");
+    await mkdir(bin);
+    await writeFile(join(bin, "claude"), `#!/bin/sh
+case "$1" in
+  --version) echo '2.1.296 (Claude Code)' ;;
+  --help) echo '  --bare    Minimal mode' ;;
+  auth) echo '{"loggedIn":true,"authMethod":"claude.ai"}' ;;
+  *) /bin/sleep 30 & wait ;;
+esac
+`, { mode: 0o755 });
+    const config = resolveManagedProjectStorageConfig({ SCREENSHOT_STUDIO_DATA_ROOT: join(root, "data") });
+    const repository = new ManagedProjectRepository(config);
+    const stage = await repository.createStage();
+    await writeFile(join(stage.path, "app-store-screenshots.json"), projectJson());
+    const project = await repository.publishStage({ token: stage.token });
+    const registry = new ProjectSessionRegistry({
+      createSessionId: () => "agent-delete-session",
+      managedSource: new ManagedProjectSourceAdapter(repository),
+    });
+    const session = await registry.openManaged(project.id);
+    const revision = (await readProjectSnapshot(project.projectPath)).revision;
+    const run = await startAgentRun({
+      agentId: "claude-code",
+      projectDir: dirname(project.projectPath),
+      message: "Work",
+      env: { NODE_ENV: "test", PATH: bin, HOME: root },
+    });
+    const reader = run.events.getReader();
+    const lastEvent = (async () => {
+      let last: AgentEvent | undefined;
+      for (let next = await reader.read(); !next.done; next = await reader.read()) last = next.value;
+      return last;
+    })();
+
+    const deleted = await handleProjectDeletePost(new Request("http://localhost/api/project-delete", {
+      method: "POST",
+      headers: {
+        cookie: `screenshot_studio_project_session=${session.descriptor.sessionId}`,
+        "content-type": "application/json",
+        "if-match": `"${revision}"`,
+        "x-project-id": project.id,
+      },
+      body: JSON.stringify({
+        operationId: OPERATION_ID,
+        statusSecret: STATUS_SECRET,
+        expectedLifecycleRevision: project.lifecycleRevision,
+        confirmation: "Delete me",
+        backup: { kind: "none", acknowledged: true },
+      }),
+    }), { registry, lifecycle: new ManagedProjectLifecycleService(config, registry), managedStorageConfig: config });
+
+    expect(deleted.status).toBe(200);
+    run.cancel();
+    // Cancelled, not failed: the run ended while its folder was still there.
+    expect(await lastEvent).toMatchObject({ type: "done", status: "cancelled" });
+    await expect(lstat(dirname(project.projectPath))).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("refuses to delete while a run does not stop", async () => {
+    const input = registry();
+    const lifecycle = { permanentlyDelete: vi.fn(), reconcileDeletionOperation: vi.fn() };
+
+    const response = await handleProjectDeletePost(request(input.session.descriptor.sessionId), {
+      registry: input.registry,
+      lifecycle,
+      managedReadGuard: noReadGuard,
+      stopAgentRun: async () => false,
+    });
+
+    expect(response.status).toBe(423);
+    expect(lifecycle.permanentlyDelete).not.toHaveBeenCalled();
   });
 
   it("dispatches an exact confirmed managed deletion with a server-side secret hash", async () => {

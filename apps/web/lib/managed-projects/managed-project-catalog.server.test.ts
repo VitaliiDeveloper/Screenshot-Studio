@@ -5,12 +5,12 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { resolveManagedProjectStorageConfig } from "./managed-project-config.server.js";
 import { acquireManagedProjectLifecycleLock } from "./managed-project-lifecycle-lock.server.js";
+import { ManagedProjectCatalogStore } from "./managed-project-catalog.server.js";
 import {
   parseManagedProjectCatalog,
   serializeManagedProjectCatalog,
-  ManagedProjectCatalogStore,
-} from "./managed-project-catalog.server.js";
-import type { ActiveManagedProjectCatalogEntry } from "./managed-project-catalog.server.js";
+  type ActiveManagedProjectCatalogEntry,
+} from "./managed-project-catalog-document.server.js";
 import type { ManagedProjectStorageConfig } from "./managed-project-config.server.js";
 
 const PROJECT_ID = "project_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";

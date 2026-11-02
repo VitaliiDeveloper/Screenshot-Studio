@@ -49,7 +49,7 @@ maintaining a second file list.
 | `test:e2e:parity:elements` | groups, images/crop, icons, badges, consolidated element rendering, styled template packs (long text, RTL, previews), project pack export/apply round trip | one of those element contracts, a built-in pack, or project packs change |
 | `test:e2e:export` | CLI/UI bundles, dimensions, alpha, safe paths, `screenshots check --render` issues | export, check, or render-host orchestration |
 | `test:e2e:editor:interaction` | canvas editing, panels, inspector, history, snapping | direct interaction behavior |
-| `test:e2e:editor:workspace` | launcher/import/archive round trip, isolated/connected workspace, locale scope, responsive state, status bar and keyboard shortcuts, Agent panel run and Undo run with a fake CLI | launcher, workspace, locale, or Agent panel ownership |
+| `test:e2e:editor:workspace` | launcher/import/archive round trip, isolated/connected workspace, locale scope, responsive state, status bar and keyboard shortcuts, Agent panel run and Undo run with a fake CLI, an agent rendering through the editor with the real client | launcher, workspace, locale, or Agent panel ownership |
 | `test:e2e:editor:authoring` | fonts, themes, templates, assets, selection, groups, icons, badges, styling/frame controls | authoring entry points |
 | `test:e2e:accessibility` | serious/critical Axe findings at desktop and compact widths | semantics, dialogs, menus, responsive UI |
 | `test:e2e:browsers` | Chromium, Firefox, and WebKit author/persist/reload smoke | browser-sensitive code or release readiness |
@@ -60,6 +60,11 @@ maintaining a second file list.
 The full config keeps files sequential because each file owns mutable project state and usually its
 own server/browser lifecycle. Reuse a session inside one file only when isolation and fresh-page
 assertions remain explicit.
+
+Parity files compare a headed render with a headless one. A headed window on macOS always lands on
+screen and takes focus, so local macOS runs fill the headed slot with full Chrome in new headless
+mode, which shows no window. Truly headed parity comes from Linux CI under `xvfb-run`. Set
+`SCREENSHOTS_E2E_HEADED=1` for a truly headed run on macOS.
 
 Launcher 3 browser ownership is intentionally one exact file. It proves compact Projects boundaries,
 configured-local compatibility, Folder import into a managed copy, project-details archive download,
@@ -178,9 +183,6 @@ render of that run, so it can replace the Linux set as is:
 ```bash
 rm -rf e2e/golden/linux && cp -R <artifact>/actual e2e/golden/linux
 ```
-
-Seed the Linux set this way from the first run on the integration pull request into `dev`, which
-fails because no Linux references exist yet.
 
 To accept an intended visual change, open the artifact's `diff/*.diff.png` and `*.expected.png` for
 every failing case. If every difference is intended, replace `e2e/golden/linux/` from `actual/` as

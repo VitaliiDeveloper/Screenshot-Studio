@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 import { resolve } from "node:path";
+import { headers } from "next/headers";
 import { getLayout } from "@screenshot-studio/core/model";
 import {
   ProjectPathError,
   readIdentifiedProjectSnapshot,
   resolveExistingProjectPath,
 } from "@screenshot-studio/core/storage";
+import { isLoopbackHost } from "@web/lib/agents/loopback-request.server.js";
 import { RenderStage } from "./RenderStage";
 
 /**
@@ -15,8 +17,8 @@ import { RenderStage } from "./RenderStage";
  * contract so render/export parity remains centralized (docs/architecture.md).
  *
  * The project is read from disk by path (`?project=`) and validated with the same `core` loader
- * the CLI uses. Arbitrary local file read is acceptable here: the product is a local, self-hosted
- * tool and this route is dev-only.
+ * the CLI uses. Arbitrary local file read is acceptable only from a loopback Host: a DNS-rebound
+ * origin must not read error snippets of local files or trigger project stage recovery.
  */
 export const dynamic = "force-dynamic";
 
@@ -25,6 +27,9 @@ export default async function RenderPage({
 }: {
   searchParams: Promise<{ project?: string; layout?: string; screen?: string; revision?: string }>;
 }) {
+  if (!isLoopbackHost((await headers()).get("host"))) {
+    return <main data-render-error="non-loopback">Render is only available from localhost</main>;
+  }
   const { project: projectPath, layout: requestedLayoutId, screen: screenId, revision } = await searchParams;
   if (!projectPath) {
     return <main data-render-error="missing-project">Missing ?project= path</main>;

@@ -36,7 +36,7 @@ export interface PublicationInspectionDependencies {
 }
 export type FilePublicationDestinationState = "missing" | "matching" | "conflicting";
 export interface DeterministicRemovalDependencies {
-  moveFile?: (source: string, destination: string) => Promise<void>;
+  linkFile?: (source: string, destination: string) => Promise<void>;
   removeFile?: (path: string) => Promise<void>;
   syncDirectory?: (directory: string) => Promise<void>;
   afterQuarantine?: (quarantinePath: string) => void | Promise<void>;
@@ -64,6 +64,8 @@ export type StageHandle = Pick<FileHandle, "writeFile" | "sync" | "close">
   & Partial<Pick<FileHandle, "stat">>;
 export type VerificationHandle = Pick<FileHandle, "stat" | "read" | "readFile" | "close">;
 export type InspectionHandle = Pick<FileHandle, "stat" | "read" | "close">;
+export type EvidenceHandle = Pick<FileHandle, "stat" | "readFile" | "close">;
+export type OpenEvidence = (path: string, flags: number) => Promise<EvidenceHandle>;
 export type StageIdentity = SafeFileOwnership;
 export interface TrackedFileEvidence extends StageIdentity {
   links: bigint;

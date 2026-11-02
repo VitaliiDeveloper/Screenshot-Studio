@@ -18,6 +18,7 @@ import {
 } from "@screenshot-studio/core/model";
 import type { ElementPatchFor } from "@web/lib/editor/editor-store";
 import {
+  ColorInput,
   cx,
   editorUi,
   MenuSelect,
@@ -133,12 +134,11 @@ export function TextInspectorFields({
             editorUi.field,
             "flex w-36 cursor-pointer items-center gap-2 px-2",
           )}>
-            <input
-              type="color"
+            <ColorInput
               aria-label="Text color"
               value={element.color}
-              onChange={(event) => onChange({ color: event.currentTarget.value })}
-              className="size-5 shrink-0 cursor-pointer rounded border-0 bg-transparent p-0"
+              onChange={(color) => onChange({ color })}
+              className="size-5 rounded"
             />
             <span className="truncate font-medium tabular-nums text-[color:var(--editor-color-text-default)]">
               {element.color.toUpperCase()}

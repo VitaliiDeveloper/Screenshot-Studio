@@ -3,6 +3,7 @@ import {
   elementLeaves,
   getLayout,
   missingLocaleScreens,
+  sameScreenGroup,
   type LeafElement,
   type Project,
   type Screen,
@@ -40,6 +41,16 @@ export type ProjectIssue =
     layoutId: string;
     screenId: string;
     elementId: string;
+  }
+  | {
+    kind: "unequal-connected-artboard";
+    id: string;
+    level: "warning";
+    layoutId: string;
+    screenId: string;
+    elementId: null;
+    /** The strip's first screen, which the rest of the strip is compared with. */
+    stripArtboard: { width: number; height: number };
   };
 
 export interface IssueChecks {
@@ -114,5 +125,21 @@ export function collectLayoutIssues(
         elementId: leaf.id,
       })))
     : [];
-  return [...missing, ...missingImages, ...overflows];
+  const unequalArtboards = layout.mode === "connected"
+    ? layout.screens.flatMap((screen): ProjectIssue[] => {
+      const { artboard } = layout.screens.find((candidate) => sameScreenGroup(candidate, screen))!;
+      return artboard.width === screen.artboard.width && artboard.height === screen.artboard.height
+        ? []
+        : [{
+          kind: "unequal-connected-artboard",
+          id: `unequal-connected-artboard:${screen.id}`,
+          level: "warning",
+          layoutId: layout.id,
+          screenId: screen.id,
+          elementId: null,
+          stripArtboard: artboard,
+        }];
+    })
+    : [];
+  return [...missing, ...missingImages, ...overflows, ...unequalArtboards];
 }

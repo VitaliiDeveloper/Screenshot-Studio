@@ -23,6 +23,7 @@ import {
 } from "@web/lib/clients/save-project";
 import {
   cancelScheduledSave,
+  markProjectPersisted,
   withDrainedProjectSaves,
   withFlushedProject,
 } from "@web/lib/editor/debounced-save";
@@ -81,6 +82,7 @@ export function applyEditorResourceResult(
   const sameProject = getProjectPersistenceIdentity()?.projectId === resources.projectId
     && editorStore.getState().project !== null;
   setProjectPersistenceIdentity(resources.projectId, resources.revision);
+  markProjectPersisted(resources.project);
   if (sameProject) {
     editorStore.getState().reloadProject(resources.project);
     return;

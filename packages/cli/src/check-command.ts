@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { readFile, realpath, stat } from "node:fs/promises";
-import { dirname, isAbsolute, resolve } from "node:path";
+import { dirname, extname, isAbsolute, resolve } from "node:path";
 import {
   bundlePreflightWarnings,
   bundleRelativePath,
@@ -14,6 +14,7 @@ import {
 import {
   findUnresolvedFonts,
   getLayout,
+  PROJECT_ASSET_EXTENSIONS,
   ProjectValidationError,
   resolveLayoutReference,
   type Project,
@@ -64,6 +65,8 @@ export interface CheckReport {
 export interface CheckCommandDependencies {
   startWebServer?: typeof startWebServer;
   collectRenderedLayoutIssues?: typeof collectRenderedLayoutIssues;
+  /** Replaces the parser's text for an invalid project, which can quote the file it read. */
+  invalidProjectMessage?: string;
 }
 
 export interface CheckCommandResult {
@@ -79,12 +82,18 @@ function message(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-/** Mirrors `/api/asset`: a path that escapes the project folder or is not a regular file never loads. */
+const SERVED_ASSET_EXTENSIONS = new Set<string>(PROJECT_ASSET_EXTENSIONS);
+
+/**
+ * Mirrors `/api/asset`: a path that escapes the project folder, has an unserved extension, or is not
+ * a regular file never loads.
+ */
 async function projectFileMissing(root: string, path: string): Promise<boolean> {
   if (isAbsolute(path)) return true;
   try {
     const target = await realpath(resolve(root, path));
     assertInside(root, target, "Project file");
+    if (!SERVED_ASSET_EXTENSIONS.has(extname(target).toLowerCase())) return true;
     return !(await stat(target)).isFile();
   } catch {
     return true;
@@ -130,7 +139,9 @@ function fromEngine(issue: ProjectIssue, project: Project, specs: StoreSpecs): C
     level: issue.level,
     message: issue.kind === "missing-image"
       ? `Image missing from the project folder: ${issue.assetUrl}`
-      : "Text overflows its layer box",
+      : issue.kind === "unequal-connected-artboard"
+        ? `Artboard differs from its connected strip (${issue.stripArtboard.width}×${issue.stripArtboard.height}), so seams mix scales`
+        : "Text overflows its layer box",
     layoutId: issue.layoutId,
     screenId: screen.id,
     size: screenSizeId(screen, specs),
@@ -241,7 +252,7 @@ export async function collectCheckReport(
       id: "invalid-project",
       kind: "invalid-project",
       level: "blocker",
-      message: error.message,
+      message: dependencies.invalidProjectMessage ?? error.message,
       layoutId: null,
       screenId: null,
       size: null,

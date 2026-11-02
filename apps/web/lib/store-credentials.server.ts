@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createPrivateKey } from "node:crypto";
-import { lstat, mkdir, open, readFile, realpath, rename, rm, stat, writeFile } from "node:fs/promises";
-import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { lstat, mkdir, open, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { isRecord } from "@web/lib/json-guards.js";
 import { resolveManagedProjectStorageConfig } from "@web/lib/managed-projects/managed-project-config.server.js";
 import { writePrivateJsonDocument } from "@web/lib/private-json-document.server.js";
+import { realPathOf, storeKeyFolder } from "@web/lib/store-key-folder.server.js";
 import type { CredentialStoreId, StoreCredentialStatus } from "./store-upload.js";
 
 export interface AppleStoreCredentials {
@@ -87,16 +88,6 @@ export function validateAppleCredentials(value: unknown): AppleStoreCredentials 
   return { keyId, issuerId, privateKey };
 }
 
-/** Resolves symlinks in the longest existing prefix, so a not-yet-created folder still compares by its real parent. */
-async function realPathOf(path: string): Promise<string> {
-  try {
-    return await realpath(path);
-  } catch {
-    const parent = dirname(path);
-    return parent === path ? path : join(await realPathOf(parent), basename(path));
-  }
-}
-
 /** Keys never go inside a project folder, where they could be archived or committed with it. */
 export async function assertCredentialsOutsideProject(store: StoreCredentialStore, projectDirectory: string): Promise<void> {
   const path = relative(await realPathOf(resolve(projectDirectory)), await realPathOf(store.directory));
@@ -109,7 +100,7 @@ export async function assertCredentialsOutsideProject(store: StoreCredentialStor
 }
 
 export function createStoreCredentialStore(root: string = resolveManagedProjectStorageConfig().root): StoreCredentialStore {
-  const directory = join(resolve(root), "store-credentials");
+  const directory = storeKeyFolder(root);
   const pathOf = (file: string) => join(directory, file);
   let queue: Promise<unknown> = Promise.resolve();
 

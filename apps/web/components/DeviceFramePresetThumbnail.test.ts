@@ -20,7 +20,7 @@ vi.mock("react-konva", () => ({
   Layer: ({ children }: { children?: React.ReactNode }) => React.createElement("div", null, children),
   Stage: ({ children }: { children?: React.ReactNode }) => React.createElement("div", null, children),
 }));
-vi.mock("./EditorStage.js", () => ({
+vi.mock("./editor-stage/render-node-config-child.js", () => ({
   renderNodeConfigChild: mocks.renderNodeConfigChild,
 }));
 vi.mock("@screenshot-studio/core/engine", () => ({

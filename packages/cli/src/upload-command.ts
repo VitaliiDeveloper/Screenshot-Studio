@@ -27,10 +27,12 @@ import {
   type GooglePlayUploadPlan,
   type RemoteImage,
 } from "./store-upload-plan.js";
+import { GOOGLE_PLAY_SERVICE_ACCOUNT_ENV } from "./store-credential-env.js";
+
+export { GOOGLE_PLAY_SERVICE_ACCOUNT_ENV };
 
 /** Set by the editor for every agent it spawns; `screenshots upload` refuses to run under it. */
 export const AGENT_MARKER_ENV = "SCREENSHOT_STUDIO_AGENT";
-export const GOOGLE_PLAY_SERVICE_ACCOUNT_ENV = "GOOGLE_PLAY_SERVICE_ACCOUNT_PATH";
 
 export interface UploadCommandDependencies extends ExportCommandDependencies {
   env?: NodeJS.ProcessEnv;

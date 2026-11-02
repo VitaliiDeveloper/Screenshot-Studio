@@ -52,7 +52,7 @@ export function ToolRail({
       aria-label="Editor tools"
       className="z-40 flex h-full w-15 shrink-0 flex-col items-center gap-0.5 border-r border-[var(--editor-color-border)] bg-[var(--editor-color-surface-subtle)] py-2"
     >
-      <ToolButton label="Select tool" caption="Select" active={tool === "select"} onClick={() => onToolChange("select")}>
+      <ToolButton label="Select tool" caption="Select" data-dialog-focus-fallback active={tool === "select"} onClick={() => onToolChange("select")}>
         <MousePointer2 size={16} strokeWidth={1.9} />
       </ToolButton>
       <ToolButton label="Hand tool" caption="Hand" active={tool === "hand"} onClick={() => onToolChange("hand")}>

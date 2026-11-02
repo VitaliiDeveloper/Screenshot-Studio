@@ -24,6 +24,7 @@ export interface CaptureImportControllerOptions {
   currentTarget: CaptureImportCurrentTarget | null;
   specs?: StoreSpecs;
   activateNewProject?: ActivationFence;
+  applyToCurrentProject?: ActivationFence;
   onCompleted(
     result: CaptureImportApplyResult,
     destinationKind: "current-project" | "new-project",
@@ -127,6 +128,7 @@ export function useCaptureImportController({
   currentTarget,
   specs = DEFAULT_STORE_SPECS,
   activateNewProject = directActivation,
+  applyToCurrentProject = directActivation,
   onCompleted,
   onRecoverStale,
 }: CaptureImportControllerOptions): CaptureImportController {
@@ -206,7 +208,7 @@ export function useCaptureImportController({
     );
     const pending = destinationKind === "new-project"
       ? activateNewProject(operation)
-      : operation();
+      : applyToCurrentProject(operation);
     void pending.then(async (result) => {
       if (!mountedRef.current || controller.signal.aborted) return;
       await completeCaptureImportHandoff(
@@ -223,7 +225,7 @@ export function useCaptureImportController({
     }).finally(() => {
       if (controllerRef.current === controller) controllerRef.current = null;
     });
-  }, [activateNewProject, onCompleted, state]);
+  }, [activateNewProject, applyToCurrentProject, onCompleted, state]);
 
   const cancel = useCallback(() => {
     const phase = state.status === "applying" ? "apply"

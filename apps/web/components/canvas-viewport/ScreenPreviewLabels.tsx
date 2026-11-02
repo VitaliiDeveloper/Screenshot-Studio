@@ -5,7 +5,7 @@ import type { StoreSpecs } from "@screenshot-studio/core/export";
 import type { Screen } from "@screenshot-studio/core/model";
 import { cx } from "@web/components/editor-ui";
 import { screenSizeLabel } from "@web/lib/editor/editor-issues";
-import { screenStoreTarget } from "@web/lib/editor/editor-workspace";
+import { screenStoreTarget } from "@web/lib/editor/store-target-labels";
 
 function previewWidthStyle(width?: number): CSSProperties | undefined {
   return width === undefined ? undefined : { width };

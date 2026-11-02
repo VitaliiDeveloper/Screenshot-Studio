@@ -23,10 +23,11 @@ export function cloneLocaleSet(
   project: ProjectModel,
   layoutId: string,
   sourceLocale: string,
-  targetLocale: string,
+  rawTargetLocale: string,
   targetDirection?: LayoutDirection,
 ): ProjectModel {
-  if (!targetLocale.trim()) throw new Error("Target locale must not be empty");
+  const targetLocale = rawTargetLocale.trim();
+  if (!targetLocale) throw new Error("Target locale must not be empty");
 
   const layout = getLayout(project, layoutId);
   const sourceScreens = layout.screens.filter((screen) => screen.locale === sourceLocale);

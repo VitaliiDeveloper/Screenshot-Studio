@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { rejectNonLoopbackRequest } from "@web/lib/agents/loopback-request.server.js";
+import { withManagedProjectReadGuard } from "@web/lib/managed-projects/managed-project-mutation-guard.server.js";
 import { withProjectReadRequest } from "@web/lib/session/project-request-fence.server.js";
 import { handleAgentSessionDelete, handleAgentSessionPost } from "./handler.js";
 
@@ -13,7 +14,12 @@ export const runtime = "nodejs";
 
 export async function POST(req: Request): Promise<Response> {
   return rejectNonLoopbackRequest(req)
-    ?? withProjectReadRequest(req, ({ projectPath }) => handleAgentSessionPost(projectPath, req));
+    ?? withProjectReadRequest(req, (session) => handleAgentSessionPost(session.projectPath, req, {
+      renderHost: {
+        origin: new URL(req.url).origin,
+        guard: (operation) => withManagedProjectReadGuard(session, operation),
+      },
+    }));
 }
 
 export async function DELETE(req: Request): Promise<Response> {

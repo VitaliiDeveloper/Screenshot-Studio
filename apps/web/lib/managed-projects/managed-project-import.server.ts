@@ -19,6 +19,8 @@ const MAX_IMPORT_PATH_BYTES = 1_024;
 const MAX_IMPORT_PATH_SEGMENTS = 64;
 const MAX_IMPORT_SEGMENT_BYTES = 255;
 const IGNORED_PLATFORM_METADATA = new Set([".DS_Store"]);
+const MACOS_METADATA_ROOT = "__MACOSX/";
+const MACOS_RESOURCE_FORK_PREFIX = "._";
 
 export type ManagedProjectImportKind = "folder" | "archive" | "json";
 
@@ -68,6 +70,13 @@ function isBoundedImportPath(path: string): boolean {
     && segments.every((segment) => encoder.encode(segment).byteLength <= MAX_IMPORT_SEGMENT_BYTES);
 }
 
+function isIgnoredPlatformMetadata(path: string): boolean {
+  const basename = posix.basename(path);
+  return IGNORED_PLATFORM_METADATA.has(basename)
+    || basename.startsWith(MACOS_RESOURCE_FORK_PREFIX)
+    || path.startsWith(MACOS_METADATA_ROOT);
+}
+
 function normalizeFolderPaths(files: readonly ProjectImportFile[]): ProjectImportFile[] {
   const firstSegments = files.map((file) => file.relativePath.split("/")[0]);
   const sharedRoot = firstSegments[0];
@@ -96,7 +105,7 @@ function normalizeFiles(
   }
   const files = kind === "json"
     ? input
-    : input.filter((file) => !IGNORED_PLATFORM_METADATA.has(posix.basename(file.relativePath)));
+    : input.filter((file) => !isIgnoredPlatformMetadata(file.relativePath));
   if (files.length === 0) {
     throw new ManagedProjectImportError("Project import contains no project files", "invalid-project");
   }
@@ -162,6 +171,17 @@ function validateFileSet(
       if (declaredBytes > repository.config.maxProjectBytes
         || declaredBytes > repository.config.maxImportUploadBytes) {
         throw new ManagedProjectImportError("Project import exceeds the configured byte limit", "limit");
+      }
+    }
+  }
+  for (const file of files) {
+    const segments = foldPortablePath(file.relativePath).split("/");
+    for (let depth = 1; depth < segments.length; depth += 1) {
+      if (seen.has(segments.slice(0, depth).join("/"))) {
+        throw new ManagedProjectImportError(
+          `Project import uses a file as a folder: ${file.relativePath}`,
+          "duplicate",
+        );
       }
     }
   }

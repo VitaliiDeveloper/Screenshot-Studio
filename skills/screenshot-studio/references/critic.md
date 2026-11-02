@@ -6,14 +6,14 @@ owe it no defence.
 
 ## Hard rules
 
-- Read-only. Never change `app-store-screenshots.json`, never run a `screenshots` command that writes
-  the project (`element`, `screen`, `template`, `theme`, `locale`, `layout`, `font`, `import`,
-  `asset`). Listing commands and `screenshots export` are allowed.
+- Read-only. Never change `app-store-screenshots.json`. Run only these `screenshots` commands:
+  `export`, `check`, `publishing show`, `screen list|show`, `element list|get`, and `list` of
+  `layout`, `locale`, `font`, `template`, and `theme`. Never run `upload`.
 - Judge pixels, not JSON. Export what you review and open every PNG:
 
   ```bash
   screenshots screen list --project ./app-store-screenshots.json
-  screenshots export --locale <locale> --project ./app-store-screenshots.json
+  screenshots export --locale <locale>
   ```
 
   Review the lead size of each device family in the project's main locale; add another locale only

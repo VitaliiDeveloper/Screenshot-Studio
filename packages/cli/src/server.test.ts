@@ -319,6 +319,31 @@ describe("createServerController", () => {
     expect(spawnOptions.env?.STORE_SPECS_PATH).toBe("/opt/screenshot-studio/store-specs.json");
   });
 
+  it("keeps store credentials out of the render host environment", async () => {
+    vi.stubEnv("APP_STORE_CONNECT_KEY_ID", "key-id");
+    vi.stubEnv("APP_STORE_CONNECT_ISSUER_ID", "issuer-id");
+    vi.stubEnv("app_store_connect_key_path", "/keys/AuthKey.p8");
+    vi.stubEnv("GOOGLE_PLAY_SERVICE_ACCOUNT_PATH", "/keys/play.json");
+    vi.stubEnv("SCREENSHOT_STUDIO_DATA_ROOT", "/data");
+    const child = new FakeChild();
+    const spawn = vi.fn((_cmd: string, _args: string[], _options: unknown) => child as never);
+    try {
+      await createServerController({
+        port: 4570,
+        spawn,
+        waitForHttp: vi.fn(async () => undefined),
+        timeoutMs: 100,
+      });
+    } finally {
+      vi.unstubAllEnvs();
+    }
+
+    const env = (spawn.mock.calls[0]?.[2] as { env: Record<string, string> }).env;
+    expect(Object.keys(env).filter((name) => /store_connect|google_play/i.test(name))).toEqual([]);
+    expect(env.SCREENSHOT_STUDIO_DATA_ROOT).toBe("/data");
+    expect(env.PATH).toBe(process.env.PATH);
+  });
+
   it("kills the child when readiness fails", async () => {
     const child = new FakeChild();
     await expect(

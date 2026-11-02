@@ -326,6 +326,12 @@ describe("runLaunchCommand", () => {
     expect(deps.startServer).not.toHaveBeenCalled();
   });
 
+  it("rejects a port outside 1-65535 before probing", async () => {
+    const deps = launchDeps("free");
+    await expect(runLaunchCommand({ port: "65536" }, deps)).rejects.toThrow(/--port/);
+    expect(deps.probe).not.toHaveBeenCalled();
+  });
+
   it.each([
     ["--no-open", { "no-open": "true" }, {}],
     ["--app and --no-open", { app: "true", "no-open": "true" }, {}],

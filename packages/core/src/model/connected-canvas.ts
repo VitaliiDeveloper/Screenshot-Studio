@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import type { Element, LeafElement, Project, Screen } from "./schema.js";
+import type { DesignLayout, Element, LeafElement, Project, Screen } from "./schema.js";
 import { getLayout } from "./project-layout.js";
 
 /** One screen projected into its exact platform/device/locale strip. */
@@ -17,9 +17,22 @@ export function sameScreenGroup(first: Screen, second: Screen): boolean {
 }
 
 /**
- * Project an exact export group into a gapless, top-aligned horizontal strip in project order.
- * Screen/element storage remains unchanged; this is the single connected-coordinate derivation.
+ * Project an exact export group into a gapless, top-aligned horizontal strip. Storage remains
+ * unchanged; this is the single connected-coordinate derivation. The result keeps project order,
+ * which drives export order and z-order, while an RTL group runs right to left: mirroring each
+ * screen in its own artboard then mirrors the whole strip and keeps every seam continuous.
  */
+export function projectLayoutScreenGroup(layout: DesignLayout, target: Screen): ProjectedScreen[] {
+  const group = layout.screens.filter((screen) => sameScreenGroup(screen, target));
+  const stripWidth = group.reduce((sum, screen) => sum + screen.artboard.width, 0);
+  let start = 0;
+  return group.map((screen) => {
+    const x = target.direction === "rtl" ? stripWidth - start - screen.artboard.width : start;
+    start += screen.artboard.width;
+    return { screen, x, y: 0 as const };
+  });
+}
+
 export function projectScreenGroup(
   project: Project,
   layoutId: string,
@@ -28,15 +41,7 @@ export function projectScreenGroup(
   const layout = getLayout(project, layoutId);
   const target = layout.screens.find((screen) => screen.id === screenId);
   if (!target) throw new Error(`Screen "${screenId}" not found`);
-
-  let x = 0;
-  return layout.screens
-    .filter((screen) => sameScreenGroup(screen, target))
-    .map((screen) => {
-      const projected = { screen, x, y: 0 as const };
-      x += screen.artboard.width;
-      return projected;
-    });
+  return projectLayoutScreenGroup(layout, target);
 }
 
 export interface ElementBounds {

@@ -172,6 +172,7 @@ export function ThemeManagerDialog({ onClose }: { onClose: () => void }) {
       description="Apply colors and fonts to every screen in this layout. Everything stays editable."
       ariaLabel="Design pack picker"
       closeLabel="Close design pack picker"
+      initialFocus="heading"
       onClose={close}
       closeDisabled={applying !== null}
       widthClass="max-w-2xl"

@@ -177,6 +177,18 @@ describe("elementToNodeConfig — trusted vector icon", () => {
       },
     });
   });
+
+  it("scales only the stroke width by the editor zoom, including grouped icons", () => {
+    const group: GroupElement = {
+      id: "group", type: "group", x: 0, y: 0, width: 120, height: 240,
+      rotation: 0, opacity: 1, locked: false, visible: true, children: [icon],
+    };
+    const result = elementToNodeConfig(group, { zoom: 0.25 });
+    if (result.konva !== "Group" || result.children[0]!.konva !== "Group") throw new Error("expected Groups");
+    expect(result.children[0]!.children[1]!.config).toMatchObject({
+      data: ICON_PATHS.heart, scaleX: 5, scaleY: 10, strokeWidth: 1, strokeScaleEnabled: false,
+    });
+  });
 });
 
 describe("elementToNodeConfig — persisted group", () => {

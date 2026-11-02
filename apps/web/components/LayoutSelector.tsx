@@ -112,7 +112,9 @@ export function LayoutSelector() {
 
   if (!project || !activeLayout) return null;
 
+  // Each menu action focuses the live trigger first so its dialog returns focus there, not to the item.
   const beginCreate = () => {
+    triggerRef.current?.focus();
     setName("");
     setMode("isolated");
     setError(null);
@@ -120,6 +122,7 @@ export function LayoutSelector() {
     setMenuState(CLOSED_LAYOUT_MENU);
   };
   const beginRename = (layout: DesignLayout) => {
+    triggerRef.current?.focus();
     setRenameTargetId(layout.id);
     setName(layout.name);
     setError(null);
@@ -243,6 +246,7 @@ export function LayoutSelector() {
                           setMenuState((current) => ({ ...current, actionMenuId: null }));
                         }}><Star size={13} /> Prefer for export</button>
                         <button type="button" role="menuitem" disabled={!actions.canDelete} className={cx(actionMenuItem, "text-[color:var(--editor-color-danger-text)] hover:bg-[var(--editor-color-danger-surface)] hover:text-[color:var(--editor-color-danger-text)]")} onClick={() => {
+                          triggerRef.current?.focus();
                           setMenuState(CLOSED_LAYOUT_MENU);
                           setPendingDeleteLayout(layout);
                         }}><Trash2 size={13} /> Delete</button>
@@ -269,7 +273,7 @@ export function LayoutSelector() {
           <div className="flex flex-col gap-3">
             <label className="flex flex-col gap-1 text-xs font-medium text-[color:var(--editor-color-text-muted)]">
               Name
-              <input className={editorUi.field} autoFocus value={name} onChange={(event) => setName(event.target.value)} />
+              <input className={editorUi.field} value={name} onChange={(event) => setName(event.target.value)} />
             </label>
             {dialog === "create" ? (
               <div className="flex flex-col gap-1 text-xs font-medium text-[color:var(--editor-color-text-muted)]">

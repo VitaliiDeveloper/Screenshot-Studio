@@ -462,4 +462,50 @@ describe("writeBundleOutputs", () => {
     expect(recoveryDirectories).toHaveLength(1);
     expect(await readFile(join(outDir, recoveryDirectories[0]!, "backup", "0"), "utf8")).toBe("prior");
   });
+
+  it("keeps a backup changed in staging out of the output during rollback", async () => {
+    const outDir = await workspace("bundle-output-tampered-backup-");
+    const destination = join(outDir, entries[0]!.relativePath);
+    await mkdir(dirname(destination), { recursive: true });
+    await writeFile(destination, "prior");
+    let moves = 0;
+
+    await expect(writeBundleOutputs({
+      outDir,
+      entries: [{ entry: entries[0]!, png: pngBytes() }],
+      dependencies: {
+        move: async (source, target) => {
+          moves += 1;
+          await rename(source, target);
+          if (moves === 1) await writeFile(target as string, "tampered");
+        },
+      },
+    })).rejects.toThrow(/rollback failed; recovery data retained/);
+
+    await expect(lstat(destination)).rejects.toMatchObject({ code: "ENOENT" });
+    const recoveryDirectories = (await readdir(outDir))
+      .filter((name) => name.startsWith(".screenshot-studio-stage-"));
+    expect(await readFile(join(outDir, recoveryDirectories[0]!, "backup", "0"), "utf8")).toBe("tampered");
+  });
+
+  it("restores the prior output when its backup move commits and then reports failure", async () => {
+    const outDir = await workspace("bundle-output-ambiguous-backup-");
+    const destination = join(outDir, entries[0]!.relativePath);
+    await mkdir(dirname(destination), { recursive: true });
+    await writeFile(destination, "prior");
+
+    await expect(writeBundleOutputs({
+      outDir,
+      entries: [{ entry: entries[0]!, png: pngBytes() }],
+      dependencies: {
+        move: async (source, target) => {
+          await rename(source, target);
+          throw new Error("move reported failure after committing");
+        },
+      },
+    })).rejects.toThrow(/move reported failure after committing/);
+
+    expect(await readFile(destination, "utf8")).toBe("prior");
+    expect((await readdir(outDir)).some((name) => name.startsWith(".screenshot-studio-stage-"))).toBe(false);
+  });
 });

@@ -134,11 +134,15 @@ function parseCentralDirectory(bytes: Uint8Array, limits: ZipLimits): CentralEnt
   return entries;
 }
 
-function findZipObject(zip: JSZip, name: string): JSZipObject | undefined {
-  return Object.values(zip.files).find((entry) => {
+function zipObjectsByName(zip: JSZip): Map<string, JSZipObject> {
+  const objects = new Map<string, JSZipObject>();
+  for (const entry of Object.values(zip.files)) {
     const originalName = (entry as JSZipObject & { unsafeOriginalName?: string }).unsafeOriginalName;
-    return entry.name === name || originalName === name;
-  });
+    for (const name of [entry.name, originalName]) {
+      if (name !== undefined && !objects.has(name)) objects.set(name, entry);
+    }
+  }
+  return objects;
 }
 
 export async function readProjectZipFiles(
@@ -156,22 +160,22 @@ export async function readProjectZipFiles(
   } catch (error) {
     throw new ProjectZipError("ZIP payload could not be decoded", "invalid", { cause: error });
   }
+  const zipObjects = zipObjectsByName(zip);
   return centralEntries.flatMap((metadata): ProjectImportFile[] => {
     if (metadata.directory) return [];
-    const entry = findZipObject(zip, metadata.name);
+    const entry = zipObjects.get(metadata.name);
     if (!entry || entry.dir) throw invalid(`ZIP entry could not be decoded: ${metadata.name}`);
     return [{
       relativePath: metadata.name,
       declaredSize: metadata.size,
       async *open() {
-        const source = entry.nodeStream("nodebuffer") as NodeJS.ReadableStream & {
-          destroy(): void;
-        };
+        let source: (NodeJS.ReadableStream & { destroy(): void }) | undefined;
         const bridge = new PassThrough();
-        source.on("error", (error) => bridge.destroy(error));
-        source.pipe(bridge);
         let actualSize = 0;
         try {
+          source = entry.nodeStream("nodebuffer") as NodeJS.ReadableStream & { destroy(): void };
+          source.on("error", (error) => bridge.destroy(error));
+          source.pipe(bridge);
           for await (const chunk of bridge) {
             const bytes = Buffer.from(chunk);
             actualSize += bytes.byteLength;
@@ -186,8 +190,11 @@ export async function readProjectZipFiles(
           if (actualSize !== metadata.size) {
             throw invalid(`ZIP entry size disagrees with its central entry: ${metadata.name}`);
           }
+        } catch (error) {
+          if (error instanceof ProjectZipError) throw error;
+          throw new ProjectZipError(`ZIP entry could not be decoded: ${metadata.name}`, "invalid", { cause: error });
         } finally {
-          source.destroy();
+          source?.destroy();
           bridge.destroy();
         }
       },

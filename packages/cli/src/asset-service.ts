@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { constants } from "node:fs";
 import { lstat, open, realpath, type FileHandle } from "node:fs/promises";
-import { basename, dirname, extname, isAbsolute, relative, resolve, sep } from "node:path";
+import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import sharp from "sharp";
 import {
   errorCode,
@@ -16,6 +16,7 @@ import {
   publishManagedResourceFile,
   type ManagedResourceFilePublication,
 } from "./managed-resource-file.js";
+import { safeStem } from "./project-image-service.js";
 
 const DEFAULT_AUTO_CROP_THRESHOLD = 10;
 const DEFAULT_BACKGROUND_TOLERANCE = 24;
@@ -190,14 +191,6 @@ async function readAssetSource(
   if (hasOperationError) throw operationError;
   if (hasCloseError) throw closeError;
   return input!;
-}
-
-function safeStem(path: string): string {
-  const sourceStem = basename(path, extname(path));
-  return sourceStem
-    .normalize("NFKD")
-    .replace(/[^A-Za-z0-9._-]+/g, "-")
-    .replace(/^[-._]+|[-._]+$/g, "") || "asset";
 }
 
 async function writeProcessedAsset(

@@ -24,13 +24,9 @@ import {
   type Screen,
 } from "@screenshot-studio/core/model";
 import type { ProjectIssue } from "@screenshot-studio/core/validation";
-import {
-  outputFamilyEditorLabel,
-  workspaceEditingScope,
-  workspaceOverviewRows,
-  type ResourceDialog,
-  type WorkspaceView,
-} from "@web/lib/editor/editor-workspace";
+import { type ResourceDialog, type WorkspaceView } from "@web/lib/editor/editor-workspace";
+import { outputFamilyEditorLabel } from "@web/lib/editor/store-target-labels";
+import { workspaceEditingScope, workspaceOverviewRows } from "@web/lib/editor/workspace-output-rows";
 import { editorStore, selectEditorLayout } from "@web/lib/editor/editor-store";
 import { mutateAndSave } from "@web/lib/editor/mutate-and-save";
 import type { SearchResult } from "@web/lib/editor/editor-search";
@@ -39,6 +35,7 @@ import { LayerSearch } from "./LayerSearch";
 import { LayersSection } from "./LayersSection";
 import { rowHoverControl, SortableRow, treeRowButton } from "./SortableRow";
 import { AddMenu, ConfirmationDialog, cx, editorUi } from "./editor-ui";
+import { useFocusRescue } from "./editor-ui/use-focus-rescue";
 
 const DynamicScreenThumbnail = dynamic(
   () => import("./ScreenThumbnail").then((module) => module.ScreenThumbnail),
@@ -88,6 +85,8 @@ export function screenRowWarning(
         return onSize(issue.screenId, "image missing");
       case "text-overflow":
         return onSize(issue.screenId, "text overflows");
+      case "unequal-connected-artboard":
+        return onSize(issue.screenId, "size differs from strip");
       default:
         return assertNever(issue);
     }
@@ -249,6 +248,7 @@ export function ScreensSection({
     setClosingScreenId((current) => (current === id ? null : current));
   }, []);
   const screenListRef = useRef<HTMLDivElement>(null);
+  const focusRescue = useFocusRescue(() => screenListRef.current?.querySelector<HTMLElement>("button[aria-current]"));
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -319,7 +319,7 @@ export function ScreensSection({
   };
 
   return (
-    <section className="border-b border-[var(--editor-color-border)] pb-2">
+    <section className="border-b border-[var(--editor-color-border)] pb-2" {...focusRescue}>
       {firstRun ? (
         <div className="mx-3 mt-3 rounded-xl border border-[var(--editor-color-accent-muted)] bg-[var(--editor-color-accent-subtle)] p-3 text-xs text-[color:var(--editor-color-text-strong)]" data-testid="first-screen-onboarding">
           <h2 className="text-sm font-semibold">Your blank screen is ready</h2>
