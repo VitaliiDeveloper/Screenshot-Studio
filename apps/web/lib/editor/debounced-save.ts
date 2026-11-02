@@ -137,6 +137,15 @@ export function flushScheduledSave(): Promise<void> {
   return scheduleSave.flush();
 }
 
+/**
+ * Make every edit durable before work that starts from disk: a buffered edit, a queued or in-flight
+ * save, and a save that failed earlier. Throws when the save fails.
+ */
+export function saveProjectNow(): Promise<void> {
+  cancelScheduledSave();
+  return saveLatestProject();
+}
+
 export function hasPendingProjectSave(): boolean {
   return scheduleSave.hasPending();
 }

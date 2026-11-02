@@ -69,21 +69,19 @@ describe("workspace navigation state", () => {
 });
 
 describe("navigateToProjects", () => {
-  it("drains the pending edit and latest snapshot before navigation", async () => {
+  it("saves the project before navigation", async () => {
     const events: string[] = [];
     await navigateToProjects({
-      flushPending: vi.fn(async () => { events.push("flush"); }),
-      saveLatest: vi.fn(async () => { events.push("save-latest"); }),
+      save: vi.fn(async () => { events.push("save"); }),
       navigate: vi.fn(() => { events.push("navigate"); }),
     });
-    expect(events).toEqual(["flush", "save-latest", "navigate"]);
+    expect(events).toEqual(["save", "navigate"]);
   });
 
   it("does not navigate when the final save fails", async () => {
     const navigate = vi.fn();
     await expect(navigateToProjects({
-      flushPending: vi.fn(async () => undefined),
-      saveLatest: vi.fn(async () => { throw new Error("disk unavailable"); }),
+      save: vi.fn(async () => { throw new Error("disk unavailable"); }),
       navigate,
     })).rejects.toThrow("disk unavailable");
     expect(navigate).not.toHaveBeenCalled();

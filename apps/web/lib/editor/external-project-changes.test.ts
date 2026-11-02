@@ -20,6 +20,7 @@ import { clearProjectPersistenceIdentity } from "@web/lib/clients/save-project";
 import {
   cancelScheduledSave,
   saveLatestProject,
+  saveProjectNow,
   scheduleSave,
   switchActiveProject,
   withDrainedProjectSaves,
@@ -191,6 +192,19 @@ describe("external project changes", () => {
     expect(diskName()).toBe("Edited before import + captures");
     expect(editorStore.getState().project?.meta.name).toBe("Edited before import + captures");
     expect(editorStore.getState().saveStatus).toBe("idle");
+  });
+
+  it("retries a failed save before work that must start from the saved project", async () => {
+    const routes = globalThis.fetch;
+    vi.stubGlobal("fetch", async () => { throw new TypeError("offline"); });
+    editProjectName("Unsaved edit");
+    await expect(saveLatestProject()).rejects.toThrow("offline");
+    vi.stubGlobal("fetch", routes);
+
+    await saveProjectNow();
+
+    expect(diskName()).toBe("Unsaved edit");
+    expect(editorStore.getState().saveStatus).toBe("saved");
   });
 
   it("leaves a buffered edit alone so it saves or conflicts instead of being dropped", async () => {
