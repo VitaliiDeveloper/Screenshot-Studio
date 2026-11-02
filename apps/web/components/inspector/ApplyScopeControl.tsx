@@ -58,17 +58,6 @@ export function ApplyScopeSelect({ screen, specs, value, onChange }: Omit<ApplyS
   );
 }
 
-export interface ApplyScopeChoice {
-  scope: ApplyScope;
-  /** The selection (or, with nothing selected, the screen) the scope was chosen on. */
-  key: string;
-}
-
-/** A wider scope holds only while the layer or screen it was chosen on stays selected. */
-export function resolveApplyScope(choice: ApplyScopeChoice | null, key: string): ApplyScope {
-  return choice?.key === key ? choice.scope : "screen";
-}
-
 function plural(count: number, noun: string): string {
   return `${count} ${noun}${count === 1 ? "" : "s"}`;
 }

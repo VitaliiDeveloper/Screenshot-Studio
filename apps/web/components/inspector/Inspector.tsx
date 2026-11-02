@@ -24,20 +24,14 @@ import {
 import { findStoreTarget, leadStoreSizeId, type StoreSpecs } from "@screenshot-studio/core/export";
 import { getScreen, type Element } from "@screenshot-studio/core/model";
 import type { ProjectIssue } from "@screenshot-studio/core/validation";
-import type { ApplyScope } from "@web/lib/editor/editor-apply-scope";
-import { editorStore, type ElementPatchFor } from "@web/lib/editor/editor-store";
+import { editorStore, selectApplyScope, type ElementPatchFor } from "@web/lib/editor/editor-store";
 import { mutateAndSave, mutateAndScheduleSave } from "@web/lib/editor/mutate-and-save";
 import { flushScheduledSave } from "@web/lib/editor/debounced-save";
 import { typeCountLabel } from "@web/lib/panel-helpers";
 import type { MediaAssetTarget } from "@web/lib/editor/editor-workspace";
 import { cx, editorUi } from "@web/components/editor-ui";
 import { useFocusRescue } from "@web/components/editor-ui/use-focus-rescue";
-import {
-  ApplyScopeFooter,
-  ApplyScopeSelect,
-  resolveApplyScope,
-  type ApplyScopeChoice,
-} from "./ApplyScopeControl";
+import { ApplyScopeFooter, ApplyScopeSelect } from "./ApplyScopeControl";
 import { percentToUnit, SliderNumberField, unitToPercent } from "./inspector-fields";
 import { ElementTypeInspectorSections } from "./ElementTypeInspectorSections";
 import { TextSizeStatusSection } from "./TextSizeStatusSection";
@@ -93,7 +87,7 @@ export function Inspector({
   const activeScreenId = useStore(editorStore, (state) => state.activeScreenId);
   const selectedItems = useStore(editorStore, (state) => state.selectedItems);
   const [tabChoice, setTabChoice] = useState<InspectorTabChoice | null>(null);
-  const [scopeChoice, setScopeChoice] = useState<ApplyScopeChoice | null>(null);
+  const applyScope = useStore(editorStore, selectApplyScope);
   const idPrefix = useId();
   const asideRef = useRef<HTMLElement>(null);
   const focusRescue = useFocusRescue(
@@ -120,9 +114,7 @@ export function Inspector({
     sharedOpacity,
   } = deriveInspectorSelection(project, activeLayoutId, activeScreenId, selectedItems);
   const selectionKey = inspectorSelectionKey(selectedItems);
-  const scopeKey = `${activeScreenId}|${selectionKey}`;
-  const applyScope = resolveApplyScope(scopeChoice, scopeKey);
-  const setApplyScope = (scope: ApplyScope) => setScopeChoice({ scope, key: scopeKey });
+  const { setApplyScope } = editorStore.getState();
   const tab = resolveInspectorTab(selectionKey, tabChoice);
   const activeScreen = getScreen(project, activeLayoutId, activeScreenId);
   const [title, subtitle] = inspectorHeading({

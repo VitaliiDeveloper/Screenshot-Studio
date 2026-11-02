@@ -20,7 +20,7 @@ import {
 } from "@screenshot-studio/core/engine";
 import type { ImageCache } from "@screenshot-studio/core/assets";
 import type { ProjectIssue } from "@screenshot-studio/core/validation";
-import { editorStore, selectEditorLayout, type CommonElementPatch } from "@web/lib/editor/editor-store";
+import { editorStore, selectApplyScope, selectEditorLayout, type CommonElementPatch } from "@web/lib/editor/editor-store";
 import { isSelected } from "@web/lib/editor/editor-selection";
 import { mutateAndSave, mutateAndScheduleSave } from "@web/lib/editor/mutate-and-save";
 import { applyElementPatchToScope } from "@web/lib/editor/editor-apply-to";
@@ -549,6 +549,7 @@ export function EditorStage({
             type: "text",
             patch,
             screenId: toolbarTarget.screenId,
+            scope: selectApplyScope(editorStore.getState()),
           }))}
           onFit={(size) => applyTextFit(toolbarTarget.screenId, toolbarTarget.element.id, size)}
         />

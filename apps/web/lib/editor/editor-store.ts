@@ -2,6 +2,7 @@
 import { createStore, type StoreApi } from "zustand/vanilla";
 import type { Project } from "@screenshot-studio/core/model";
 import type { SelectionRef } from "./editor-selection.js";
+import type { ApplyScopeChoice } from "./editor-apply-scope.js";
 import type { LayoutContentSnapshot } from "./editor-history.js";
 import { createEditorLayoutActions, type EditorLayoutActions } from "./editor-store-layouts.js";
 import { createEditorOutputActions, type EditorOutputActions } from "./editor-store-outputs.js";
@@ -20,6 +21,7 @@ export {
   type ElementPatchRequest,
 } from "@screenshot-studio/core/model";
 export { selectEditorLayout } from "./editor-store-layouts.js";
+export { selectApplyScope } from "./editor-store-selection.js";
 export type { PatchElementRequest } from "./editor-store-selection.js";
 
 /**
@@ -39,6 +41,8 @@ export interface EditorState
   activeLayoutId: string | null;
   activeScreenId: string | null;
   selectedItems: SelectionRef[];
+  /** Editor-only: the Apply to choice shared by the inspector and the canvas toolbar. */
+  applyScopeChoice: ApplyScopeChoice | null;
   historyPast: LayoutContentSnapshot[];
   historyFuture: LayoutContentSnapshot[];
   layoutHistories: Record<string, { past: LayoutContentSnapshot[]; future: LayoutContentSnapshot[] }>;
@@ -56,6 +60,7 @@ export const editorStore = createStore<EditorState>((set) => ({
   activeLayoutId: null,
   activeScreenId: null,
   selectedItems: [],
+  applyScopeChoice: null,
   historyPast: [],
   historyFuture: [],
   layoutHistories: {},

@@ -479,6 +479,18 @@ describe("dialog focus", () => {
   });
 });
 
+describe("canvas toolbar", () => {
+  it("writes canvas toolbar edits to the screens Apply to names", async () => {
+    const page = await openEditor({ width: 1440, height: 1000 });
+    const colors = () => project().screens.flatMap((screen) => screen.elements).map((element) => element.color);
+    await page.getByRole("button", { name: "Hero support", exact: true }).click();
+    await page.getByRole("button", { name: "Apply to", exact: true }).click();
+    await page.getByRole("option", { name: "All destinations" }).or(page.getByRole("menuitemradio", { name: "All destinations" })).click();
+    await page.getByLabel("Selection color", { exact: true }).fill("#ff0000");
+    await expect.poll(() => colors().filter((color) => color === "#ff0000").length).toBeGreaterThan(1);
+  });
+});
+
 describe("asset picker errors", () => {
   const openPicker = async (page: Page) => {
     await page.getByRole("button", { name: "Shipments app", exact: true }).click();
