@@ -80,6 +80,12 @@ function sampleProject(): Project {
 }
 
 describe("screen commands", () => {
+  it("rejects a flag the subcommand would ignore", () => {
+    expect(() => resolveScreenAction(["list"], { json: "true" })).toThrow("--json applies only to screen show");
+    expect(() => resolveScreenAction(["rm", "hero"], { to: "2" })).toThrow("--to applies only to screen reorder");
+    expect(resolveScreenAction(["show", "hero"], { json: "true" })).toEqual({ kind: "show", id: "hero" });
+  });
+
   it("resolves screen subcommands from args and flags", () => {
     expect(resolveScreenAction(["list"], {})).toEqual({ kind: "list" });
     expect(resolveScreenAction(["rm", "hero"], {})).toEqual({ kind: "rm", id: "hero" });

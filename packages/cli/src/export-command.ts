@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { readFile } from "node:fs/promises";
+import { readFile, realpath } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import {
   buildBundleEntries,
@@ -130,7 +130,10 @@ export async function runExportCommand(
   const log = dependencies.log ?? console.log;
   const projectPath = resolveProjectPath(flags);
   const storeSpecsPath = flags["store-specs"] ? resolve(flags["store-specs"]) : defaultStoreSpecsPath;
-  const explicitOutDir = flags.out ? resolve(flags.out) : undefined;
+  // An explicit --out is the user's own location, so an existing link there (macOS /tmp) is followed;
+  // the default <project>/export stays a no-follow root.
+  const explicitOut = flags.out ? resolve(flags.out) : undefined;
+  const explicitOutDir = explicitOut && await realpath(explicitOut).catch(() => explicitOut);
   const mode = resolveExportMode(flags);
   const browser = resolveBrowserChoice(flags.browser);
   // fastlane only re-lays out the store bundle, so it stays a CLI profile outside the core list.

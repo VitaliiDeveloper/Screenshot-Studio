@@ -49,6 +49,7 @@ import { resolveMutationLayout } from "./layout-commands.js";
 import {
   createDefinitionStore,
   DEFINITION_ID,
+  type DefinitionListing,
   type DefinitionStoreDependencies,
 } from "./managed-definition-store.js";
 
@@ -111,6 +112,13 @@ export async function listTemplates(
   dependencies: TemplateServiceDependencies = {},
 ): Promise<ScreenTemplate[]> {
   return projectTemplates.list(projectPath, dependencies);
+}
+
+export async function listTemplatesWithErrors(
+  projectPath: string,
+  dependencies: TemplateServiceDependencies = {},
+): Promise<DefinitionListing<ScreenTemplate>> {
+  return projectTemplates.listWithErrors(projectPath, dependencies);
 }
 
 export async function listBuiltInTemplates(projectPath: string, specs: StoreSpecs): Promise<ScreenTemplate[]> {

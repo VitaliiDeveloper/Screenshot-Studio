@@ -37,6 +37,11 @@ describe("resolveFontAction", () => {
     expect(() => resolveFontAction(["add", "font.ttf"], { family: "Inter", weight: "99" })).toThrow(/weight/);
     expect(resolveFontAction(["add"], { google: "Inter", weight: "700" })).toEqual({ kind: "add", source: "google", family: "Inter", weight: 700 });
   });
+
+  it("rejects a flag the subcommand would ignore", () => {
+    expect(() => resolveFontAction(["add"], { google: "Inter", family: "Other" })).toThrow(/--family applies only to font add <file>/);
+    expect(() => resolveFontAction(["list"], { weight: "700" })).toThrow("--weight applies only to font add and font rm");
+  });
 });
 
 describe("runFontCommand", () => {
