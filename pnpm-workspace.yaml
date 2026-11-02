@@ -1,7 +1,7 @@
 packages:
   - "packages/*"
   - "apps/*"
-# Next 15.5.21 pins vulnerable production transitive dependencies. Keep these scoped to Next
+# Next pins vulnerable production transitive dependencies. Keep these scoped to Next
 # instead of changing resolution for unrelated workspace dependencies.
 overrides:
   "next>postcss": "8.5.23"
