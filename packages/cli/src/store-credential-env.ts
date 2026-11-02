@@ -14,7 +14,9 @@ const STORE_CREDENTIAL_ENV = new Set([
 
 /** Windows environment names are case-insensitive, so the match is too. */
 export function withoutStoreCredentials(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
-  return Object.fromEntries(
-    Object.entries(env).filter(([name]) => !STORE_CREDENTIAL_ENV.has(name.toUpperCase())),
-  );
+  const filtered = { ...env };
+  for (const name of Object.keys(filtered)) {
+    if (STORE_CREDENTIAL_ENV.has(name.toUpperCase())) delete filtered[name];
+  }
+  return filtered;
 }
