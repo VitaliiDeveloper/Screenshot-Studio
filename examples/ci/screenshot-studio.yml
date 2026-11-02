@@ -1,6 +1,4 @@
 # Copy to .github/workflows/screenshot-studio.yml in your app repository and adjust `project`.
-# The action builds the Screenshot Studio CLI from its own source at the pinned ref (a few minutes
-# per run) until the npm package is published.
 name: Screenshots
 
 on:
@@ -17,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      # Pin a full commit SHA; the same ref selects the CLI source the action builds.
+      # Pin a full commit SHA; the CLI version in that commit is the one the action installs from npm.
       - uses: VitaliiDeveloper/Screenshot-Studio@<commit-sha>
         with:
           project: screenshots/app-store-screenshots.json
