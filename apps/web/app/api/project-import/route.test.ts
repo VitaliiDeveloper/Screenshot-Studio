@@ -126,6 +126,22 @@ describe("POST /api/project-import", () => {
     await expect(repository.list()).resolves.toHaveLength(1);
   });
 
+  it("answers 400 for a ZIP whose entry fails to inflate", async () => {
+    const zip = new JSZip();
+    zip.file("app-store-screenshots.json", projectJson("Corrupted"));
+    const bytes = await zip.generateAsync({ type: "uint8array", compression: "DEFLATE" });
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    bytes[30 + view.getUint16(26, true) + view.getUint16(28, true)] = 0xff;
+
+    const response = await handleProjectImportPost(uploadRequest("archive", [
+      ["project.zip", new Blob([new Uint8Array(bytes)], { type: "application/zip" }), "project.zip"],
+    ]), { repository, registry });
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ code: "invalid", error: expect.stringContaining("app-store-screenshots.json") });
+    await expect(repository.list()).resolves.toEqual([]);
+  });
+
   it("preserves aligned browser folder paths and strips one selected root", async () => {
     const response = await handleProjectImportPost(uploadRequest("folder", [
       ["Selected/app-store-screenshots.json", new Blob([projectJsonWithAsset("screenshots/hero.png")]), "app-store-screenshots.json"],

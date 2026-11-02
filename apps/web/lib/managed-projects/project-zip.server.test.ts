@@ -24,6 +24,12 @@ async function readAll(file: { open(): AsyncIterable<Uint8Array> }): Promise<str
   return Buffer.concat(chunks).toString();
 }
 
+/** Sets the first deflate byte to a reserved block type, which fails inflation deterministically. */
+function corruptFirstDeflateBlock(bytes: Uint8Array): void {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  bytes[30 + view.getUint16(26, true) + view.getUint16(28, true)] = 0xff;
+}
+
 afterEach(() => {
   vi.restoreAllMocks();
 });
@@ -150,5 +156,16 @@ describe("readProjectZipFiles", () => {
 
     expect(file!.relativePath).toBe("a/./b.png");
     await expect(readAll(file!)).resolves.toBe("image");
+  });
+
+  it("reports a corrupted deflate entry as an invalid ZIP and keeps the cause", async () => {
+    const bytes = await zipBytes({ "app-store-screenshots.json": "x".repeat(200) });
+    corruptFirstDeflateBlock(bytes);
+    const [file] = await readProjectZipFiles(bytes, { maxFiles: 10, maxBytes: 1_000 });
+
+    const failure = await readAll(file!).catch((error: unknown) => error);
+
+    expect(failure).toBeInstanceOf(ProjectZipError);
+    expect(failure).toMatchObject({ code: "invalid", cause: expect.any(Error) });
   });
 });
