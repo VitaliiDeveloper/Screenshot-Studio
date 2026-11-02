@@ -18,7 +18,6 @@ import {
   acquireProjectMutationLock,
   errorCode,
   noFollowFlags,
-  readProjectSnapshot,
   syncDirectoryBestEffort,
 } from "@screenshot-studio/core/storage";
 import {
@@ -39,6 +38,7 @@ import {
   validateManagedStorageChildRoot,
   type ManagedProjectLifecycleLock,
 } from "./managed-project-lifecycle-lock.server.js";
+import { readManagedProjectTree } from "./managed-project-tree.server.js";
 import { hasExactKeys, isRecord } from "@web/lib/json-guards.js";
 
 interface ManagedProjectSessionInvalidator {
@@ -256,7 +256,7 @@ export class ManagedProjectLifecycleService {
         if (!current || !sameEntry(current, entry)) {
           throw new Error("Managed project lifecycle revision changed while draining writes");
         }
-        const snapshot = await this.#validateTree(activeDirectory);
+        const snapshot = await readManagedProjectTree(activeDirectory, this.config);
         if (snapshot.revision !== input.expectedProjectRevision) {
           throw new Error("Managed project revision changed before deletion admission");
         }
@@ -333,17 +333,23 @@ export class ManagedProjectLifecycleService {
 
   async reconcileAll(): Promise<void> {
     await this.#ensureDirectories();
-    const initialEvidence = (await this.#catalog.read()).deletions;
-    const evidence = initialEvidence
+    // One stuck record is reported without blocking recovery of the others.
+    const errors: unknown[] = [];
+    const attempt = (operation: () => Promise<unknown>) => operation().catch((error: unknown) => {
+      errors.push(error);
+    });
+    const evidence = (await this.#catalog.read()).deletions
       .filter((record) => record.state !== "complete");
     for (const record of evidence) {
-      const lease = await acquireManagedProjectLifecycleLock(this.config, record.projectId);
-      await this.#withLease(lease, () => this.#continueDeletion(record, lease));
+      await attempt(async () => {
+        const lease = await acquireManagedProjectLifecycleLock(this.config, record.projectId);
+        await this.#withLease(lease, () => this.#continueDeletion(record, lease));
+      });
     }
     for (const name of await readdir(this.config.recoveryRoot)) {
       if (!/^project_[0-9a-f]{32}\.json$/.test(name)) continue;
       const projectId = name.slice(0, -".json".length);
-      await withManagedProjectLifecycleLock(this.config, projectId, async () => {
+      await attempt(() => withManagedProjectLifecycleLock(this.config, projectId, async () => {
         let value: unknown;
         try {
           value = JSON.parse(await readFile(join(this.config.recoveryRoot, name), "utf8")) as unknown;
@@ -361,8 +367,10 @@ export class ManagedProjectLifecycleService {
         if (!record || record.state === "complete") {
           throw new Error("Orphan managed deletion intent has no recoverable catalog evidence");
         }
-      });
+      }));
     }
+    if (errors.length === 1) throw errors[0];
+    if (errors.length > 1) throw new AggregateError(errors, "Managed deletion recovery failed for several projects");
   }
 
   async #continueDeletion(
@@ -385,7 +393,7 @@ export class ManagedProjectLifecycleService {
         if (!sameIdentity(await identity(active), evidence.sourceIdentity)) {
           throw new Error("Deletion reservation source identity changed");
         }
-        const snapshot = await this.#validateTree(active);
+        const snapshot = await readManagedProjectTree(active, this.config);
         if (snapshot.revision !== evidence.projectRevision) {
           throw new Error("Deletion reservation Project revision changed");
         }
@@ -396,7 +404,7 @@ export class ManagedProjectLifecycleService {
       if (activeExists) {
         const active = await this.#ownedDirectory(this.config.projectsRoot, evidence.projectId);
         if (!sameIdentity(await identity(active), evidence.sourceIdentity)
-          || (await this.#validateTree(active)).revision !== evidence.projectRevision) {
+          || (await readManagedProjectTree(active, this.config)).revision !== evidence.projectRevision) {
           throw new Error("Managed deletion source changed before quarantine");
         }
         if (await exists(quarantinePath)) throw new Error("Managed deletion tombstone destination exists");
@@ -410,7 +418,7 @@ export class ManagedProjectLifecycleService {
       if (!sameIdentity(quarantineIdentity, evidence.sourceIdentity)) {
         throw new Error("Managed deletion tombstone identity changed");
       }
-      await this.#validateTree(quarantine);
+      await readManagedProjectTree(quarantine, this.config);
       intent.tombstoneIdentity = quarantineIdentity;
       intent.phase = "quarantined";
       await this.#writeIntent(intent);
@@ -453,7 +461,7 @@ export class ManagedProjectLifecycleService {
       if (!sameIdentity(await identity(quarantine), expectedIdentity)) {
         throw new Error("Managed deletion tombstone no longer matches recovery intent");
       }
-      await this.#validateTree(quarantine);
+      // An interrupted removal may already have unlinked the Project document, so the identity is the proof.
       await rm(quarantine, { recursive: true, force: false });
       await syncDirectoryBestEffort(this.config.tombstonesRoot);
       await this.#failpoint("after-tombstone-removal");
@@ -557,30 +565,6 @@ export class ManagedProjectLifecycleService {
       await rm(stage, { force: true }).catch(() => undefined);
       throw error;
     }
-  }
-
-  async #validateTree(directory: string): Promise<Awaited<ReturnType<typeof readProjectSnapshot>>> {
-    const directoryInfo = await lstat(directory);
-    if (!directoryInfo.isDirectory() || directoryInfo.isSymbolicLink()) {
-      throw new Error("Managed project must be a real directory");
-    }
-    let files = 0;
-    let bytes = 0;
-    const walk = async (current: string): Promise<void> => {
-      for (const name of await readdir(current)) {
-        const path = join(current, name);
-        const info = await lstat(path);
-        files += 1;
-        if (files > this.config.maxProjectFiles) throw new Error("Managed project exceeds file limit");
-        if (info.isSymbolicLink()) throw new Error("Managed project cannot contain a symbolic link");
-        if (info.isDirectory()) { await walk(path); continue; }
-        if (!info.isFile() || info.nlink !== 1) throw new Error("Managed project contains an unsafe file");
-        bytes += info.size;
-        if (bytes > this.config.maxProjectBytes) throw new Error("Managed project exceeds byte limit");
-      }
-    };
-    await walk(directory);
-    return readProjectSnapshot(join(directory, PROJECT_FILE));
   }
 
   async #ownedDirectory(root: string, id: string): Promise<string> {
