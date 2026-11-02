@@ -29,7 +29,12 @@ careful than a conventional “write temp then rename” helper.
 The publication primitive owns one complete file below one canonical root:
 
 1. Validate a portable project-relative destination before any mutation.
-2. Reject symbolic-link or non-directory ancestors and symbolic-link/non-regular leaves.
+2. Follow the existing ancestors of the root once through `realpath`: they are the caller's chosen
+   location and may be OS links such as macOS `/tmp`. Reject a symbolic-link or non-directory
+   root, root segment the engine creates, or ancestor below the canonical root, and a
+   symbolic-link/non-regular leaf. `bundle-publisher.ts` creates its root with the same rule.
+   `export --out` resolves its explicit path through `realpath` first, so it may name a link; the
+   default `<project>/export` may not.
 3. Create a random sibling stage with exclusive, no-follow flags.
 4. Write and sync all bytes before publication.
 5. Commit with create-only or replace semantics.

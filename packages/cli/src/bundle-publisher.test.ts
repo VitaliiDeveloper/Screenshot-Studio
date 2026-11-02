@@ -158,20 +158,35 @@ describe("writeBundleOutputs", () => {
     await expect(stat(join(outside, "en", "01-one-one.png"))).rejects.toMatchObject({ code: "ENOENT" });
   });
 
-  it("rejects creation of a missing output root below a symlink anchor", async () => {
+  it("creates a missing output root below a symlinked ancestor the caller chose", async () => {
     const base = await workspace("bundle-root-symlink-anchor-");
     const realAnchor = join(base, "real-anchor");
     const linkedAnchor = join(base, "linked-anchor");
-    const outDir = join(linkedAnchor, "missing-output");
+    const outDir = join(linkedAnchor, "missing", "output");
     await mkdir(realAnchor);
     await symlink(realAnchor, linkedAnchor);
+
+    await writeBundleOutputs({
+      outDir,
+      entries: [{ entry: entries[0]!, png: pngBytes() }],
+    });
+
+    expect(await readFile(join(realAnchor, "missing", "output", entries[0]!.relativePath))).toEqual(pngBytes());
+  });
+
+  it("rejects a symlinked output root without writing into its target", async () => {
+    const base = await workspace("bundle-root-symlink-");
+    const outside = join(base, "outside");
+    const outDir = join(base, "export");
+    await mkdir(outside);
+    await symlink(outside, outDir);
 
     await expect(writeBundleOutputs({
       outDir,
       entries: [{ entry: entries[0]!, png: pngBytes() }],
     })).rejects.toThrow(/symbolic link/i);
 
-    await expect(stat(join(realAnchor, "missing-output"))).rejects.toMatchObject({ code: "ENOENT" });
+    expect(await readdir(outside)).toEqual([]);
   });
 
   it("rejects an existing directory leaf", async () => {

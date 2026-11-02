@@ -227,6 +227,37 @@ describe("runExportCommand stable single export", () => {
     expect(await readFile(sentinel, "utf8")).toBe("sentinel");
     expect(runtime.stop).toHaveBeenCalledOnce();
   });
+
+  it("follows a symbolic link given explicitly as --out", async () => {
+    const fixture = await projectFixture();
+    const target = join(fixture.root, "target");
+    const linkedOut = join(fixture.root, "linked-out");
+    await mkdir(target);
+    await symlink(target, linkedOut);
+    const runtime = commandDependencies(vi.fn(async () => Buffer.from("rendered png")));
+
+    await runExportCommand({
+      project: fixture.path,
+      screen: "hero",
+      out: linkedOut,
+    }, storeSpecsPath, runtime.dependencies);
+
+    expect(await readdir(target)).toHaveLength(1);
+  });
+
+  it("refuses a symbolic-link default export directory", async () => {
+    const fixture = await projectFixture();
+    const outside = await workspace("export-command-outside-");
+    await symlink(outside, join(fixture.root, "export"));
+    const runtime = commandDependencies(vi.fn(async () => Buffer.from("rendered png")));
+
+    await expect(runExportCommand({
+      project: fixture.path,
+      screen: "hero",
+    }, storeSpecsPath, runtime.dependencies)).rejects.toThrow(/symbolic link.*root/i);
+
+    expect(await readdir(outside)).toEqual([]);
+  });
 });
 
 describe("runExportCommand fastlane profile", () => {
