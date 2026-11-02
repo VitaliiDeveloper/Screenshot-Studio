@@ -46,6 +46,27 @@ describe("Theme", () => {
   });
 });
 
+describe("role colours on gradient shapes", () => {
+  const gradient = { from: "#111111", to: "#222222", angle: 90 };
+  const withGradients = () => {
+    const source = project();
+    source.layouts[0]!.screens[0]!.elements = source.layouts[0]!.screens[0]!.elements
+      .map((element) => element.type === "shape" ? { ...element, gradient } : element);
+    return source;
+  };
+  const pack = listBuiltInDesignPacks()[0]!;
+
+  it.each([
+    ["applyTheme", () => applyTheme(withGradients(), "default", theme), theme.colors.accent],
+    ["applyDesignPack", () => applyDesignPack(withGradients(), "default", pack), pack.palette.accent],
+  ])("%s replaces a role-tagged gradient and leaves opt-out shapes alone", (_name, apply, fill) => {
+    const [, accent, custom] = parseProject(apply()).layouts[0]!.screens[0]!.elements;
+    expect(accent).toMatchObject({ fill });
+    expect(accent).not.toHaveProperty("gradient");
+    expect(custom).toMatchObject({ gradient });
+  });
+});
+
 describe("applyTheme", () => {
   it("bakes role colors and fonts while preserving opt-out elements", () => {
     const next = applyTheme(project(), "default", theme);

@@ -14,6 +14,7 @@ import {
   mirrorBackground,
   replaceLayout,
   type Project as ProjectModel,
+  type ShapeElement,
 } from "@screenshot-studio/core/model";
 
 const ThemeFont = z
@@ -212,6 +213,12 @@ function assertDesignPackFontsRegistered(project: ProjectModel, pack: DesignPack
 }
 
 /** Bake theme tokens into literal project fields; rendering stays theme-agnostic. */
+/** The renderer ignores `fill` while `gradient` is set, so a baked role colour must clear it. */
+function solidShape(shape: ShapeElement, fill: string): ShapeElement {
+  const { gradient: _gradient, ...solid } = shape;
+  return { ...solid, fill };
+}
+
 export function applyTheme(project: ProjectModel, layoutId: string, input: Theme): ProjectModel {
   const theme = Theme.parse(input);
   assertThemeFontsRegistered(project, theme);
@@ -229,9 +236,7 @@ export function applyTheme(project: ProjectModel, layoutId: string, input: Theme
           ...(font ? { fontFamily: font.family, weight: font.weight } : {}),
         };
       }
-      if (leaf.type === "shape") {
-        return { ...leaf, fill: theme.colors[leaf.role] };
-      }
+      if (leaf.type === "shape") return solidShape(leaf, theme.colors[leaf.role]);
       return leaf;
     })),
   }));
@@ -274,7 +279,7 @@ export function applyDesignPack(
             letterSpacing: Math.round(size * typography.letterSpacingEm * 100) / 100,
           };
         }
-        if (leaf.type === "shape") return { ...leaf, fill: pack.palette[leaf.role] };
+        if (leaf.type === "shape") return solidShape(leaf, pack.palette[leaf.role]);
         if (leaf.type === "icon") return { ...leaf, color: pack.palette[leaf.role] };
         return leaf;
       })),
