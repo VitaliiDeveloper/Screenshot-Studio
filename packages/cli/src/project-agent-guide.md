@@ -273,7 +273,7 @@ as a tool error, not as a list of issues.
 
    The command changes only `content` and keeps ids, roles, font identities, and unrelated locales.
    Prefer `--all-sizes` so exact-size variants do not drift, and handle any reported skipped size.
-   If copy no longer fits, adjust that text element's literal box/typography in JSON and then
+   If copy no longer fits, adjust that text element's box or typography with `element set` and then
    visually inspect it; do not add an automatic runtime layout rule.
 4. Make adjacent slides visibly different in composition while keeping the deck's theme and type
    hierarchy consistent.
@@ -282,7 +282,6 @@ as a tool error, not as a list of issues.
    ```bash
    screenshots screen list --project ./app-store-screenshots.json
    screenshots check --render --project ./app-store-screenshots.json
-   screenshots dev --project ./app-store-screenshots.json
    screenshots export --locale en --project ./app-store-screenshots.json
    ```
 
@@ -370,7 +369,6 @@ as a tool error, not as a list of issues.
 
    ```bash
    screenshots screen list --project ./app-store-screenshots.json
-   screenshots dev --project ./app-store-screenshots.json
    screenshots export --locale ar --project ./app-store-screenshots.json
    ```
 

@@ -12,6 +12,7 @@ build/
 out/
 .turbo/
 *.tsbuildinfo
+/artifacts/
 
 # Next.js (apps/web)
 .next/

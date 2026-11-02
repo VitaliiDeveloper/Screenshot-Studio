@@ -22,9 +22,9 @@ Use the packaged `screenshots` CLI to create the project, then treat the generat
    running another command.
 
 The script resolves the CLI from `--cli <executable>`, then `SCREENSHOT_STUDIO_CLI`, then
-`screenshots` on `PATH`. If none is available, stop and ask the user to make the built
-`@screenshot-studio/cli` artifact available. Do not fetch packages, invent project JSON, or replace
-the CLI initialization path.
+`screenshots` on `PATH`; on Windows, pass the CLI's `dist/index.js` instead. If none is available,
+stop and ask the user to make the built `@screenshot-studio/cli` artifact available. Do not fetch
+packages, invent project JSON, or replace the CLI initialization path.
 
 ## Choose a style
 
