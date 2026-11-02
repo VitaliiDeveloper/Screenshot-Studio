@@ -34,6 +34,11 @@ const supportedExtensions = new Set<SupportedFontFormat>([
   "woff2",
 ]);
 
+// Real .otf files may carry TrueType outlines and .ttf files CFF ones; only WOFF wrappers are strict.
+function containerKind(format: SupportedFontFormat): string {
+  return format === "ttf" || format === "otf" ? "sfnt" : format;
+}
+
 function extensionFor(filename: string): SupportedFontFormat {
   const extension = extname(filename).slice(1).toLowerCase();
   if (!supportedExtensions.has(extension as SupportedFontFormat)) {
@@ -111,7 +116,7 @@ export function inspectSupportedFont(
   const buffer = Buffer.from(bytes);
   const parsedFormat = containerFor(buffer, filename);
 
-  if (expectedFormat !== parsedFormat) {
+  if (containerKind(expectedFormat) !== containerKind(parsedFormat)) {
     throw new FontValidationError(
       filename,
       `the .${expectedFormat} extension does not match the ${parsedFormat.toUpperCase()} container`,
@@ -126,7 +131,7 @@ export function inspectSupportedFont(
     const identity = forceEssentialTables(parsed);
     return {
       identity: {
-        format: parsedFormat,
+        format: expectedFormat,
         family: identity.family,
         postscriptName: identity.postscriptName,
       },

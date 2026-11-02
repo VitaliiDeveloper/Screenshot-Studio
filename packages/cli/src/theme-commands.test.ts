@@ -58,6 +58,20 @@ describe("runThemeCommand", () => {
       ].join("\n"));
   });
 
+  it("lists a malformed or misnamed theme as an error line beside the valid ones", async () => {
+    const { dir, projectPath } = await fixture();
+    await writeFile(join(dir, "themes/broken.json"), "{");
+    await writeFile(join(dir, "themes/wrong.json"), await readFile(join(dir, "themes/midnight.json")));
+
+    const lines = (await runThemeCommand(projectPath, ["list"])).split("\n");
+
+    expect(lines).toContain("project midnight Midnight");
+    expect(lines.filter((line) => line.startsWith("invalid-theme "))).toEqual([
+      expect.stringMatching(/^invalid-theme themes\/broken\.json: Invalid theme/),
+      'invalid-theme themes/wrong.json: Theme file wrong.json must match its id "midnight"',
+    ]);
+  });
+
   it("applies a built-in design pack only when --built-in is explicit", async () => {
     const { projectPath } = await fixture();
     await expect(runThemeCommand(projectPath, ["set", "neutral-default"])).rejects.toThrow(/not found/);

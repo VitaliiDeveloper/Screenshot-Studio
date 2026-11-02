@@ -36,7 +36,7 @@ export interface PublicationInspectionDependencies {
 }
 export type FilePublicationDestinationState = "missing" | "matching" | "conflicting";
 export interface DeterministicRemovalDependencies {
-  moveFile?: (source: string, destination: string) => Promise<void>;
+  linkFile?: (source: string, destination: string) => Promise<void>;
   removeFile?: (path: string) => Promise<void>;
   syncDirectory?: (directory: string) => Promise<void>;
   afterQuarantine?: (quarantinePath: string) => void | Promise<void>;

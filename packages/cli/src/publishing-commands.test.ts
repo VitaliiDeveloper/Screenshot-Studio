@@ -41,6 +41,8 @@ describe("runPublishingCommand", () => {
     await expect(runPublishingCommand(path, ["set"], { "google-package": "../edits" })).rejects.toThrow(/package name/);
     await expect(runPublishingCommand(path, ["set"], {})).rejects.toThrow(/requires --google-package or --apple-app-id/);
     await expect(runPublishingCommand(path, ["clear", "amazon"], {})).rejects.toThrow(/clear <google\|apple>/);
+    await expect(runPublishingCommand(path, ["show"], { "google-package": "com.example.app" }))
+      .rejects.toThrow("--google-package applies only to publishing set");
     expect(await readFile(path, "utf8")).toBe(original);
   });
 });

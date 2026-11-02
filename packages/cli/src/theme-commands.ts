@@ -4,7 +4,7 @@ import {
   applyBuiltInDesignPackFile,
   applyProjectDesignPackFile,
   applyThemeFile,
-  listThemes,
+  listThemesWithErrors,
   themeId,
 } from "./theme-service.js";
 import { loadProjectPackListing } from "./template-service.js";
@@ -32,12 +32,16 @@ export async function runThemeCommand(
 ): Promise<string> {
   const action = resolveThemeAction(args, flags);
   if (action.kind === "list") {
-    const [themes, local] = await Promise.all([listThemes(projectPath), loadProjectPackListing(projectPath)]);
+    const [{ definitions: themes, errors }, local] = await Promise.all([
+      listThemesWithErrors(projectPath),
+      loadProjectPackListing(projectPath),
+    ]);
     return [
       ...listBuiltInDesignPacks().map((pack) => `built-in ${pack.id} ${pack.name}`),
       ...local.packs.flatMap((entry) => entry.kind === "design" ? [`project-pack ${entry.pack.id} ${entry.pack.name}`] : []),
       ...themes.map((theme) => `project ${theme.id} ${theme.name}`),
       ...local.errors.map((error) => `invalid-pack ${error.file}: ${error.message}`),
+      ...errors.map(({ file, error }) => `invalid-theme ${file}: ${error.message}`),
     ].join("\n");
   }
   if (action.source !== "project") {

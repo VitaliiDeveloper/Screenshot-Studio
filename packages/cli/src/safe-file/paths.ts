@@ -110,22 +110,15 @@ async function planRootCreation(root: string): Promise<RootCreationPlan> {
     }
 
     if (stats) {
-      const describesRequestedRoot = missingSegments.length === 0;
-      if (stats.isSymbolicLink()) {
-        throw new Error(describesRequestedRoot
-          ? "Unsafe symbolic link at publication root"
-          : `Unsafe symbolic link in publication root ancestry: ${cursor}`);
-      }
-      if (!stats.isDirectory()) {
-        throw new Error(describesRequestedRoot
-          ? "Publication root is not a directory"
-          : `Publication root ancestry is not a directory: ${cursor}`);
-      }
+      const isRequestedRoot = missingSegments.length === 0;
+      // Ancestors above the root are the caller's chosen location and may be OS links such as
+      // macOS /tmp; only the root itself and the segments created below it must not be links.
+      if (isRequestedRoot) assertRootStats(stats);
       const canonicalRoot = await realpath(cursor);
       assertRootStats(await lstatIfExists(canonicalRoot));
       return {
         requestedRoot,
-        anchor: { requestedRoot: cursor, canonicalRoot },
+        anchor: { requestedRoot: isRequestedRoot ? cursor : canonicalRoot, canonicalRoot },
         missingSegments,
       };
     }

@@ -6,6 +6,7 @@ import {
   FONT_WEIGHT_MIN,
   type Project as ProjectModel,
 } from "@screenshot-studio/core/model";
+import { rejectFlagsOutsideSubcommand } from "./command-flags.js";
 import { loadProjectFile } from "./project-io.js";
 import {
   addGoogleFont,
@@ -33,6 +34,11 @@ function flagWeight(flags: Record<string, string>): number {
 
 export function resolveFontAction(args: string[], flags: Record<string, string>): FontAction {
   const [subcommand, value] = args;
+  rejectFlagsOutsideSubcommand("font", subcommand, flags, {
+    google: ["add"],
+    family: ["add"],
+    weight: ["add", "rm"],
+  });
   switch (subcommand) {
     case "list":
       return { kind: "list" };
@@ -40,6 +46,7 @@ export function resolveFontAction(args: string[], flags: Record<string, string>)
       const weight = flagWeight(flags);
       if (flags.google) {
         if (value) throw new Error("font add accepts either <file> or --google <family>, not both");
+        if (flags.family) throw new Error("--family applies only to font add <file>; --google names the family");
         return { kind: "add", source: "google", family: flags.google, weight };
       }
       if (!value) throw new Error("Usage: screenshots font add <file> --family <family> [--weight <100..900>]");

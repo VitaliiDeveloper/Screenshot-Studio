@@ -48,7 +48,8 @@ export function runCli(): void {
     })
     .catch((err) => {
       console.error(err instanceof Error ? err.message : err);
-      process.exit(1);
+      // check exits 1 for blockers, so a check that could not run needs its own code for CI.
+      process.exit(command === "check" ? 2 : 1);
     });
 }
 

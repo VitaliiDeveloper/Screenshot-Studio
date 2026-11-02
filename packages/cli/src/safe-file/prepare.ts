@@ -11,8 +11,9 @@ import type {
   PublicationInspectionDependencies,
   SafeFileOwnership,
   SafeFilePublication,
+  TrackedFileEvidence,
 } from "./types.js";
-import { hasCode, lstatIfExists, publicationDestinationError } from "./fs-basics.js";
+import { hasCode, lstatBigIntIfExists, publicationDestinationError } from "./fs-basics.js";
 import {
   assertCanonicalContainment,
   assertPortableRelativePath,
@@ -102,6 +103,16 @@ export async function prepareFilePublication(
   let settled = false;
   const syncDirectory = dependencies.syncDirectory
     ?? ((directory) => defaultSyncDirectory(directory, dependencies.openDirectory));
+  const removeStage = async () => {
+    const removed = await removeFileWithDeterministicQuarantine(
+      boundary.canonicalRoot,
+      stageRelativePath,
+      stageCleanupRelativePath,
+      ownership,
+      { syncDirectory },
+    );
+    if (!removed) throw new Error(`Prepared publication stage disappeared: ${stagePath}`);
+  };
   return {
     path: destinationPath,
     stagePath,
@@ -119,13 +130,7 @@ export async function prepareFilePublication(
         if (!collision) throw new SafeFileConflictError(destinationPath);
         const linkCommitted = ownershipMatchesEvidence(ownership, collision);
         if (linkCommitted) await syncDirectory(dirname(destinationPath));
-        await removeFileWithDeterministicQuarantine(
-          boundary.canonicalRoot,
-          stageRelativePath,
-          stageCleanupRelativePath,
-          ownership,
-          { syncDirectory },
-        );
+        await removeStage();
         await syncDirectory(dirname(stagePath));
         settled = true;
         return {
@@ -135,28 +140,14 @@ export async function prepareFilePublication(
         };
       }
       await syncDirectory(dirname(destinationPath));
-      const removed = await removeFileWithDeterministicQuarantine(
-        boundary.canonicalRoot,
-        stageRelativePath,
-        stageCleanupRelativePath,
-        ownership,
-        { syncDirectory },
-      );
-      if (!removed) throw new Error(`Prepared publication stage disappeared: ${stagePath}`);
+      await removeStage();
       await syncDirectory(dirname(destinationPath));
       settled = true;
       return { path: destinationPath, created: true, ownership };
     },
     async discard() {
       if (settled) return;
-      const removed = await removeFileWithDeterministicQuarantine(
-        boundary.canonicalRoot,
-        stageRelativePath,
-        stageCleanupRelativePath,
-        ownership,
-        { syncDirectory },
-      );
-      if (!removed) throw new Error(`Prepared publication stage disappeared: ${stagePath}`);
+      await removeStage();
       await syncDirectory(dirname(stagePath));
       settled = true;
     },
@@ -180,6 +171,10 @@ export async function inspectFilePublicationDestination(
   const openVerification = dependencies.openVerification
     ?? ((path: string, flags: number) => open(path, flags));
   return (await inspectBoundedDestinationBytes(destinationPath, options.bytes, openVerification)).state;
+}
+async function namesFile(path: string, evidence: TrackedFileEvidence): Promise<boolean> {
+  const stats = await lstatBigIntIfExists(path);
+  return stats?.dev === evidence.device && stats.ino === evidence.inode;
 }
 export async function removeFileWithDeterministicQuarantine(
   root: string,
@@ -205,45 +200,58 @@ export async function removeFileWithDeterministicQuarantine(
   const openVerification = (target: string, flags: number) => open(target, flags);
   const syncDirectory = dependencies.syncDirectory
     ?? ((directory) => defaultSyncDirectory(directory));
+  const removeFile = dependencies.removeFile ?? unlink;
   let quarantined = await readBoundRegularFileEvidence(
     quarantinePath,
     openVerification,
     "Deterministic removal quarantine changed",
   );
-  if (quarantined && !ownershipMatchesEvidence(expectedOwnership, quarantined)) {
-    throw new Error(`Deterministic removal quarantine ownership changed: ${quarantinePath}`);
-  }
   if (!quarantined) {
     const current = await readBoundRegularFileEvidence(
       path,
       openVerification,
       "Deterministic removal target changed",
     );
-    if (!current) return false;
-    if (!ownershipMatchesEvidence(expectedOwnership, current)) return false;
-    if (await lstatIfExists(quarantinePath)) {
-      throw new Error(`Deterministic removal quarantine is occupied: ${quarantinePath}`);
-    }
+    if (!current || !ownershipMatchesEvidence(expectedOwnership, current)) return false;
     await revalidate();
-    await (dependencies.moveFile ?? rename)(path, quarantinePath);
-    await syncDirectory(dirname(path));
-    await dependencies.afterQuarantine?.(quarantinePath);
+    // A link, unlike rename, never replaces an occupant of the predictable quarantine name.
+    try {
+      await (dependencies.linkFile ?? link)(path, quarantinePath);
+    } catch (error) {
+      if (!hasCode(error, "EEXIST")) throw error;
+      throw new Error(`Deterministic removal quarantine is occupied: ${quarantinePath}`, { cause: error });
+    }
     quarantined = await readBoundRegularFileEvidence(
       quarantinePath,
       openVerification,
-      "Deterministic removal quarantine changed after rename",
+      "Deterministic removal quarantine changed after link",
     );
-    if (!quarantined || !ownershipMatchesEvidence(expectedOwnership, quarantined)) {
+    if (!quarantined) throw new Error(`Deterministic removal quarantine disappeared: ${quarantinePath}`);
+  }
+  if (!ownershipMatchesEvidence(expectedOwnership, quarantined)) {
+    if (!await namesFile(path, quarantined)) {
       throw new Error(`Deterministic removal quarantine ownership changed: ${quarantinePath}`);
     }
+    // The target was replaced before the link: drop only the extra name, the occupant keeps its path.
+    await removeExactQuarantine(quarantinePath, quarantined, removeFile, openVerification, revalidate);
+    return false;
   }
-  await removeExactQuarantine(
+  await revalidate();
+  // Both names remain after the link, or after a crash before the original name was removed.
+  if (await namesFile(path, quarantined)) {
+    await removeFile(path);
+    await syncDirectory(dirname(path));
+  }
+  await dependencies.afterQuarantine?.(quarantinePath);
+  quarantined = await readBoundRegularFileEvidence(
     quarantinePath,
-    quarantined,
-    dependencies.removeFile ?? unlink,
     openVerification,
-    revalidate,
+    "Deterministic removal quarantine changed after unlink",
   );
+  if (!quarantined || !ownershipMatchesEvidence(expectedOwnership, quarantined)) {
+    throw new Error(`Deterministic removal quarantine ownership changed: ${quarantinePath}`);
+  }
+  await removeExactQuarantine(quarantinePath, quarantined, removeFile, openVerification, revalidate);
   await syncDirectory(dirname(path));
   return true;
 }
