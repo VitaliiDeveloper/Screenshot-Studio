@@ -314,4 +314,36 @@ describe("ManagedProjectImportService", () => {
     await expect(stageEntries(failed.repository)).resolves.toEqual([]);
     await expect(failed.repository.list()).resolves.toEqual([]);
   });
+
+  it.each(["folder", "archive"] as const)(
+    "rejects a %s path that is both a file and a parent folder, whatever the case",
+    async (kind) => {
+      const { repository, service } = await createService();
+
+      await expect(service.import({
+        kind,
+        files: [
+          importFile("app-store-screenshots.json", projectJson()),
+          importFile("assets/foo", "file"),
+          importFile("assets/Foo/bar.png", "nested"),
+        ],
+      })).rejects.toMatchObject({ code: "duplicate" });
+
+      await expect(repository.list()).resolves.toEqual([]);
+      await expect(stageEntries(repository)).resolves.toEqual([]);
+    },
+  );
+
+  it("keeps sibling paths that merely share a name prefix", async () => {
+    const { service } = await createService();
+
+    await expect(service.import({
+      kind: "archive",
+      files: [
+        importFile("app-store-screenshots.json", projectJson()),
+        importFile("assets/foo", "file"),
+        importFile("assets/foo-2/bar.png", "nested"),
+      ],
+    })).resolves.toMatchObject({ name: "Imported" });
+  });
 });

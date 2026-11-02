@@ -165,6 +165,17 @@ function validateFileSet(
       }
     }
   }
+  for (const file of files) {
+    const segments = foldPortablePath(file.relativePath).split("/");
+    for (let depth = 1; depth < segments.length; depth += 1) {
+      if (seen.has(segments.slice(0, depth).join("/"))) {
+        throw new ManagedProjectImportError(
+          `Project import uses a file as a folder: ${file.relativePath}`,
+          "duplicate",
+        );
+      }
+    }
+  }
   return [...files].sort((left, right) => left.relativePath.localeCompare(right.relativePath));
 }
 
