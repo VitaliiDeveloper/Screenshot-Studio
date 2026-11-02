@@ -179,9 +179,6 @@ render of that run, so it can replace the Linux set as is:
 rm -rf e2e/golden/linux && cp -R <artifact>/actual e2e/golden/linux
 ```
 
-Seed the Linux set this way from the first run on the integration pull request into `dev`, which
-fails because no Linux references exist yet.
-
 To accept an intended visual change, open the artifact's `diff/*.diff.png` and `*.expected.png` for
 every failing case. If every difference is intended, replace `e2e/golden/linux/` from `actual/` as
 above. Commit the references in the same pull request as the change that caused them. Never update
