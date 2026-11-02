@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { constants, type Stats } from "node:fs";
+import { constants } from "node:fs";
 import {
   link,
   lstat,
@@ -11,20 +11,27 @@ import {
   unlink,
   type FileHandle,
 } from "node:fs/promises";
-import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import JSZip from "jszip";
 import type { BundleEntry } from "@screenshot-studio/core/export";
 import { isProjectRelativePath } from "@screenshot-studio/core/model";
 import { errorText, noFollowFlags } from "@screenshot-studio/core/storage";
 import {
   errorWithCleanup,
-  hasCode,
   lstatBigIntIfExists,
   lstatIfExists,
+  publicationDestinationError,
   verificationFlags,
 } from "./safe-file/fs-basics.js";
-import { resolveOrCreateRootBoundary } from "./safe-file/paths.js";
-import type { CapturedError, StageHandle } from "./safe-file/types.js";
+import {
+  assertCanonicalContainment,
+  ensureAncestors,
+  inspectRegularLeaf,
+  resolveOrCreateRootBoundary,
+  resolveRootBoundaryIfExists,
+  revalidateAncestors,
+} from "./safe-file/paths.js";
+import type { CapturedError, RootBoundary, StageHandle } from "./safe-file/types.js";
 
 export interface RenderedBundleEntry {
   entry: BundleEntry;
@@ -66,89 +73,43 @@ function collisionKey(relativePath: string): string {
   return relativePath.normalize("NFC").toLowerCase();
 }
 
-function resolveSafeBundleOutputPath(outDir: string, relativePath: string): string {
+function resolveSafeBundleOutputPath(root: string, relativePath: string): string {
   if (!isProjectRelativePath(relativePath)) {
     throw new Error(`Unsafe bundle output path "${relativePath}"`);
   }
-  const root = resolve(outDir);
   const outputPath = resolve(root, relativePath);
-  const fromRoot = relative(root, outputPath);
-  if (fromRoot === ".." || fromRoot.startsWith(`..${sep}`) || isAbsolute(fromRoot)) {
-    throw new Error(`Unsafe bundle output path "${relativePath}"`);
-  }
+  assertCanonicalContainment(root, outputPath);
   return outputPath;
 }
 
-function assertDirectoryNotSymlink(path: string, stats: Stats): void {
-  if (stats.isSymbolicLink()) throw new Error(`Unsafe symbolic link in bundle output path "${path}"`);
-  if (!stats.isDirectory()) throw new Error(`Bundle output ancestor is not a directory "${path}"`);
+function directorySegments(relativePath: string): string[] {
+  return relativePath.split("/").slice(0, -1);
 }
 
-function assertRegularOutput(path: string, stats: Stats): void {
-  if (stats.isSymbolicLink()) {
-    throw new Error(`Unsafe symbolic link at bundle output file "${path}"`);
-  }
-  if (!stats.isFile()) {
-    throw new Error(`Bundle output file must be a regular file "${path}"`);
-  }
+async function inspectOutputLeaf(outputPath: string) {
+  return inspectRegularLeaf(outputPath, publicationDestinationError);
 }
 
-function assertContainedDirectory(root: string, directory: string): string[] {
-  const fromRoot = relative(root, directory);
-  if (fromRoot === ".." || fromRoot.startsWith(`..${sep}`) || isAbsolute(fromRoot)) {
-    throw new Error(`Bundle output directory escaped root "${directory}"`);
-  }
-  return fromRoot === "" ? [] : fromRoot.split(sep);
+async function preflightOutput(
+  boundary: RootBoundary | null,
+  relativePath: string,
+  outputPath: string,
+): Promise<void> {
+  if (!boundary || !await ensureAncestors(boundary, directorySegments(relativePath), false)) return;
+  await inspectOutputLeaf(outputPath);
 }
 
-async function validateDirectoryChain(outDir: string, directory: string): Promise<boolean> {
-  const root = resolve(outDir);
-  const rootStats = await lstatIfExists(root);
-  if (!rootStats) return false;
-  assertDirectoryNotSymlink(root, rootStats);
-
-  let current = root;
-  for (const segment of assertContainedDirectory(root, directory)) {
-    current = join(current, segment);
-    const stats = await lstatIfExists(current);
-    if (!stats) return false;
-    assertDirectoryNotSymlink(current, stats);
-  }
-  return true;
-}
-
-async function preflightOutputPath(outDir: string, outputPath: string): Promise<Stats | null> {
-  if (!await validateDirectoryChain(outDir, dirname(outputPath))) return null;
-  const outputStats = await lstatIfExists(outputPath);
-  if (outputStats) assertRegularOutput(outputPath, outputStats);
-  return outputStats;
-}
-
-async function ensureSafeOutputDirectory(outDir: string, directory: string): Promise<void> {
-  const root = resolve(outDir);
-  const rootStats = await lstatIfExists(root);
-  if (!rootStats) throw new Error(`Bundle output root disappeared "${root}"`);
-  assertDirectoryNotSymlink(root, rootStats);
-
-  let current = root;
-  for (const segment of assertContainedDirectory(root, directory)) {
-    const next = join(current, segment);
-    let stats = await lstatIfExists(next);
-    if (!stats) {
-      if (!await validateDirectoryChain(outDir, current)) {
-        throw new Error(`Bundle output ancestor disappeared "${current}"`);
-      }
-      try {
-        await mkdir(next);
-      } catch (error) {
-        if (!hasCode(error, "EEXIST")) throw error;
-      }
-      stats = await lstatIfExists(next);
-    }
-    if (!stats) throw new Error(`Bundle output ancestor disappeared "${next}"`);
-    assertDirectoryNotSymlink(next, stats);
-    current = next;
-  }
+/** Creates the directory chain of one file and returns the check to repeat before each mutation. */
+async function ensureDirectories(
+  boundary: RootBoundary,
+  relativePath: string,
+): Promise<() => Promise<void>> {
+  const ancestors = await ensureAncestors(boundary, directorySegments(relativePath), true);
+  if (!ancestors) throw new Error(`Bundle directory creation failed "${relativePath}"`);
+  const revalidate = () => revalidateAncestors(boundary, ancestors);
+  // ensureAncestors checks nothing for a file directly in the root, so the root is checked here.
+  await revalidate();
+  return revalidate;
 }
 
 function noFollowStageFlags(): number {
@@ -319,33 +280,27 @@ async function requireExactTrackedFile(
   }
 }
 
-async function requireOutputAncestors(outDir: string, outputPath: string): Promise<void> {
-  if (!await validateDirectoryChain(outDir, dirname(outputPath))) {
-    throw new Error(`Bundle output ancestor disappeared "${dirname(outputPath)}"`);
+async function requireAbsentDestination(
+  outputPath: string,
+  revalidate: () => Promise<void>,
+): Promise<void> {
+  await revalidate();
+  if (await inspectOutputLeaf(outputPath)) {
+    throw new Error(`Bundle output destination changed before publication "${outputPath}"`);
   }
 }
 
-async function requireAbsentDestination(outDir: string, outputPath: string): Promise<void> {
-  await requireOutputAncestors(outDir, outputPath);
-  const stats = await lstatIfExists(outputPath);
-  if (!stats) return;
-  assertRegularOutput(outputPath, stats);
-  throw new Error(`Bundle output destination changed before publication "${outputPath}"`);
-}
-
 async function removePublishedOutputSafely(
-  outDir: string,
   outputPath: string,
   quarantinePath: string,
   expected: TrackedFileEvidence,
+  revalidate: () => Promise<void>,
   move: NonNullable<BundleOutputDependencies["move"]>,
   openVerification: NonNullable<BundleOutputDependencies["openVerification"]>,
   linkFile: NonNullable<BundleOutputDependencies["linkFile"]>,
 ): Promise<void> {
-  await requireOutputAncestors(outDir, outputPath);
-  const stats = await lstatIfExists(outputPath);
-  if (!stats) return;
-  assertRegularOutput(outputPath, stats);
+  await revalidate();
+  if (!await inspectOutputLeaf(outputPath)) return;
 
   await mkdir(dirname(quarantinePath), { recursive: true });
   if (await lstatIfExists(quarantinePath)) {
@@ -361,7 +316,7 @@ async function removePublishedOutputSafely(
   }
   if (!evidenceMatches(quarantined, expected)) {
     try {
-      await requireAbsentDestination(outDir, outputPath);
+      await requireAbsentDestination(outputPath, revalidate);
       await linkFile(quarantinePath, outputPath);
       const restoredCompetitor = evidenceWithLinks(quarantined, quarantined.links + 1n);
       await requireExactTrackedFile(
@@ -390,16 +345,15 @@ async function removePublishedOutputSafely(
 }
 
 async function restoreBackupSafely(
-  outDir: string,
   backupPath: string,
   outputPath: string,
   backupEvidence: TrackedFileEvidence,
+  revalidate: () => Promise<void>,
   openVerification: NonNullable<BundleOutputDependencies["openVerification"]>,
   linkFile: NonNullable<BundleOutputDependencies["linkFile"]>,
 ): Promise<TrackedFileEvidence> {
-  await requireOutputAncestors(outDir, outputPath);
-  const outputStats = await lstatIfExists(outputPath);
-  if (outputStats) {
+  await revalidate();
+  if (await lstatIfExists(outputPath)) {
     throw new Error(`Cannot restore bundle backup over occupied destination "${outputPath}"`);
   }
   await requireExactTrackedFile(
@@ -453,8 +407,9 @@ export async function writeBundleOutputs({
     ...entries.map(({ entry, png }) => ({ relativePath: entry.relativePath, bytes: png })),
     ...extraFiles,
   ];
+  const root = resolve(outDir);
   const outputs = files.map(({ relativePath, bytes }) => {
-    const outputPath = resolveSafeBundleOutputPath(outDir, relativePath);
+    const outputPath = resolveSafeBundleOutputPath(root, relativePath);
     const key = collisionKey(relativePath);
     if (seenPaths.has(key)) {
       throw new Error(`Duplicate bundle output path "${relativePath}"`);
@@ -462,11 +417,12 @@ export async function writeBundleOutputs({
     seenPaths.add(key);
     return { relativePath, bytes, outputPath };
   });
-  const zipOutputPath = resolveSafeBundleOutputPath(outDir, zipFilename);
+  const zipOutputPath = resolveSafeBundleOutputPath(root, zipFilename);
   const zipPath = join(outDir, zipFilename);
-  const preflightPaths = [...outputs.map(({ outputPath }) => outputPath), zipOutputPath];
-  for (const outputPath of preflightPaths) {
-    await preflightOutputPath(outDir, outputPath);
+  const preflightTargets = [...outputs, { relativePath: zipFilename, outputPath: zipOutputPath }];
+  const existingBoundary = await resolveRootBoundaryIfExists(outDir);
+  for (const { relativePath, outputPath } of preflightTargets) {
+    await preflightOutput(existingBoundary, relativePath, outputPath);
   }
 
   const zip = new JSZip();
@@ -478,12 +434,12 @@ export async function writeBundleOutputs({
   }
   const zipBytes = await zip.generateAsync({ type: "nodebuffer" });
 
-  await resolveOrCreateRootBoundary(outDir);
-  for (const outputPath of preflightPaths) {
-    await preflightOutputPath(outDir, outputPath);
+  const boundary = await resolveOrCreateRootBoundary(outDir);
+  for (const { relativePath, outputPath } of preflightTargets) {
+    await preflightOutput(boundary, relativePath, outputPath);
   }
 
-  const stagingRoot = await makeTempDirectory(join(resolve(outDir), ".screenshot-studio-stage-"));
+  const stagingRoot = await makeTempDirectory(join(root, ".screenshot-studio-stage-"));
   const stagedFilesRoot = join(stagingRoot, "files");
   const backupRoot = join(stagingRoot, "backup");
   const quarantineRoot = join(stagingRoot, "quarantine");
@@ -517,6 +473,7 @@ export async function writeBundleOutputs({
       outputPath: string;
       backupPath: string;
       quarantinePath: string;
+      revalidate: () => Promise<void>;
       backupMoved: boolean;
       backupEvidence: TrackedFileEvidence | null;
       published: boolean;
@@ -525,8 +482,7 @@ export async function writeBundleOutputs({
     }> = [];
     try {
       for (const [index, publication] of publications.entries()) {
-        await preflightOutputPath(outDir, publication.outputPath);
-        await ensureSafeOutputDirectory(outDir, dirname(publication.outputPath));
+        const revalidate = await ensureDirectories(boundary, publication.relativePath);
         const stagedPath = resolveSafeBundleOutputPath(stagedFilesRoot, publication.relativePath);
         const backupPath = join(backupRoot, String(index));
         const quarantinePath = join(quarantineRoot, String(index));
@@ -534,6 +490,7 @@ export async function writeBundleOutputs({
           outputPath: publication.outputPath,
           backupPath,
           quarantinePath,
+          revalidate,
           backupMoved: false,
           backupEvidence: null as TrackedFileEvidence | null,
           published: false,
@@ -542,10 +499,10 @@ export async function writeBundleOutputs({
         };
         applied.push(state);
 
-        const existing = await preflightOutputPath(outDir, publication.outputPath);
-        if (existing) {
+        if (await inspectOutputLeaf(publication.outputPath)) {
           await mkdir(dirname(backupPath), { recursive: true });
-          await preflightOutputPath(outDir, publication.outputPath);
+          await revalidate();
+          await inspectOutputLeaf(publication.outputPath);
           state.backupEvidence = await readBoundRegularFileEvidence(
             publication.outputPath,
             openVerification,
@@ -560,7 +517,7 @@ export async function writeBundleOutputs({
           );
         }
 
-        await requireAbsentDestination(outDir, publication.outputPath);
+        await requireAbsentDestination(publication.outputPath, revalidate);
         const stagedIdentity = stagedIdentities.get(stagedPath);
         if (!stagedIdentity) throw new Error(`Bundle stage identity is missing "${stagedPath}"`);
         const stageEvidence = await requireOwnedStage(
@@ -601,7 +558,6 @@ export async function writeBundleOutputs({
         if (state.published) {
           try {
             await removePublishedOutputSafely(
-              outDir,
               state.outputPath,
               state.quarantinePath,
               requireTrackedEvidence(
@@ -609,6 +565,7 @@ export async function writeBundleOutputs({
                 "Bundle published output",
                 state.outputPath,
               ),
+              state.revalidate,
               move,
               openVerification,
               linkFile,
@@ -628,10 +585,10 @@ export async function writeBundleOutputs({
             const identityKey = evidenceIdentityKey(backupEvidence);
             const restoredLinkDelta = restoredLinkDeltas.get(identityKey) ?? 0n;
             state.restoredEvidence = await restoreBackupSafely(
-              outDir,
               state.backupPath,
               state.outputPath,
               evidenceWithLinks(backupEvidence, backupEvidence.links + restoredLinkDelta),
+              state.revalidate,
               openVerification,
               linkFile,
             );
