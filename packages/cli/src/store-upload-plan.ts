@@ -33,7 +33,7 @@ const GOOGLE_PLAY_LANGUAGE_DEFAULTS: Record<string, string> = {
 };
 
 /** Play image types per Android output family; supply uses the same names as folders. */
-const GOOGLE_PLAY_SCREENSHOT_TYPES = {
+export const GOOGLE_PLAY_SCREENSHOT_TYPES = {
   phone: "phoneScreenshots",
   "tablet-7": "sevenInchScreenshots",
   "tablet-10": "tenInchScreenshots",

@@ -32,6 +32,7 @@ import {
   withStableProjectExport,
 } from "./export.js";
 import { fastlaneBundleEntries, fastlaneSkippedSummary } from "./fastlane-layout.js";
+import { pruneStaleFastlaneFiles } from "./fastlane-prune.js";
 import { loadProjectFile, resolveProjectPath } from "./project-io.js";
 import { createRenderBrowserSession } from "./render-driver.js";
 import { publishFileSafely } from "./safe-file-publisher.js";
@@ -189,7 +190,10 @@ export async function runExportCommand(
       resolveLayoutReference(context.project, layoutId);
       assertProjectFontsResolved(context.project, layoutId);
       let entries = buildBundleEntries(context.project, layoutId, specs, mode.filters);
+      // A filtered export covers only part of the tree, so whatever it did not render is not stale.
+      const prune = fastlane && !Object.values(mode.filters).some(Boolean);
       if (fastlane) {
+        if (!prune) log("Warning: a filtered fastlane export removes nothing, so stale files may remain");
         const layout = fastlaneBundleEntries(entries);
         const skippedSummary = fastlaneSkippedSummary(layout.skipped);
         if (skippedSummary) log(skippedSummary);
@@ -208,7 +212,14 @@ export async function runExportCommand(
         outDir,
         entries,
         renderSession: session!,
-        publicationGuard: context.publish,
+        publicationGuard: prune
+          ? (publish) => context.publish(async () => {
+            const zipPath = await publish();
+            const published = entries.map(({ relativePath }) => relativePath);
+            await pruneStaleFastlaneFiles({ outDir, published, specs, log });
+            return zipPath;
+          })
+          : context.publish,
         profile,
         project: context.project,
       }));
