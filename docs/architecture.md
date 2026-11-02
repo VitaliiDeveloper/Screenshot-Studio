@@ -170,7 +170,10 @@ chrome|msedge|auto` can launch an installed system browser, which is outside tha
 
 Connected mode is still one project model: each exact platform/device/locale/store-target group is
 rendered as a gapless strip while elements retain owner-local coordinates. Export always takes one
-requested artboard crop; it never stitches a separate image or slices a finished PNG.
+requested artboard crop; it never stitches a separate image or slices a finished PNG. An RTL group
+runs right to left in project order, so a direction change, which mirrors each screen in its own
+artboard, mirrors the whole strip and keeps seams continuous without reordering exported or uploaded
+screens: the first screen sits at the strip's right end.
 
 Export profiles are separate from platforms. The default store bundle and optional `web-share`
 profile consume PNGs produced by the shared browser renderer; Web Share only packages those outputs

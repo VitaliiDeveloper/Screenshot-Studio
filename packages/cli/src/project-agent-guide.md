@@ -145,7 +145,8 @@ editor's **Keep 1:1** mode and requires every exact-size target to match the roo
 order. The policy changes structural screen operations, not rendered pixels.
 
 `isolated` clips every screen independently. In `connected`, each exact
-platform/device/locale/`storeTargetId` group forms a gapless horizontal strip in layout order;
+platform/device/locale/`storeTargetId` group forms a gapless horizontal strip in layout order, running
+right to left in an RTL locale so the first screen is rightmost and its left edge meets the second;
 root screens have no `storeTargetId`, while explicit variants pair `variantOf` with a target id and
 must not be mistaken for duplicate roots. Elements stay owned by one screen with owner-local coordinates,
 and export crops the requested artboard through the

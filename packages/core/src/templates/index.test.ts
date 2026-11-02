@@ -20,6 +20,7 @@ import {
   setLocaleDirection,
   setOutputFamilyScreenSetMode,
   type Project,
+  type Screen,
 } from "@screenshot-studio/core/model";
 import { findBuiltInDesignPack } from "@screenshot-studio/core/themes";
 import {
@@ -619,6 +620,26 @@ describe("showcase template packs", () => {
 describe("panorama template packs", () => {
   const PANORAMA_STYLES = ["clean", "midnight", "poster", "sunrise"];
   const panoramas = () => styledPacks().filter((pack) => isPanorama(pack.id));
+
+  it("mirrors each pack's art across the whole strip in an RTL locale", () => {
+    const artSpans = (direction: "ltr" | "rtl") => panoramas().map((pack) => {
+      const source = project();
+      source.layouts[0]!.screens[0] = pack.platform === "apple"
+        ? { ...source.layouts[0]!.screens[0]!, direction }
+        : { ...source.layouts[0]!.screens[0]!, platform: "android", device: "phone", direction } as Screen;
+      const { project: next, screens } = createScreensFromTemplatePack(source, "default", pack, "en", storeSpecs);
+      const strip = projectScreenGroup(next, "default", screens[0]!.id);
+      const total = strip.reduce((sum, { screen }) => sum + screen.artboard.width, 0);
+      return strip.flatMap(({ screen, x }) => screen.elements
+        .filter((element) => element.type === "shape" && element.name !== "Quote card" && element.name !== "Action button")
+        .map((element) => ({ start: x + element.x, end: x + element.x + element.width, total })));
+    });
+    const rtl = artSpans("rtl");
+    artSpans("ltr").forEach((spans, pack) => spans.forEach((span, index) => {
+      expect(rtl[pack]![index]!.start).toBeCloseTo(span.total - span.end, 6);
+      expect(rtl[pack]![index]!.end).toBeCloseTo(span.total - span.start, 6);
+    }));
+  });
 
   it("ships the seam-safe styles for iPhone and Android phone with the six-screen narrative", () => {
     expect(panoramas().map((pack) => pack.id))

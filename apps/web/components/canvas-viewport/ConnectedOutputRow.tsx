@@ -31,6 +31,7 @@ export function ConnectedOutputRow({
     ? activeScreenId
     : row.screens[0]!.id;
   const artworkWidth = row.screens.reduce((sum, screen) => sum + screen.artboard.width, 0) * zoom;
+  const labelRow = row.screens[0]!.direction === "rtl" ? "flex flex-row-reverse" : "flex";
 
   return (
     <OutputFamilySection
@@ -44,7 +45,7 @@ export function ConnectedOutputRow({
         className="w-fit"
         data-testid={row.editing ? "connected-artboards" : undefined}
       >
-        <div className="flex">
+        <div className={labelRow}>
           {row.screens.map((screen) => (
             <div
               key={screen.id}
@@ -68,7 +69,7 @@ export function ConnectedOutputRow({
             interactive={row.editing}
           />
         </div>
-        <div className="flex">
+        <div className={labelRow}>
           {row.screens.map((screen) => (
             <ScreenPreviewMetadata
               key={screen.id}
