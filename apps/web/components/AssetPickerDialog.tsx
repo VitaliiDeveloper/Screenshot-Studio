@@ -14,10 +14,8 @@ import {
   type ProjectImageAsset,
 } from "@web/lib/project-assets";
 import { editorStore } from "@web/lib/editor/editor-store";
-import {
-  defaultDeviceFrameInputForScreen,
-  type MediaAssetTarget,
-} from "@web/lib/editor/editor-workspace";
+import { type MediaAssetTarget } from "@web/lib/editor/editor-workspace";
+import { defaultDeviceFrameInputForScreen } from "@web/lib/editor/device-frame-context";
 import { applyElementPatchToScope } from "@web/lib/editor/editor-apply-to";
 import { mutateAndSave } from "@web/lib/editor/mutate-and-save";
 import { projectJsonRequest } from "@web/lib/clients/project-api-client";

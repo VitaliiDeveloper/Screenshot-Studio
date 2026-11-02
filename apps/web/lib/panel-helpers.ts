@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import type { Element, Screen } from "@screenshot-studio/core/model";
 import { listOutputFamilies, listStoreTargets, type StoreSpecs } from "@screenshot-studio/core/export";
-import { compactStoreSizeLabel, outputFamilyEditorLabel } from "@web/lib/editor/editor-workspace";
+import { compactStoreSizeLabel, outputFamilyEditorLabel } from "@web/lib/editor/store-target-labels";
 
 /** Human-readable fallback labels for the layers panel (name overrides these). */
 const TYPE_LABELS = {

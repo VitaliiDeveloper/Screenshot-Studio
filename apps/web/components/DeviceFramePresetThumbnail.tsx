@@ -10,7 +10,7 @@ import type {
   DeviceFrameElement,
   DeviceFramePreset,
 } from "@screenshot-studio/core/model";
-import { renderNodeConfigChild } from "./EditorStage";
+import { renderNodeConfigChild } from "./editor-stage/render-node-config-child";
 
 const THUMBNAIL_WIDTH = 112;
 const THUMBNAIL_HEIGHT = 84;

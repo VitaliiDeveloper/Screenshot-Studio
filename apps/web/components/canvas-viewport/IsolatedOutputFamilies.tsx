@@ -4,14 +4,14 @@
 import { useMemo, type ReactNode } from "react";
 import type { StoreSpecs } from "@screenshot-studio/core/export";
 import type { Screen } from "@screenshot-studio/core/model";
+import { OVERVIEW_GAP } from "@web/lib/editor/editor-workspace";
 import {
   compactStoreSizeLabel,
   distinctSizeLabels,
-  OVERVIEW_GAP,
   screenStoreTarget,
   storeOutputLabel,
-  type WorkspaceOutputFamily,
-} from "@web/lib/editor/editor-workspace";
+} from "@web/lib/editor/store-target-labels";
+import { type WorkspaceOutputFamily } from "@web/lib/editor/workspace-output-rows";
 import { OutputFamilySection } from "./OutputFamilySection";
 import { SizeRowHeader } from "./SizeRowHeader";
 

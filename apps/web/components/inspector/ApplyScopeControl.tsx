@@ -6,7 +6,7 @@ import type { DesignLayout, Element, Screen } from "@screenshot-studio/core/mode
 import { MenuSelect } from "@web/components/editor-ui";
 import { applyScopeScreens, scopedElementPatches, type ApplyScope } from "@web/lib/editor/editor-apply-scope";
 import { screenTargetLabel } from "@web/lib/editor/editor-issues";
-import { outputFamilyEditorLabel } from "@web/lib/editor/editor-workspace";
+import { outputFamilyEditorLabel } from "@web/lib/editor/store-target-labels";
 
 interface ApplyScopeProps {
   layout: DesignLayout;

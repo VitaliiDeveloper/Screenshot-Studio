@@ -3,7 +3,7 @@
 import type { ImageCache } from "@screenshot-studio/core/assets";
 import type { StoreSpecs } from "@screenshot-studio/core/export";
 import type { ProjectIssue } from "@screenshot-studio/core/validation";
-import type { WorkspaceOutputFamily } from "@web/lib/editor/editor-workspace";
+import type { WorkspaceOutputFamily } from "@web/lib/editor/workspace-output-rows";
 import { EditorStage } from "@web/components/EditorStage";
 import { OutputFamilySection } from "./OutputFamilySection";
 import { ScreenPreviewMetadata, ScreenPreviewTitle } from "./ScreenPreviewLabels";

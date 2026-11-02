@@ -7,7 +7,7 @@ const screenTemplateDialog = readFileSync(
   "utf8",
 );
 const workspaceModel = readFileSync(
-  new URL("../../lib/editor/editor-workspace.ts", import.meta.url),
+  new URL("../../lib/editor/add-catalog.ts", import.meta.url),
   "utf8",
 );
 const screensSection = readFileSync(new URL("../ScreensSection.tsx", import.meta.url), "utf8");

@@ -22,7 +22,7 @@ import {
   outputFamilyEditorLabel,
   screenStoreTarget,
   storeTargetDeviceCopy,
-} from "./editor-workspace.js";
+} from "./store-target-labels.js";
 import { elementLabel } from "@web/lib/panel-helpers.js";
 
 export interface IssueCounts {
