@@ -1,22 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import { useLayoutEffect, useMemo, useRef, useState, type Key } from "react";
+import { useMemo, useRef, useState } from "react";
 import Konva from "konva";
 import { Stage, Layer, Text, Rect, Ellipse, Image as KonvaImage, Group, Line, Path, Transformer } from "react-konva";
 import { useStore } from "zustand";
-import { CircleAlert } from "lucide-react";
 import {
   assertNever,
   type Element,
 } from "@screenshot-studio/core/model";
 import {
-  applyNodeFilter,
   backgroundToNodeConfig,
   elementToNodeConfig,
   fitTextSize,
   textContentHeight,
-  type NodeConfig,
 } from "@screenshot-studio/core/engine";
 import type { ImageCache } from "@screenshot-studio/core/assets";
 import type { ProjectIssue } from "@screenshot-studio/core/validation";
@@ -25,7 +22,6 @@ import { isSelected } from "@web/lib/editor/editor-selection";
 import { mutateAndSave, mutateAndScheduleSave } from "@web/lib/editor/mutate-and-save";
 import { applyElementPatchToScope } from "@web/lib/editor/editor-apply-to";
 import { applyTextFit } from "@web/lib/editor/editor-text-fit";
-import { elementLabel } from "@web/lib/panel-helpers";
 import { deriveStageModel } from "./editor-stage/stage-model";
 import { useElementTransform } from "./editor-stage/use-element-transform";
 import { elementKeepsAspectRatio } from "./editor-stage/element-transform-model";
@@ -37,6 +33,8 @@ import { nodeSelectionKey, useTransformerSelection } from "./editor-stage/use-tr
 import { deriveTextOverflowMarks } from "./editor-stage/text-overflow-model";
 import { deriveSelectionOverlay } from "./editor-stage/selection-overlay-model";
 import { SelectionToolbar } from "./editor-stage/SelectionToolbar";
+import { renderNodeConfigChild } from "./editor-stage/render-node-config-child";
+import { TextOverflowFitHints, TextOverflowLayer } from "./editor-stage/TextOverflowMarks";
 
 const NO_ISSUES: readonly ProjectIssue[] = [];
 const TEXT_MEASURE = { contentHeight: textContentHeight, fitSize: fitTextSize };
@@ -49,52 +47,6 @@ const TOOLBAR_GAP = 28;
  * screen-local element coordinates without changing persisted ownership or geometry. Connected
  * Focus uses the same projection with the active artboard as a non-interactive exact crop preview.
  */
-export function renderNodeConfigChild(child: NodeConfig, key: Key, listening: boolean, name?: string) {
-  switch (child.konva) {
-    case "Image":
-      return <FilteredKonvaImage key={key} nodeConfig={child} name={name} listening={listening} />;
-    case "Ellipse":
-      return <Ellipse key={key} {...child.config} name={name} listening={listening} />;
-    case "Path":
-      return <Path key={key} {...child.config} name={name} listening={listening} />;
-    case "Rect":
-      return <Rect key={key} {...child.config} name={name} listening={listening} />;
-    case "Text":
-      return <Text key={key} {...child.config} name={name} listening={listening} />;
-    case "Group":
-      return (
-        <Group key={key} {...child.config} name={name} listening={listening}>
-          {child.children.map((nested, index) => renderNodeConfigChild(nested, index, listening, name))}
-        </Group>
-      );
-    default:
-      return assertNever(child);
-  }
-}
-
-function FilteredKonvaImage({
-  nodeConfig,
-  listening,
-  name,
-}: {
-  nodeConfig: Extract<NodeConfig, { konva: "Image" }>;
-  listening: boolean;
-  name?: string;
-}) {
-  const imageRef = useRef<Konva.Image>(null);
-  useLayoutEffect(() => {
-    const node = imageRef.current;
-    if (!node) return;
-    applyNodeFilter(node, nodeConfig.filter);
-    node.getLayer()?.batchDraw();
-    return () => {
-      node.clearCache();
-    };
-  }, [nodeConfig.filter]);
-
-  return <KonvaImage ref={imageRef} {...nodeConfig.config} name={name} listening={listening} />;
-}
-
 export function EditorStage({
   images,
   zoom = 1,
@@ -462,30 +414,7 @@ export function EditorStage({
             })() : null}
           </Layer>
           {visibleOverflowMarks.length > 0 ? (
-            // A separate layer keeps editor marks out of the artwork canvas that parity captures.
-            <Layer listening={false}>
-              {visibleOverflowMarks.map((mark) => (
-                <Group key={`overflow-${mark.screenId}-${mark.element.id}`} {...mark.origin} listening={false}>
-                  <Group x={mark.parent?.x ?? 0} y={mark.parent?.y ?? 0} rotation={mark.parent?.rotation ?? 0}>
-                    <Group x={mark.element.x} y={mark.element.y} rotation={mark.element.rotation}>
-                      <Rect
-                        width={mark.element.width}
-                        height={mark.element.height}
-                        stroke={stageColors.overflow}
-                        strokeWidth={2 / zoom}
-                      />
-                      <Rect
-                        width={mark.element.width}
-                        height={mark.contentHeight}
-                        stroke={stageColors.overflow}
-                        strokeWidth={1 / zoom}
-                        dash={[6 / zoom, 4 / zoom]}
-                      />
-                    </Group>
-                  </Group>
-                </Group>
-              ))}
-            </Layer>
+            <TextOverflowLayer visibleOverflowMarks={visibleOverflowMarks} stageColors={stageColors} zoom={zoom} />
           ) : null}
         </Stage>
 
@@ -513,25 +442,7 @@ export function EditorStage({
           />
         ) : null}
 
-        {canEdit ? visibleOverflowMarks.filter((mark) => mark !== toolbarMark).map((mark) => (
-          <button
-            key={`fit-${mark.screenId}-${mark.element.id}`}
-            type="button"
-            disabled={mark.fitSize === null}
-            aria-label={`Fit text: ${elementLabel(mark.element)}`}
-            title={mark.fitSize === null
-              ? "The text overflows even at 1 px. Resize the layer instead."
-              : "Text overflows its box. Fit text sets the largest size that fits, on this screen only."}
-            className="absolute z-10 flex items-center gap-1 whitespace-nowrap rounded-md border border-[var(--editor-color-warning-border)] bg-[var(--editor-color-warning-surface)] px-2 py-0.5 text-[11px] font-semibold text-[color:var(--editor-color-warning-text)] shadow-sm hover:bg-[var(--editor-color-surface)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)] disabled:cursor-not-allowed disabled:opacity-70"
-            style={{ left: mark.hint.x * zoom, top: mark.hint.y * zoom + 8 }}
-            onClick={() => {
-              if (mark.fitSize !== null) applyTextFit(mark.screenId, mark.element.id, mark.fitSize);
-            }}
-          >
-            <CircleAlert size={12} strokeWidth={2.2} aria-hidden="true" />
-            Fit text
-          </button>
-        )) : null}
+        {canEdit ? <TextOverflowFitHints visibleOverflowMarks={visibleOverflowMarks} toolbarMark={toolbarMark} zoom={zoom} /> : null}
       </div>
 
       {toolbarTarget && selectionOverlay ? (
