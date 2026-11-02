@@ -83,10 +83,11 @@ async function main() {
   const args = ["init", "--dir", target];
   if (options.name) args.push("--name", options.name);
 
+  // No shell, so the project name and folder are never parsed as shell syntax. Windows cannot
+  // start npm's .cmd shims without one, so it needs the CLI's JavaScript entry.
+  const [command, commandArgs] = /\.[cm]?js$/i.test(cli) ? [process.execPath, [cli, ...args]] : [cli, args];
   try {
-    // No shell, so the project name and folder are never parsed as shell syntax. Windows cannot
-    // start npm's .cmd shims without one, so it needs the CLI's JavaScript entry.
-    await run(...(/\.[cm]?js$/i.test(cli) ? [process.execPath, [cli, ...args]] : [cli, args]));
+    await run(command, commandArgs);
   } catch (error) {
     if (error && typeof error === "object" && (error.code === "ENOENT" || error.code === "EINVAL")) {
       throw new Error(
