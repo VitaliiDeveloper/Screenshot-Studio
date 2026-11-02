@@ -6,6 +6,7 @@ import { askYesNo } from "./browser-setup.js";
 import { parsePortFlag, serveUntilStopped } from "./dev-command.js";
 import { initProjectFolder } from "./init.js";
 import { DEFAULT_PROJECT_FILENAME } from "./project-io.js";
+import { isStudioInstance } from "./render-host-readiness.js";
 import { localHostUrl, startWebServer, type RunningServer } from "./server.js";
 import { AGENT_MARKER_ENV } from "./upload-command.js";
 import { isSet } from "./update-check.js";
@@ -23,8 +24,7 @@ export type PortState = "free" | "studio" | "other";
 export async function probeLaunchPort(port: number, fetchImpl: typeof fetch = fetch): Promise<PortState> {
   try {
     const response = await fetchImpl(`${localHostUrl(port)}/api/instance`, { signal: AbortSignal.timeout(1_500) });
-    const body: unknown = response.ok ? await response.json().catch(() => null) : null;
-    return (body as { app?: unknown } | null)?.app === "screenshot-studio" ? "studio" : "other";
+    return await isStudioInstance(response) ? "studio" : "other";
   } catch (error) {
     return (error as { cause?: { code?: unknown } }).cause?.code === "ECONNREFUSED" ? "free" : "other";
   }

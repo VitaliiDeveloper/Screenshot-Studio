@@ -3,6 +3,7 @@ import { spawn as nodeSpawn, type ChildProcess } from "node:child_process";
 import { createServer } from "node:net";
 import { finished } from "node:stream/promises";
 import { prepareRenderHost, type PreparedRenderHost } from "./packaged-render-host.js";
+import { waitForHttp } from "./render-host-readiness.js";
 import { withoutStoreCredentials } from "./store-credential-env.js";
 import { errorText } from "@screenshot-studio/core/storage";
 
@@ -15,7 +16,8 @@ export {
 
 /**
  * Starts either the source-checkout Next dev host or the packaged standalone host and resolves only
- * once it answers HTTP. Export and parity still drive the exact same web renderer in both modes.
+ * once its /api/instance route answers. Export and parity still drive the exact same web renderer in
+ * both modes.
  */
 export interface RunningServer {
   url: string;
@@ -29,20 +31,6 @@ type WaitForHttpFn = (url: string, timeoutMs: number) => Promise<void>;
 type PrepareRenderHostFn = (port: number) => Promise<PreparedRenderHost>;
 
 const RENDER_HOST_STDERR_TAIL_BYTES = 64 * 1024;
-
-async function waitForHttp(url: string, timeoutMs: number): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    try {
-      // Any HTTP response (even 404) means the server is accepting connections.
-      await fetch(url);
-      return;
-    } catch {
-      await new Promise((resolveWait) => setTimeout(resolveWait, 250));
-    }
-  }
-  throw new Error(`Web server did not become ready within ${timeoutMs}ms`);
-}
 
 /** The browser keeps editor settings per origin, so every printed, opened, or probed URL uses this form. */
 export function localHostUrl(port: number): string {
