@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-import { readFile, realpath } from "node:fs/promises";
+import { readFile, realpath, stat } from "node:fs/promises";
 import { dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import type { ProjectAssetExtension } from "@screenshot-studio/core/model";
 import { jsonError } from "./api-error-response.server.js";
 
 const ASSET_CACHE_CONTROL = "private, no-store";
@@ -14,7 +15,7 @@ const CONTENT_TYPES: Record<string, string> = {
   ".otf": "font/otf",
   ".woff": "font/woff",
   ".woff2": "font/woff2",
-};
+} satisfies Record<ProjectAssetExtension, string>;
 
 export function withPrivateAssetPolicy(response: Response, varyByCookie: boolean): Response {
   response.headers.set("cache-control", ASSET_CACHE_CONTROL);
@@ -52,8 +53,9 @@ export async function serveProjectAssetPath(
     if (within === ".." || within.startsWith(`..${sep}`) || isAbsolute(within)) {
       return jsonError(400, "path outside project");
     }
+    const type = CONTENT_TYPES[extname(canonical).toLowerCase()];
+    if (!type || !(await stat(canonical)).isFile()) return jsonError(404, "not found");
     const bytes = await readFile(canonical);
-    const type = CONTENT_TYPES[extname(canonical).toLowerCase()] ?? "application/octet-stream";
     return new Response(bytes, { status: 200, headers: { "content-type": type } });
   } catch {
     return jsonError(404, "not found");
