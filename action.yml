@@ -40,7 +40,7 @@ outputs:
 runs:
   using: composite
   steps:
-    - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+    - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
       with:
         node-version: "22"
         package-manager-cache: false
@@ -91,7 +91,7 @@ runs:
         echo "playwright-version=$(node -p 'require("./node_modules/playwright/package.json").version')" >> "$GITHUB_OUTPUT"
 
     - id: browsers
-      uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ${{ steps.resolve.outputs.browsers-path }}
         key: screenshot-studio-${{ runner.os }}-${{ runner.arch }}-playwright-${{ steps.install.outputs.playwright-version }}
@@ -105,7 +105,7 @@ runs:
 
     # Saved before the check so a project that keeps failing still reuses the browser download.
     - if: steps.browsers.outputs.cache-hit != 'true'
-      uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ${{ steps.resolve.outputs.browsers-path }}
         key: ${{ steps.browsers.outputs.cache-primary-key }}
