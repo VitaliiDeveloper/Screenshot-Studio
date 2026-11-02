@@ -16,7 +16,6 @@ import { dirname, join } from "node:path";
 import {
   errorCode,
   noFollowFlags,
-  readProjectSnapshot,
   syncDirectoryBestEffort,
 } from "@screenshot-studio/core/storage";
 import {
@@ -34,6 +33,7 @@ import {
   type ManagedProjectLifecycleLock,
 } from "./managed-project-lifecycle-lock.server.js";
 import { ManagedProjectLifecycleService } from "./managed-project-lifecycle.server.js";
+import { readManagedProjectTree } from "./managed-project-tree.server.js";
 import { hasExactKeys, isRecord } from "@web/lib/json-guards.js";
 
 const STAGE_TOKEN_PATTERN = /^stage_[0-9a-f]{32}$/;
@@ -147,9 +147,13 @@ export class ManagedProjectRepository {
   async initialize(): Promise<void> {
     await this.#ensureDirectories();
     await this.#catalog.read();
-    await new ManagedProjectLifecycleService(this.config).reconcileAll();
+    let deletionError: unknown;
+    // Deletions never own stages, so a stuck deletion must not hold back publication recovery.
+    await new ManagedProjectLifecycleService(this.config).reconcileAll()
+      .catch((error: unknown) => { deletionError = error; });
     await this.reconcile();
     await this.#cleanupStages();
+    if (deletionError !== undefined) throw deletionError;
   }
 
   // Crash recovery runs once per instance, and its failure must not make every other project unopenable.
@@ -195,7 +199,7 @@ export class ManagedProjectRepository {
     await this.#ensureDirectories();
     await this.#catalog.read();
     const stagePath = await this.#ownedStagePath(input.token);
-    const snapshot = await this.#validateDirectory(stagePath);
+    const snapshot = await readManagedProjectTree(stagePath, this.config);
     const name = input.name?.trim() || snapshot.project.meta.name;
     const id = await this.#catalog.reserveProjectId();
     // Recovery takes the same lock, so it never finishes or undoes a publication that is still running.
@@ -323,9 +327,9 @@ export class ManagedProjectRepository {
       return;
     }
     if (projectDirectoryExists) {
-      let snapshot: Awaited<ReturnType<typeof readProjectSnapshot>>;
+      let snapshot: Awaited<ReturnType<typeof readManagedProjectTree>>;
       try {
-        snapshot = await this.#validateDirectory(projectDirectory);
+        snapshot = await readManagedProjectTree(projectDirectory, this.config);
       } catch (error) {
         if (!entry) {
           await this.#rename(projectDirectory, stagePath);
@@ -390,48 +394,11 @@ export class ManagedProjectRepository {
     return stage;
   }
 
-  async #validateDirectory(directory: string): Promise<Awaited<ReturnType<typeof readProjectSnapshot>>> {
-    const directoryInfo = await lstat(directory);
-    if (!directoryInfo.isDirectory() || directoryInfo.isSymbolicLink()) {
-      throw new Error("Managed project must be a real directory");
-    }
-    const projectPath = join(directory, PROJECT_FILE);
-    const rootFile = await lstat(projectPath);
-    if (!rootFile.isFile()) throw new Error(`Managed project stage requires a root ${PROJECT_FILE}`);
-    let entries = 0;
-    let bytes = 0;
-    const walk = async (current: string): Promise<void> => {
-      // A concurrent writer's lock entry can vanish between listing and inspection.
-      const names = await readdir(current).catch((error: unknown) => {
-        if (current !== directory && errorCode(error) === "ENOENT") return [];
-        throw error;
-      });
-      for (const name of names) {
-        const path = join(current, name);
-        const info = await lstat(path).catch((error: unknown) => {
-          if (errorCode(error) === "ENOENT") return undefined;
-          throw error;
-        });
-        if (!info) continue;
-        entries += 1;
-        if (entries > this.config.maxProjectFiles) throw new Error("Managed project exceeds the configured file limit");
-        if (info.isSymbolicLink()) throw new Error("Managed project cannot contain a symbolic link");
-        if (info.isDirectory()) { await walk(path); continue; }
-        if (!info.isFile()) throw new Error("Managed project can contain only regular files and directories");
-        if (info.nlink !== 1) throw new Error("Managed project cannot contain a hard link");
-        bytes += info.size;
-        if (bytes > this.config.maxProjectBytes) throw new Error("Managed project exceeds the configured byte limit");
-      }
-    };
-    await walk(directory);
-    return readProjectSnapshot(projectPath);
-  }
-
   async #validatePublishedEntry(entry: ActiveManagedProjectCatalogEntry): Promise<void> {
     if (entry.directoryName !== entry.id) throw new Error(`Managed catalog entry has an invalid directory name: ${entry.id}`);
     const projectDirectory = join(this.config.projectsRoot, entry.id);
     if (!await exists(projectDirectory)) throw new Error(`Managed catalog entry is missing its project directory: ${entry.id}`);
-    await this.#validateDirectory(projectDirectory);
+    await readManagedProjectTree(projectDirectory, this.config);
   }
 
   #record(entry: ActiveManagedProjectCatalogEntry): ManagedProjectRecord {
