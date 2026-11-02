@@ -21,15 +21,21 @@ import {
   syncDirectoryBestEffort,
 } from "@screenshot-studio/core/storage";
 import { ManagedProjectCatalogStore } from "./managed-project-catalog.server.js";
-import {
-  parseActiveManagedProjectCatalogEntry,
-  type ActiveManagedProjectCatalogEntry,
-  type ManagedDirectoryIdentity,
-  type ManagedProjectDeletionComplete,
-  type ManagedProjectDeletionEvidence,
-  type ManagedProjectDeletionReservation,
+import type {
+  ManagedDirectoryIdentity,
+  ManagedProjectDeletionComplete,
+  ManagedProjectDeletionEvidence,
+  ManagedProjectDeletionReservation,
 } from "./managed-project-catalog-document.server.js";
 import type { ManagedProjectStorageConfig } from "./managed-project-config.server.js";
+import {
+  HASH_PATTERN,
+  parseIntent,
+  sameEntry,
+  sameIdentity,
+  tombstoneName,
+  type ManagedProjectDeleteIntent,
+} from "./managed-project-deletion-intent.server.js";
 import {
   acquireManagedProjectLifecycleLock,
   assertManagedProjectLifecycleLockHeld,
@@ -39,7 +45,7 @@ import {
   type ManagedProjectLifecycleLock,
 } from "./managed-project-lifecycle-lock.server.js";
 import { readManagedProjectTree } from "./managed-project-tree.server.js";
-import { hasExactKeys, isRecord } from "@web/lib/json-guards.js";
+import { isRecord } from "@web/lib/json-guards.js";
 
 interface ManagedProjectSessionInvalidator {
   invalidateManagedProject(projectId: string): number;
@@ -51,7 +57,6 @@ const NOOP_SESSION_INVALIDATOR: ManagedProjectSessionInvalidator = {
 
 const PROJECT_ID_PATTERN = /^project_[0-9a-f]{32}$/;
 const OPERATION_ID_PATTERN = /^operation_[0-9a-f]{32}$/;
-const HASH_PATTERN = /^[0-9a-f]{64}$/;
 const PROJECT_FILE = "app-store-screenshots.json";
 
 export type ManagedProjectDeletionFailpoint =
@@ -79,21 +84,6 @@ export interface ReconcileManagedProjectDeletionInput {
   statusSecretHash: string;
 }
 
-interface ManagedProjectDeleteIntent {
-  version: 1;
-  operation: "delete";
-  operationId: string;
-  id: string;
-  expectedLifecycleRevision: number;
-  expectedProjectRevision: string;
-  statusSecretHash: string;
-  priorEntry: ActiveManagedProjectCatalogEntry;
-  sourceIdentity: ManagedDirectoryIdentity;
-  tombstoneName: string;
-  tombstoneIdentity: ManagedDirectoryIdentity | null;
-  phase: "prepared" | "quarantined" | "catalog-removed" | "tombstone-removed";
-}
-
 export interface ManagedProjectLifecycleServiceDependencies {
   now?: () => Date;
   rename?: (from: string, to: string) => Promise<void>;
@@ -104,12 +94,6 @@ async function exists(path: string): Promise<boolean> {
   try { await lstat(path); return true; } catch (error) {
     if (errorCode(error) === "ENOENT") return false;
     throw error;
-  }
-}
-
-function exactKeys(value: Record<string, unknown>, expected: readonly string[]): void {
-  if (!hasExactKeys(value, expected)) {
-    throw new TypeError("Invalid managed deletion recovery intent properties");
   }
 }
 
@@ -125,82 +109,9 @@ async function identity(path: string): Promise<ManagedDirectoryIdentity> {
   return { device: info.dev.toString(), inode: info.ino.toString() };
 }
 
-function sameIdentity(left: ManagedDirectoryIdentity, right: ManagedDirectoryIdentity): boolean {
-  return left.device === right.device && left.inode === right.inode;
-}
-
 function sameHash(left: string, right: string): boolean {
   if (!HASH_PATTERN.test(left) || !HASH_PATTERN.test(right)) return false;
   return timingSafeEqual(Buffer.from(left, "hex"), Buffer.from(right, "hex"));
-}
-
-function sameEntry(left: ActiveManagedProjectCatalogEntry, right: ActiveManagedProjectCatalogEntry): boolean {
-  return left.id === right.id && left.directoryName === right.directoryName && left.name === right.name
-    && left.lifecycle === right.lifecycle && left.lifecycleRevision === right.lifecycleRevision
-    && left.createdAt === right.createdAt && left.updatedAt === right.updatedAt;
-}
-
-function parseIdentity(value: unknown, context: string): ManagedDirectoryIdentity {
-  if (!isRecord(value)) throw new TypeError(`Invalid ${context} identity`);
-  exactKeys(value, ["device", "inode"]);
-  if (typeof value.device !== "string" || !/^\d+$/.test(value.device)
-    || typeof value.inode !== "string" || !/^\d+$/.test(value.inode)) {
-    throw new TypeError(`Invalid ${context} identity`);
-  }
-  return { device: value.device, inode: value.inode };
-}
-
-function tombstoneName(projectId: string, operationId: string): string {
-  return `${projectId}.${operationId}`;
-}
-
-function parseIntent(
-  value: unknown,
-  evidence: ManagedProjectDeletionEvidence,
-): ManagedProjectDeleteIntent {
-  if (!isRecord(value)) throw new TypeError("Invalid managed deletion recovery intent");
-  exactKeys(value, [
-    "version", "operation", "operationId", "id", "expectedLifecycleRevision",
-    "expectedProjectRevision", "statusSecretHash", "priorEntry", "sourceIdentity",
-    "tombstoneName", "tombstoneIdentity", "phase",
-  ]);
-  if (value.version !== 1 || value.operation !== "delete"
-    || value.operationId !== evidence.operationId || value.id !== evidence.projectId
-    || value.expectedLifecycleRevision !== evidence.lifecycleRevision
-    || typeof value.expectedProjectRevision !== "string" || !HASH_PATTERN.test(value.expectedProjectRevision)
-    || value.statusSecretHash !== evidence.statusSecretHash
-    || value.tombstoneName !== tombstoneName(evidence.projectId, evidence.operationId)
-    || !["prepared", "quarantined", "catalog-removed", "tombstone-removed"].includes(String(value.phase))) {
-    throw new TypeError("Managed deletion recovery intent does not match catalog evidence");
-  }
-  const priorEntry = parseActiveManagedProjectCatalogEntry(value.priorEntry);
-  const sourceIdentity = parseIdentity(value.sourceIdentity, "source");
-  const tombstoneIdentity = value.tombstoneIdentity === null
-    ? null
-    : parseIdentity(value.tombstoneIdentity, "tombstone");
-  if (evidence.state === "reserved" && (value.expectedProjectRevision !== evidence.projectRevision
-    || !sameEntry(priorEntry, evidence.priorEntry)
-    || !sameIdentity(sourceIdentity, evidence.sourceIdentity))) {
-    throw new TypeError("Managed deletion recovery intent does not match reservation evidence");
-  }
-  if (evidence.state === "cleanup-pending" && (value.expectedProjectRevision !== evidence.projectRevision
-    || !sameIdentity(sourceIdentity, evidence.sourceIdentity))) {
-    throw new TypeError("Managed deletion recovery intent does not match pending evidence");
-  }
-  return {
-    version: 1,
-    operation: "delete",
-    operationId: evidence.operationId,
-    id: evidence.projectId,
-    expectedLifecycleRevision: evidence.lifecycleRevision,
-    expectedProjectRevision: value.expectedProjectRevision,
-    statusSecretHash: evidence.statusSecretHash,
-    priorEntry,
-    sourceIdentity,
-    tombstoneName: value.tombstoneName,
-    tombstoneIdentity,
-    phase: value.phase as ManagedProjectDeleteIntent["phase"],
-  };
 }
 
 export class ManagedProjectLifecycleService {
