@@ -5,6 +5,8 @@ import { describe, expect, it } from "vitest";
 import {
   buildBundleEntries,
   findStoreTarget,
+  leadStoreSizeId,
+  listStoreTargets,
   parseStoreSpecs,
   validateBundleArtboards,
 } from "@screenshot-studio/core/export";
@@ -94,6 +96,20 @@ function synchronizedAndroidProject(direction: "ltr" | "rtl" = "ltr"): Project {
 }
 
 describe("ScreenTemplate", () => {
+  it("refuses a standalone exact-size screen in a Sync sizes family with an actionable error", () => {
+    const target = listStoreTargets(storeSpecs, "android", "phone")
+      .find(({ id }) => id !== leadStoreSizeId(storeSpecs, "android", "phone"))!;
+    const exact: Template = {
+      ...template,
+      id: "exact",
+      targetId: target.id,
+      artboard: { width: target.width, height: target.height },
+    };
+    expect(() => createScreenFromTemplate(synchronizedAndroidProject(), "default", exact, "en", storeSpecs, {
+      exactTargetMode: "standalone",
+    })).toThrow(/Sync sizes.*Separate/);
+  });
+
   it("strictly validates platform/device and fields", () => {
     expect(ScreenTemplate.parse(template).id).toBe("feature-card");
     expect(() => ScreenTemplate.parse({ ...template, device: "ipad" })).toThrow();

@@ -26,6 +26,15 @@ export function screenSetModeFor(
   )?.mode ?? "independent";
 }
 
+/** A synchronized family pairs every exact size with a root, so the schema rejects a standalone one. */
+export function assertStandaloneSizeAllowed(layout: DesignLayout, family: OutputFamilyRef): void {
+  if (screenSetModeFor(layout, family) === "synchronized") {
+    throw new Error(
+      `${family.platform}/${family.device}/${family.locale} uses Sync sizes, which cannot hold a standalone exact-size screen; switch it to Separate first`,
+    );
+  }
+}
+
 /**
  * Keep each exact target's persisted order aligned with the root/master order. Other output
  * families retain both their relative order and their positions in the project document.
