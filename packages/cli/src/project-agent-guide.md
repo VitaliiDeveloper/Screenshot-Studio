@@ -228,7 +228,10 @@ artboard pixels and degrees, and a group child's `x`/`y` are relative to its gro
 
 ## Check before export
 
-`screenshots check --render --json --project ./app-store-screenshots.json` lists the editor's Issues
+Inside a run the editor started, the editor renders `export` and `check --render` for you, so
+`--out` and `--project` are not available on them and PNGs land in the project's `export/` folder.
+
+`screenshots check --render --json` lists the editor's Issues
 and export preflight for the layout `export` ships (or `--layout`) without writing anything. It exits
 1 on any blocker; `--strict` also fails on warnings. Without `--render` it is browser-free and skips
 text overflow. The JSON report is:
@@ -284,8 +287,8 @@ of issues.
 
    ```bash
    screenshots screen list --project ./app-store-screenshots.json
-   screenshots check --render --project ./app-store-screenshots.json
-   screenshots export --locale en --project ./app-store-screenshots.json
+   screenshots check --render
+   screenshots export --locale en
    ```
 
 ## Recipe: lay out slides

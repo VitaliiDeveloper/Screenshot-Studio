@@ -20,6 +20,7 @@ import { runScreenCommand } from "./screen-commands.js";
 import { runTemplateCommand } from "./template-commands.js";
 import { runThemeCommand } from "./theme-commands.js";
 import { readOwnVersion } from "./update-check.js";
+import { editorRenderInbox, renderThroughEditor, type EditorRenderCommand } from "./render-through-editor.js";
 import { runUploadCommand } from "./upload-command.js";
 
 const HELP_FLAGS: ReadonlySet<string> = new Set(["--help", "-h"]);
@@ -64,6 +65,12 @@ async function runScreenManagementCommand(
 async function runFontManagementCommand(args: string[], flags: Record<string, string>): Promise<void> {
   const output = await runFontCommand(resolveProjectPath(flags), args, flags);
   if (output) console.log(output);
+}
+
+async function runEditorRender(command: EditorRenderCommand, flags: Record<string, string>, inbox: string): Promise<void> {
+  const { output, exitCode } = await renderThroughEditor(command, flags, inbox);
+  if (output) console.log(output);
+  if (exitCode !== 0) process.exitCode = exitCode;
 }
 
 const USAGE = [
@@ -118,6 +125,12 @@ export async function dispatchCommand(
   if (!isCliCommand(command)) throw unknownCommand(command);
 
   const { flags, args } = parseCommandFlags(argv, COMMAND_FLAG_SPECS[command]);
+  // Before the browser checks below: a sandboxed run neither renders nor needs a local Chromium.
+  const inbox = editorRenderInbox();
+  if (inbox && (command === "export" || (command === "check" && flags.render))) {
+    await runEditorRender(command, flags, inbox);
+    return;
+  }
   switch (command) {
     case "init":
       await runInitCommand(flags, defaults.storeSpecsPath);

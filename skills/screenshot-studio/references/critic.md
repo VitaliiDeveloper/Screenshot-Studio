@@ -13,7 +13,7 @@ owe it no defence.
 
   ```bash
   screenshots screen list --project ./app-store-screenshots.json
-  screenshots export --locale <locale> --project ./app-store-screenshots.json
+  screenshots export --locale <locale>
   ```
 
   Review the lead size of each device family in the project's main locale; add another locale only

@@ -77,7 +77,9 @@ export const claudeCodeAdapter: AgentAdapter = {
         sandbox: {
           enabled: true,
           failIfUnavailable: true,
-          // `allowUnsandboxedCommands` stays on: `screenshots export` cannot run its render host inside.
+          // Off: the `dangerouslyDisableSandbox` escape would let a stub `screenshots` read a key. The
+          // editor renders on the agent's behalf, so no command needs to leave the sandbox.
+          allowUnsandboxedCommands: false,
           filesystem: {
             denyRead: [request.context.storeCredentialsDir],
             denyWrite: [request.context.storeCredentialsDir],

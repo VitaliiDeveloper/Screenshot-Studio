@@ -97,7 +97,7 @@ The reference image is context only. Do not import it into the project unless th
 Layout JSON is not evidence. After changing a slide:
 
 ```bash
-screenshots export --screen <screen-id> --project ./app-store-screenshots.json
+screenshots export --screen <screen-id>
 ```
 
 Open the PNG it wrote (the command prints the folder) with your file-reading tool and check it at two scales: full size, and as a

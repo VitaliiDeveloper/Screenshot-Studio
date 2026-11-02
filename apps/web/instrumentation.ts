@@ -5,5 +5,7 @@ export async function register(): Promise<void> {
   if (process.env.NEXT_RUNTIME === "nodejs") {
     const { sweepStaleRunFolders } = await import("@web/lib/agents/agent-attachment-store.server.js");
     await sweepStaleRunFolders();
+    const { renderInboxRoot } = await import("@web/lib/agents/agent-render-inbox.server.js");
+    await sweepStaleRunFolders(renderInboxRoot());
   }
 }
