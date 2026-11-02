@@ -6,11 +6,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { readProjectSnapshot } from "@screenshot-studio/core/storage";
 import { ManagedProjectCatalogStore } from "@web/lib/managed-projects/managed-project-catalog.server.js";
 import { ManagedProjectNotFoundError } from "@web/lib/managed-projects/managed-project-repository.server.js";
+import { StorageLockTimeoutError } from "@web/lib/storage-lock.server.js";
 import {
   ManagedProjectSourceAdapter,
   NoActiveProjectError,
+  PROJECT_SESSION_COOKIE,
   ProjectSessionRegistry,
   resolveActiveProjectSession,
+  withExistingProjectSessionReadOnly,
   type LocalFileProjectSourceAdapter,
 } from "./project-session.server.js";
 
@@ -523,5 +526,59 @@ describe("ProjectSessionRegistry", () => {
     });
     expect(localSource.open).toHaveBeenCalledOnce();
     expect(localSource.open).toHaveBeenCalledWith("chosen.json");
+  });
+
+  describe("when revalidating a managed session fails", () => {
+    const projectId = "project_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    const request = new Request("http://localhost/api/project-archive", {
+      headers: { cookie: `${PROJECT_SESSION_COOKIE}=managed-session` },
+    });
+
+    async function openedRegistry() {
+      const managedSource = createStubManagedSource();
+      const registry = new ProjectSessionRegistry({ createSessionId: () => "managed-session", managedSource });
+      await registry.openManaged(projectId);
+      return { registry, managedSource };
+    }
+
+    it("keeps the session after a lock timeout so a later read-only route works", async () => {
+      const { registry, managedSource } = await openedRegistry();
+      managedSource.open.mockRejectedValueOnce(new StorageLockTimeoutError("Timed out"));
+      const operation = vi.fn(async () => new Response("reached"));
+
+      const busy = await withExistingProjectSessionReadOnly(request, operation, { registry });
+
+      expect(busy.status).toBe(423);
+      expect(operation).not.toHaveBeenCalled();
+      expect(registry.peek("managed-session")).toBeDefined();
+
+      const retried = await withExistingProjectSessionReadOnly(request, operation, { registry });
+
+      expect(retried.status).toBe(200);
+      expect(operation).toHaveBeenCalledOnce();
+    });
+
+    it("keeps the session when the timeout comes from another route bundle's error class", async () => {
+      const { registry, managedSource } = await openedRegistry();
+      class ForeignCopy extends Error { override name = StorageLockTimeoutError.name; }
+      managedSource.open.mockRejectedValueOnce(new ForeignCopy("Timed out"));
+
+      await expect(resolveActiveProjectSession(request, { registry, configuredPath: () => null }))
+        .rejects.toThrow("Unable to reopen the managed project");
+
+      expect(registry.peek("managed-session")).toBeDefined();
+    });
+
+    it("still invalidates the session after any other open failure", async () => {
+      const { registry, managedSource } = await openedRegistry();
+      managedSource.open.mockRejectedValueOnce(new Error("Managed catalog is unreadable"));
+      const operation = vi.fn(async () => new Response("reached"));
+
+      const failed = await withExistingProjectSessionReadOnly(request, operation, { registry });
+
+      expect(failed.status).toBe(500);
+      expect(registry.peek("managed-session")).toBeUndefined();
+      expect(operation).not.toHaveBeenCalled();
+    });
   });
 });

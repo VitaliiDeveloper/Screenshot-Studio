@@ -283,6 +283,10 @@ size and offers **Go to** and a fix:
   load. It is reported per screen and layer once the image cache has loaded, and the row names the
   project path. **Replace** goes to the screen and opens the existing picker for that background or
   layer. Project Home's missing-asset readiness reads the same check across every layout.
+- *Screen size differs from its connected strip* (warning) flags a connected screen whose artboard
+  differs from the first screen of its exact strip, because seams would then mix scales and heights.
+  **Match strip** resizes every screen of that strip that differs and fits its composition, as one
+  undo step.
 
 Export folders apply only to the CLI (`--out`, or `export/` next to the project); UI export renders
 into a private staging folder and hands the bundle to the browser as a download, so Issues has no
@@ -569,8 +573,13 @@ a panel.
 
 All interactive controls have accessible names, visible focus, disabled semantics, and keyboard use.
 Menus support predictable focus movement and dismissal. Dialogs use `DialogShell`'s configured initial
-focus: the heading when context must be announced, otherwise the first actionable control. They trap
-focus while open, return focus to a live trigger, and allow Escape only when cancellation is safe.
+focus: the heading when context must be announced, otherwise the body control that already took focus
+or the first actionable one in the body, with the header Close button as the last resort. They trap
+focus while open, return focus to a live trigger (a menu action focuses its menu's trigger before it
+opens one), fall back to the Select tool when that trigger is gone or disabled, and allow Escape only
+when cancellation is safe.
+When a commit removes the focused control, focus moves to its replacement or a nearby live control,
+because focus on `<body>` hands arrows and Delete to the canvas selection.
 Errors use alert semantics and identify a recoverable action; progress is announced without pretending
 that a durable operation is complete.
 

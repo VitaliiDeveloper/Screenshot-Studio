@@ -20,7 +20,7 @@ import {
   outputFamilyEditorLabel,
   screenStoreTarget,
   storeTargetDeviceCopy,
-} from "@web/lib/editor/editor-workspace";
+} from "@web/lib/editor/store-target-labels";
 
 export type SizeRemoval =
   | { kind: "size"; rootScreenId: string; targetId: string; label: string; synchronized: boolean }

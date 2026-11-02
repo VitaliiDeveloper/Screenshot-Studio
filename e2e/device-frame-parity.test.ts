@@ -8,9 +8,10 @@ import { resolve } from "node:path";
 import { PNG } from "pngjs";
 import pixelmatch from "pixelmatch";
 import { startWebServer } from "@screenshot-studio/cli/server";
-import { stripAlpha } from "@screenshot-studio/core/export";
+import { stripAlpha } from "./support/strip-alpha.js";
 import {
   closeParityRenderHarness,
+  headedRunsWindowless,
   launchHeadedChromium,
   startParityRenderHarness,
   type ParityRenderHarness,
@@ -83,6 +84,17 @@ async function editorCanvasPng(page: Page, screenId: string): Promise<Buffer> {
 }
 
 describe("device-frame parity", () => {
+  it("keeps the headed slot windowless on macOS and truly headed elsewhere", async () => {
+    if (!harness.interactive) throw new Error("Interactive browser is unavailable");
+    const page = await harness.interactive.newPage();
+    try {
+      const userAgent = await page.evaluate(() => navigator.userAgent);
+      expect(userAgent.includes("HeadlessChrome")).toBe(headedRunsWindowless);
+    } finally {
+      await page.close();
+    }
+  });
+
   it("matches the real editor canvas and CLI render for every representative recipe", async () => {
     if (!harness.interactive) throw new Error("Interactive browser is unavailable");
     const page = await harness.interactive.newPage({

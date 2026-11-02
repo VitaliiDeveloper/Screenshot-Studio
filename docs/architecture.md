@@ -170,13 +170,18 @@ chrome|msedge|auto` can launch an installed system browser, which is outside tha
 
 Connected mode is still one project model: each exact platform/device/locale/store-target group is
 rendered as a gapless strip while elements retain owner-local coordinates. Export always takes one
-requested artboard crop; it never stitches a separate image or slices a finished PNG.
+requested artboard crop; it never stitches a separate image or slices a finished PNG. An RTL group
+runs right to left in project order, so a direction change, which mirrors each screen in its own
+artboard, mirrors the whole strip and keeps seams continuous without reordering exported or uploaded
+screens: the first screen sits at the strip's right end.
 
 Export profiles are separate from platforms. The default store bundle and optional `web-share`
 profile consume PNGs produced by the shared browser renderer; Web Share only packages those outputs
 with local HTML, CSS, metadata, and an Open Graph image, and is not another pixel renderer. The
 CLI-only `fastlane` profile renames the same store-bundle PNGs into the `fastlane deliver`/`supply`
-tree and skips sizes fastlane cannot upload.
+tree and skips sizes fastlane cannot upload. An unfiltered fastlane export then removes generated
+images the new set no longer contains, inside the same publication guard
+(`packages/cli/src/fastlane-prune.ts`).
 
 `screenshots upload --store google` renders through the same bundle export into a temporary folder,
 laid out by the shared store upload plan (`packages/cli/src/store-upload-plan.ts`), which also owns
@@ -276,6 +281,11 @@ must never render a different cookie-selected project as a fallback. A local ses
 The legacy `/editor` route remains a session-based compatibility entry and may canonicalize only
 when the active selection already exposes an exact managed entry identity.
 
+Every `/api/*` request first passes `apps/web/proxy.ts`: it answers `403` to a non-loopback `Host`
+(DNS rebinding) and to any non-GET/HEAD request whose `Origin` host differs from `Host` or whose
+`Sec-Fetch-Site` is `cross-site` or `same-site`. Requests without `Origin` (CLI, Playwright) pass.
+Route-level loopback checks stay as defense in depth.
+
 The installed CLI opens a project folder (`ss-studio .`) through `POST /api/instance/open`, the one
 route that takes a filesystem path from a client. It refuses with `403` a request that carries an
 `Origin` header (every browser POST does), lacks `X-Screenshot-Studio-CLI: 1`, or has a non-loopback
@@ -334,7 +344,9 @@ the SHA-256 of the bytes. That filename is the persisted refresh identity, so it
 change: `import --refresh` repoints every raster reference in the selected layout (image backgrounds,
 screenshot, image, and device-frame leaves, including group children) whose `assetUrl` is exactly
 that key with any digest to the new bytes. Refresh never adds, removes, reorders, or resizes screens
-or elements; a capture nothing references is reported, not added. Replaced files stay on disk,
+or elements; a capture nothing references is reported, not added. Because a key has one owner, add
+mode refuses (`duplicate-capture-key`) a capture whose key repeats in the input or is already
+referenced in the layout. Replaced files stay on disk,
 unreferenced. Captures imported before the key naming (resources named after a suffixed screen id)
 are not matched.
 
@@ -383,7 +395,7 @@ or below, a device tilted about its centre (stored as a literal `rotation` with 
 Konva needs), a second smaller `device-frame` behind the first on Feature 1, and a stat headline on
 Social proof. Every device's rotated bounds stay inside the artboard width and clear of every text box. Applying a Design pack writes its solid or linear-gradient background to every
 screen of the target layout, including exact-target variants, and bakes palette and typography into
-role-tagged element literals. Typography sizes are fractions of each screen's artboard short side,
+role-tagged element literals, replacing a role-tagged shape's gradient with its solid palette color. Typography sizes are fractions of each screen's artboard short side,
 and letter spacing is a fraction of the baked size, so one pack fits artboards from 384 to 3840 px.
 Applying a pack does not move or resize elements; the pack id is not persisted. No global template,
 screen pack, or Design pack definition is copied into a project, and no catalog becomes hidden
@@ -502,16 +514,27 @@ have no path to the plan, upload, or key store, `/api/upload/plan` and `/api/upl
 inside an agent session. Antigravity `agy` is listed with its
 `at-own-risk` policy but has no adapter (it has no auth-status command, and its stream was never run
 because that is the account-ban case), so it reports `no-adapter` and never runs. A run in the project folder, at most one per project, receives the user
-message on stdin, and streams normalized events. Completion, cancel, timeout, or server exit kills its
-whole process tree.
+message on stdin, and streams normalized events. Completion, cancel, timeout, a SIGTERM or SIGINT to
+the server, or server exit kills its whole process tree. Permanently deleting a managed project stops
+its run and waits for the verdict before the folder moves, and a run whose folder is gone never writes
+it back. Its instructions name the guide bundled with
+the CLI as the workflow contract and call every project file, `AGENTS.md` and `CLAUDE.md` included,
+untrusted data, since a project can come from someone else's archive; Claude Code runs with
+`CLAUDE_CODE_DISABLE_CLAUDE_MDS=1` and Codex with `project_doc_max_bytes=0`, so neither loads them.
 
-Codex runs as `codex exec --json` in the `workspace-write` sandbox (writes only to the project folder
-and temp directories, no network) with approvals set to `never`. It ignores `$CODEX_HOME/config.toml`
+Codex runs as `codex exec --json` in a permission profile that extends the built-in `:workspace` one
+(writes only to the project folder and temp directories, no network) with approvals set to `never`.
+`--sandbox` would override the profile, so the adapter does not pass it, and Codex below the version
+floor reports `unsupported-version`, because the profile was only verified from that version on. It ignores `$CODEX_HOME/config.toml`
 and the execpolicy rules, whose `allow` decisions bypass the sandbox. Web search and the connector,
 plugin, browser, computer-use, memory, hook, and sub-agent features are off. The server reads only
 `cli_auth_credentials_store` from that file (`file` when absent) and passes it to both the readiness
 probe and the run; an `ephemeral` store reports not signed in. Unlike Claude Code's restricted tools,
-Codex has no command allowlist and can read the whole disk. It may also edit project files directly;
+Codex has no command allowlist and can read the whole disk except `<data root>/store-credentials/`, the
+one folder its profile closes. Claude Code gets the same folder as a `Read` deny rule, which also binds
+Glob and Grep, and as `sandbox.filesystem` entries for Bash. `allowUnsandboxedCommands` is off, so no
+Bash command can leave Claude Code's sandbox; the editor renders for the run instead. `font add --google`
+needs network, so it fails inside both sandboxes and the user adds that font in the Fonts dialog. Codex may also edit project files directly;
 only `app-store-screenshots.json` is covered by the run's schema verdict and Undo run, and the run's
 result lists the other files it changed.
 
@@ -556,7 +579,7 @@ pending so `/api/agents/outcome` can `keep` it (drop the snapshot) or `undo` it 
 as one locked write, refused once the editor has written past the run's revision). Every `result`,
 accepted or rejected, also carries `otherFiles`: the files outside `app-store-screenshots.json` that
 were added, changed, or removed in the project folder during the run, as relative paths (the first 50,
-`AGENTS.md` and `CLAUDE.md` first, since later runs read them) with a total count. The server compares
+`AGENTS.md` and `CLAUDE.md` first, since agents started outside the editor read them) with a total count. The server compares
 an `lstat` fingerprint (mode, size, mtime, ctime) of every entry taken right after the snapshot with
 one taken once the process tree is dead; symlinks are recorded, never followed, and the project
 file's own temp and lock files and `.DS_Store` are skipped. A folder of more than 5,000 entries, or
@@ -576,6 +599,61 @@ the sandbox, because the critic must export to see the set: a critic run that ch
 `app-store-screenshots.json` is restored from its snapshot as `result: rejected`. A critic run never
 drops or replaces the pending outcome of the run it reviews; after such a restore that outcome's
 revision follows the rewritten file, so Undo run still works. Its exports are listed in `otherFiles`.
+
+Agent sandboxes cannot render: `listen` is denied, and with local binding allowed Chromium still dies on a
+denied Mach port. So the editor renders for its run, outside the sandbox, through one inbox folder per
+run, whose path reaches only that run's process as `SCREENSHOT_STUDIO_RENDER_INBOX` (never `agentEnv`, so
+neither the probes nor the server's own environment can set it). With that variable set, `screenshots
+export` and `check --render` write a request file and print the answer; every other command, and every
+command without the variable, behaves as in a terminal. The protocol is `@screenshot-studio/core/agent-render`,
+the broker `apps/web/lib/agents/agent-render-*.server.ts`. The inbox lives under `/tmp/claude-<uid>/`
+because that is the one temp folder both sandboxes can already write: Claude Code's sandbox cannot write
+the operating-system temp folder or other `/tmp` paths, and Codex's workspace profile covers `/tmp`. It
+is outside the project, so `folderManifest` never lists it.
+
+The agent is untrusted and the broker runs with the user's rights, so:
+
+- A request names only what the agent chooses: `screen`, `size`, `layout`, `locale`, `platform`, `device`,
+  `profile` for export; `render`, `json`, `strict`, `layout` for check. The strict schema refuses anything
+  else, and the CLI refuses `--project`, `--out`, `--browser`, and `--store-specs` first with a clear
+  message. The editor passes its own project path and no `out`, because an explicit `--out` follows links
+  and the default `<project>/export` never does. `upload` is not routable.
+- The agent can write the inbox's parent, so the folder's identity (no link, same device and inode, same
+  real path) is checked on every poll and before each read and write; a mismatch or more than 1,024
+  entries stops the broker. Request names match a strict pattern, and a request is read no-follow,
+  non-blocking, as one regular file with one link and at most 4 KiB. An invalid one gets one fixed answer
+  that quotes nothing, since a request can be a link to a key. Markers are exclusive no-follow creates
+  touched through their held handle, and responses are `publishFileSafely` create-only publications, so a
+  planted file costs the agent only its own answer.
+- One job runs at a time, with up to 4 queued and 128 requests per run; a response is at most 1 MiB. The
+  editor marks a request as picked up when it sees it, queued or not, and heartbeats the marker every
+  2 s. The CLI fails after 10 s without a marker or 20 s without a beat, so a long bundle stays alive and
+  a dead editor still ends the wait.
+- A job calls `runExportCommand` or `runCheckCommand` with `startWebServer` returning this Next host, as
+  `/api/upload` does, so there is no second render path. It holds what `/api/export` holds (the managed
+  lifecycle read guard, the stable-export publish guard, pinned Chromium with `SCREENSHOTS_BROWSER`
+  ignored), but skips the agent-run write fence, which would answer 423 for its own run. The project file
+  must be a regular file with one link at its exact real path, before the job and again before it
+  publishes, and publication must target the pinned `export` folder; otherwise an export would write beside
+  a link's target. These checks narrow but cannot close a race, the limit
+  [Safe file publication](safe-file-publication.md) states. An agent that swaps the project file right
+  after the check makes the editor read the swapped file and briefly create its lock directory beside it,
+  but the fixed messages below keep the content from it and the pinned root refuses the output. One that
+  swaps `export` or an ancestor during publication can at most put a PNG or ZIP with a generated name in
+  another folder.
+- Only messages a command raises on purpose reach the agent. A project parse error can quote the file it
+  read, which a swapped-in link could make a key, so every other error class, the render host's error
+  text, and `check`'s `invalid-project` message are fixed text pointing at a plain `screenshots check`,
+  which runs inside the sandbox and can only read what the agent can.
+- A run owns its broker. Before the verdict the broker stops listening, cancels, waits for any job that
+  holds the guard, and removes the inbox. Undo run and project deletion wait for the same verdict, so
+  nothing publishes after the snapshot is judged or the folder moves. A job still waiting for the guard
+  is not awaited, because deletion holds that lock while it stops the run; it sees the cancel when it
+  gets the lock. A cancelled job finishes its current render at most, and publishes nothing.
+
+Broker output goes to `<project>/export`, like an export a run made itself: `otherFiles` lists it,
+Undo run and a rejected verdict leave it in place, and a critic run stays accepted because the project
+file did not change. A CLI older than this protocol ignores the variable and fails to render as before.
 
 The agent resolves `screenshots` from the server's `PATH`. In a source checkout `pnpm dev` puts
 `apps/web/node_modules/.bin` first, and its `screenshots` runs `packages/cli/bin/screenshots.mjs`. That

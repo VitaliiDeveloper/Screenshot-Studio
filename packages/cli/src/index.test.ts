@@ -46,6 +46,16 @@ describe("runCli", () => {
     await vi.waitFor(() => expect(exit).toHaveBeenCalledWith(1));
     expect(startUpdateCheck).toHaveBeenCalledOnce();
   });
+
+  it("exits 2 when check fails before producing a report, so CI can tell it from blockers", async () => {
+    process.argv = [argv[0]!, "screenshots", "check", "--project", "/missing/app-store-screenshots.json"];
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const exit = vi.spyOn(process, "exit").mockImplementation((() => undefined) as never);
+
+    runCli();
+
+    await vi.waitFor(() => expect(exit).toHaveBeenCalledWith(2));
+  });
 });
 
 describe("parseCommandFlags", () => {
@@ -139,8 +149,12 @@ describe("resolveDevOptions", () => {
     });
   });
 
-  it("rejects a non-numeric port", () => {
-    expect(() => resolveDevOptions({ port: "abc" })).toThrow(/--port/);
+  it.each(["abc", "0", "65536", "0x10", "1e3", "80.0", " 80"])("rejects port %j", (port) => {
+    expect(() => resolveDevOptions({ port })).toThrow(/--port/);
+  });
+
+  it("accepts the highest port", () => {
+    expect(resolveDevOptions({ port: "65535" }).port).toBe(65535);
   });
 });
 

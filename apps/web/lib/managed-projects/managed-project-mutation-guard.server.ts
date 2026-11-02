@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { realpath } from "node:fs/promises";
 import { join } from "node:path";
+import { errorCode } from "@screenshot-studio/core/storage";
 import { ManagedProjectCatalogStore } from "./managed-project-catalog.server.js";
 import {
   withManagedProjectLifecycleLock,
@@ -16,6 +17,22 @@ import type { ProjectSession } from "@web/lib/session/project-session.server.js"
 export interface ManagedProjectMutationGuardDependencies {
   config?: ManagedProjectStorageConfig;
   lockOptions?: ManagedProjectLifecycleLockOptions;
+}
+
+export class ManagedProjectLifecycleChangedError extends Error {
+  constructor(options?: ErrorOptions) {
+    super("Managed project lifecycle changed; reload it before continuing", options);
+    this.name = "ManagedProjectLifecycleChangedError";
+  }
+}
+
+async function managedFileRealpath(path: string): Promise<string> {
+  try {
+    return await realpath(path);
+  } catch (error) {
+    if (errorCode(error) === "ENOENT") throw new ManagedProjectLifecycleChangedError({ cause: error });
+    throw error;
+  }
 }
 
 async function withManagedProjectLifecycleGuard<T>(
@@ -35,10 +52,10 @@ async function withManagedProjectLifecycleGuard<T>(
     async (lock) => {
     const entry = await new ManagedProjectCatalogStore(config).getActive(session.projectId);
     if (!entry || entry.lifecycleRevision !== expectedLifecycleRevision) {
-      throw new Error("Managed project lifecycle changed; reload it before continuing");
+      throw new ManagedProjectLifecycleChangedError();
     }
-    const expectedPath = await realpath(join(config.projectsRoot, session.projectId, "app-store-screenshots.json"));
-    const sessionPath = await realpath(session.projectPath);
+    const expectedPath = await managedFileRealpath(join(config.projectsRoot, session.projectId, "app-store-screenshots.json"));
+    const sessionPath = await managedFileRealpath(session.projectPath);
     if (sessionPath !== expectedPath) throw new Error("Managed project session path is outside managed storage");
       return operation(lock);
     },

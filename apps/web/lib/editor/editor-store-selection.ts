@@ -20,11 +20,11 @@ import {
   type ArrangeAction,
   type SelectionRef,
 } from "./editor-selection.js";
-import { scopedElementPatches, type ApplyScope } from "./editor-apply-scope.js";
+import { resolveApplyScope, scopedElementPatches, type ApplyScope } from "./editor-apply-scope.js";
 import { forEachSelectedElement } from "./editor-selection-mutations.js";
 import { recordProjectChange } from "./editor-history.js";
 import { selectEditorLayout } from "./editor-store-layouts.js";
-import type { EditorSet } from "./editor-store.js";
+import type { EditorSet, EditorState } from "./editor-store.js";
 
 export type PatchElementRequest<T extends Element["type"] = Element["type"]> =
   ElementPatchRequest<T> & { id: string; screenId?: string; scope?: ApplyScope };
@@ -32,6 +32,7 @@ export type PatchElementRequest<T extends Element["type"] = Element["type"]> =
 export interface EditorSelectionActions {
   select: (id: string | null, screenId?: string, mode?: "replace" | "toggle") => void;
   setSelection: (items: SelectionRef[]) => void;
+  setApplyScope: (scope: ApplyScope) => void;
   patchElement: <T extends Element["type"]>(request: PatchElementRequest<T>) => void;
   moveSelected: (delta: { x: number; y: number }) => void;
   removeSelected: () => void;
@@ -42,6 +43,14 @@ export interface EditorSelectionActions {
   duplicateSelected: () => void;
   arrangeSelected: (action: ArrangeAction) => void;
   setSelectedOpacity: (opacity: number) => void;
+}
+
+function applyScopeKey(state: Pick<EditorState, "activeScreenId" | "selectedItems">): string {
+  return `${state.activeScreenId}|${state.selectedItems.map(selectionKey).join(",")}`;
+}
+
+export function selectApplyScope(state: EditorState): ApplyScope {
+  return resolveApplyScope(state.applyScopeChoice, applyScopeKey(state));
 }
 
 export function createEditorSelectionActions(set: EditorSet): EditorSelectionActions {
@@ -68,6 +77,7 @@ export function createEditorSelectionActions(set: EditorSet): EditorSelectionAct
         historyGroupKey: null,
       };
     }),
+    setApplyScope: (scope) => set((state) => ({ applyScopeChoice: { scope, key: applyScopeKey(state) } })),
     patchElement: ({ id, type, patch, screenId, scope = "screen" }) =>
       set((state) => {
         if (!state.project || !state.activeLayoutId) return state;

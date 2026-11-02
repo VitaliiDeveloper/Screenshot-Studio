@@ -8,7 +8,8 @@ import { resolve } from "node:path";
 import { PNG } from "pngjs";
 import pixelmatch from "pixelmatch";
 import { startWebServer } from "@screenshot-studio/cli/server";
-import { stripAlpha, inspectPng } from "@screenshot-studio/core/export";
+import { inspectPng } from "@screenshot-studio/core/export";
+import { stripAlpha } from "./support/strip-alpha.js";
 import {
   closeParityRenderHarness,
   startParityRenderHarness,

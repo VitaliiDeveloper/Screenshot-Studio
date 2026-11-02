@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { errorText } from "@screenshot-studio/core/storage";
 import type {
   CapturedError,
+  OpenEvidence,
   PublicationDependencies,
   QuarantineOutcome,
   TrackedFileEvidence,
@@ -52,7 +53,7 @@ export async function requireExactEvidence(
   path: string,
   expected: TrackedFileEvidence,
   changedMessage: string,
-  openVerification: NonNullable<PublicationDependencies["openVerification"]>,
+  openVerification: OpenEvidence,
 ): Promise<void> {
   const actual = await readBoundRegularFileEvidence(path, openVerification, changedMessage);
   if (!actual || !evidenceMatches(actual, expected)) {
@@ -64,7 +65,7 @@ export async function restoreQuarantinedEntryNoReplace(
   destinationPath: string,
   evidence: TrackedFileEvidence,
   restoreLink: NonNullable<PublicationDependencies["restoreLink"]>,
-  openVerification: NonNullable<PublicationDependencies["openVerification"]>,
+  openVerification: OpenEvidence,
   revalidateBeforeMutation: () => Promise<void>,
 ): Promise<void> {
   await revalidateBeforeMutation();
@@ -90,7 +91,7 @@ export async function removeExactQuarantine(
   quarantinePath: string,
   expected: TrackedFileEvidence,
   removeStage: NonNullable<PublicationDependencies["removeStage"]>,
-  openVerification: NonNullable<PublicationDependencies["openVerification"]>,
+  openVerification: OpenEvidence,
   revalidateBeforeMutation: () => Promise<void>,
 ): Promise<void> {
   await revalidateBeforeMutation();
@@ -106,7 +107,7 @@ export async function removeExactQuarantineReconciled(
   quarantinePath: string,
   expected: TrackedFileEvidence,
   removeStage: NonNullable<PublicationDependencies["removeStage"]>,
-  openVerification: NonNullable<PublicationDependencies["openVerification"]>,
+  openVerification: OpenEvidence,
   revalidateBeforeMutation: () => Promise<void>,
 ): Promise<void> {
   try {

@@ -29,7 +29,7 @@ import {
   withPackAssetUrls,
   type ProjectPackListing,
 } from "@screenshot-studio/core/packs";
-import { getLayout, type Project, type Screen } from "@screenshot-studio/core/model";
+import { archivableResourceStem, getLayout, type Project, type Screen } from "@screenshot-studio/core/model";
 import type { StoreSpecs } from "@screenshot-studio/core/export";
 import {
   resolveExistingProjectPath,
@@ -49,6 +49,7 @@ import { resolveMutationLayout } from "./layout-commands.js";
 import {
   createDefinitionStore,
   DEFINITION_ID,
+  type DefinitionListing,
   type DefinitionStoreDependencies,
 } from "./managed-definition-store.js";
 
@@ -111,6 +112,13 @@ export async function listTemplates(
   dependencies: TemplateServiceDependencies = {},
 ): Promise<ScreenTemplate[]> {
   return projectTemplates.list(projectPath, dependencies);
+}
+
+export async function listTemplatesWithErrors(
+  projectPath: string,
+  dependencies: TemplateServiceDependencies = {},
+): Promise<DefinitionListing<ScreenTemplate>> {
+  return projectTemplates.listWithErrors(projectPath, dependencies);
 }
 
 export async function listBuiltInTemplates(projectPath: string, specs: StoreSpecs): Promise<ScreenTemplate[]> {
@@ -206,7 +214,8 @@ function projectPackError(error: unknown, id: string): Error {
  */
 export function projectPackAssetPath(packId: string, assetUrl: string, bytes: Uint8Array, extension: string): string {
   const digest = createHash("sha256").update(bytes).digest("hex").slice(0, 12);
-  return `assets/packs/${packId}/${digest}-${safeStem(assetUrl).slice(0, 80)}${extension}`;
+  const stem = archivableResourceStem(safeStem(assetUrl).slice(0, 80), "asset");
+  return `assets/packs/${packId}/${digest}-${stem}${extension}`;
 }
 
 /**

@@ -1,12 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rename, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { resolveManagedProjectStorageConfig } from "./managed-project-config.server.js";
 import { acquireManagedProjectLifecycleLock } from "./managed-project-lifecycle-lock.server.js";
 import { ManagedProjectRepository } from "./managed-project-repository.server.js";
-import { withManagedProjectMutationGuard } from "./managed-project-mutation-guard.server.js";
+import {
+  ManagedProjectLifecycleChangedError,
+  withManagedProjectMutationGuard,
+} from "./managed-project-mutation-guard.server.js";
+import { StorageLockTimeoutError } from "@web/lib/storage-lock.server.js";
 import type { ProjectSession } from "@web/lib/session/project-session.server.js";
 
 const roots: string[] = [];
@@ -47,13 +51,22 @@ describe("withManagedProjectMutationGuard", () => {
     await expect(withManagedProjectMutationGuard(session, operation, {
       config,
       lockOptions: { timeoutMs: 0, staleAfterMs: 5_000, retryDelayMs: 10, heartbeatMs: 1_000 },
-    })).rejects.toThrow(/lifecycle lock/i);
+    })).rejects.toMatchObject({
+      name: StorageLockTimeoutError.name,
+      message: expect.stringMatching(/lifecycle lock/i),
+    });
     expect(operation).not.toHaveBeenCalled();
     await owner.release();
 
     session.descriptor.lifecycleRevision = 2;
     await expect(withManagedProjectMutationGuard(session, operation, { config }))
-      .rejects.toThrow(/lifecycle changed/i);
+      .rejects.toBeInstanceOf(ManagedProjectLifecycleChangedError);
+    expect(operation).not.toHaveBeenCalled();
+
+    session.descriptor.lifecycleRevision = 1;
+    await rename(project.projectPath, `${project.projectPath}.moved`);
+    await expect(withManagedProjectMutationGuard(session, operation, { config }))
+      .rejects.toBeInstanceOf(ManagedProjectLifecycleChangedError);
     expect(operation).not.toHaveBeenCalled();
   });
 });

@@ -7,7 +7,7 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PNG } from "pngjs";
 import pixelmatch from "pixelmatch";
-import { stripAlpha } from "@screenshot-studio/core/export";
+import { stripAlpha } from "./support/strip-alpha.js";
 import { SCHEMA_VERSION } from "@screenshot-studio/core/model";
 import { startWebServer } from "@screenshot-studio/cli/server";
 import {
@@ -129,5 +129,40 @@ describe("trusted icon parity", () => {
     expect(samples.groupedFirst).toEqual([255, 0, 255]);
     expect(samples.groupedSecond).toEqual([255, 0, 255]);
     await page.close();
+  });
+
+  it("draws the editor stroke at the exported artboard width when zoomed", async () => {
+    const page = await harness.interactive!.newPage({ viewport: { width: 1200, height: 700 } });
+    await page.goto(`${harness.server.url}/editor`, { waitUntil: "load" });
+    const canvas = page.getByTestId("connected-artboards").locator("canvas").first();
+    await canvas.waitFor({ state: "visible" });
+    const zoomControls = page.getByLabel("Zoom controls");
+    const zoomValue = zoomControls.getByRole("button").nth(1);
+    await zoomValue.click();
+    await expect.poll(() => zoomValue.textContent()).toBe("100%");
+    for (const value of ["90%", "80%", "70%", "60%", "50%"]) {
+      await zoomControls.getByRole("button", { name: "Zoom out" }).click();
+      await expect.poll(() => zoomValue.textContent()).toBe(value);
+    }
+    await page.waitForTimeout(250);
+    const edited = await canvas.evaluate((node: HTMLCanvasElement) => {
+      const scale = node.width / 400;
+      const size = Math.round(115 * scale);
+      const { data } = node.getContext("2d")!.getImageData(Math.round(10 * scale), Math.round(10 * scale), size, size);
+      let ink = 0;
+      for (let i = 1; i < data.length; i += 4) ink += (255 - data[i]!) / 255;
+      return ink / (scale * scale);
+    });
+    await page.close();
+
+    const exported = PNG.sync.read(stripAlpha(await harness.headless.renderScreenToPng({
+      baseUrl: harness.server.url, projectPath, layoutId: "default", screenId: "first", pixelRatio: 1,
+    })));
+    let exportedInk = 0;
+    for (let y = 10; y < 125; y += 1) {
+      for (let x = 10; x < 125; x += 1) exportedInk += (255 - rgb(exported, x, y)[1]) / 255;
+    }
+    expect(edited / exportedInk).toBeGreaterThan(0.9);
+    expect(edited / exportedInk).toBeLessThan(1.1);
   });
 });

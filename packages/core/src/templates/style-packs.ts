@@ -396,7 +396,7 @@ export function spanPanorama(span: PanoramaSpan, screens: readonly Element[][], 
     .filter((leaf) => leaf.type !== "device-frame")
     .map((leaf) => leaf.y + leaf.height));
   const strip = span.draw({ width, height, shortSide, count: screens.length, top: copyBottom + Math.round(shortSide * 0.048), pack });
-  // shortcut: art is placed for LTR at the lead size; RTL mirroring and fitted store sizes misalign it, upgrade when connected layouts mirror the whole strip.
+  // shortcut: art is placed at the lead size and fitted store sizes misalign it, upgrade when connected variants span the strip.
   const owners = strip.map((art) => Math.min(screens.length - 1, Math.floor(art.x / width)));
   // Rendering stacks art by owner first, so art drawn out of owner order would layer unlike its design.
   if (owners.some((owner, index) => index > 0 && owner < owners[index - 1]!)) {

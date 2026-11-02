@@ -22,9 +22,9 @@ Use the packaged `screenshots` CLI to create the project, then treat the generat
    running another command.
 
 The script resolves the CLI from `--cli <executable>`, then `SCREENSHOT_STUDIO_CLI`, then
-`screenshots` on `PATH`. If none is available, stop and ask the user to make the built
-`@screenshot-studio/cli` artifact available. Do not fetch packages, invent project JSON, or replace
-the CLI initialization path.
+`screenshots` on `PATH`; on Windows, pass the CLI's `dist/index.js` instead. If none is available,
+stop and ask the user to make the built `@screenshot-studio/cli` artifact available. Do not fetch
+packages, invent project JSON, or replace the CLI initialization path.
 
 ## Choose a style
 
@@ -44,7 +44,8 @@ loop. When the set is done, offer the read-only critic in
   generated `AGENTS.md` and the CLI it documents. Prefer its `template`, `element`, `locale`,
   `theme`, `screen`, `import`, and `export` commands over hand-editing project JSON; they lock and
   validate the project. Run `screenshots check --render --json` before export: it exits 1 on any
-  blocker and lists each issue with its screen, size, locale, and element. `element get|set|add|rm`
+  blocker and lists each issue with its screen, size, locale, and element. Inside a run the editor
+  started, the editor renders both, and `--out` and `--project` are not available on them. `element get|set|add|rm`
   and `screen show|set` cover element geometry, style, and screen backgrounds. `copy export|import`
   moves all texts per locale through a CSV or JSON file for translators without editing project
   JSON; the base is the first locale in screen order, `--locale` takes a comma list (a repeated

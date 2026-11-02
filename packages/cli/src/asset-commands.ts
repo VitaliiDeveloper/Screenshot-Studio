@@ -8,6 +8,7 @@ import {
   type ProcessedAsset,
   type RgbColor,
 } from "./asset-service.js";
+import { rejectFlagsOutsideSubcommand } from "./command-flags.js";
 import {
   importProjectImageMutation,
   MAX_PROJECT_IMAGE_BYTES,
@@ -68,6 +69,11 @@ export async function runAssetCommand(
   flags: Record<string, string>,
 ): Promise<string> {
   const [command, source, ...extra] = args;
+  rejectFlagsOutsideSubcommand("asset", command, flags, {
+    threshold: ["auto-crop"],
+    background: ["remove-background"],
+    tolerance: ["remove-background"],
+  });
   if (command === "import") {
     if (!source || extra.length > 0) throw new Error(IMPORT_USAGE);
     const file = resolve(source);

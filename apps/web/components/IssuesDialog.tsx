@@ -38,6 +38,12 @@ export function IssuesDialog({
       mutateAndSave(() => editorStore.getState().createScreenFromLocale(issue.sourceScreenId, issue.locale));
     } else if (issue.kind === "missing-image") {
       onReplaceImage(issue);
+    } else if (issue.kind === "unequal-connected-artboard") {
+      mutateAndSave(() => {
+        const store = editorStore.getState();
+        store.selectScreen(issue.screenId);
+        store.resizeArtboard(issue.stripArtboard);
+      });
     } else if (fitSize) {
       applyTextFit(issue.screenId, issue.elementId, fitSize);
     }

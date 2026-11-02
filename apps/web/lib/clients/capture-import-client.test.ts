@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { clearProjectPersistenceIdentity, setProjectPersistenceIdentity } from "./save-project.js";
 import {
   applyCaptureImport,
   buildCaptureImportForm,
@@ -14,13 +15,18 @@ function captureFile(path: string, contents = "png"): File {
   return file;
 }
 
-const currentDestination = {
-  kind: "current-project" as const,
+const editorIdentity = {
   projectId: "project_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   revision: `"${"1".repeat(64)}"`,
+};
+const currentDestination = {
+  kind: "current-project" as const,
   projectName: "Current",
   layoutId: "primary",
 };
+
+beforeEach(() => setProjectPersistenceIdentity(editorIdentity.projectId, editorIdentity.revision));
+afterEach(() => clearProjectPersistenceIdentity());
 const newDestination = {
   kind: "new-project" as const,
   name: "Captured launch",
@@ -80,12 +86,12 @@ describe("capture import client", () => {
     expect(form.has("projectId")).toBe(false);
   });
 
-  it("previews with project and revision fences but never submits client-planned IDs", async () => {
+  it("previews with the editor's current project and revision fences but never submits client-planned IDs", async () => {
     const transport = vi.fn<CaptureImportTransport>(async (endpoint, form, init) => {
       expect(endpoint).toBe("/api/capture-import/preview");
       expect(init.headers).toEqual(expect.objectContaining({
-        "x-project-id": currentDestination.projectId,
-        "if-match": currentDestination.revision,
+        "x-project-id": editorIdentity.projectId,
+        "if-match": editorIdentity.revision,
       }));
       expect(form.has("confirmationFingerprint")).toBe(false);
       expect(form.has("screenId")).toBe(false);

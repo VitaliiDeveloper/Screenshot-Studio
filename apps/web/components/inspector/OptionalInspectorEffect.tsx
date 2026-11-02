@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
-import type { ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 import { Plus, X } from "lucide-react";
 import { editorUi, InsetPanel } from "@web/components/editor-ui";
+import { useFocusRescue } from "@web/components/editor-ui/use-focus-rescue";
 
 export function OptionalInspectorEffect({
   title,
@@ -20,6 +21,8 @@ export function OptionalInspectorEffect({
   children: ReactNode;
 }) {
   const normalizedTitle = title.toLocaleLowerCase("en");
+  const toggleRef = useRef<HTMLButtonElement>(null);
+  const focusRescue = useFocusRescue(() => toggleRef.current);
 
   if (!enabled) {
     return (
@@ -33,6 +36,8 @@ export function OptionalInspectorEffect({
           </span>
         </span>
         <button
+          ref={toggleRef}
+          {...focusRescue}
           type="button"
           aria-label={`Add ${normalizedTitle}`}
           title={`Add ${normalizedTitle}`}
@@ -52,6 +57,8 @@ export function OptionalInspectorEffect({
           {title}
         </span>
         <button
+          ref={toggleRef}
+          {...focusRescue}
           type="button"
           aria-label={`Remove ${normalizedTitle}`}
           title={`Remove ${normalizedTitle}`}

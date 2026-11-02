@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { BrowserSetupDependencies } from "./browser-setup.js";
 import { dispatchCommand } from "./command-dispatch.js";
 import type { LaunchDependencies } from "./launch-command.js";
 
 const USAGE = [
   "Usage: screenshots [./project-folder] [--port <port>] [--no-open] [--app]",
   "       screenshots <init|export|check|screen|dev|import|font|theme|locale|asset|layout|setup|template|element|copy|publishing|upload> [flags]",
+  "       screenshots -h, --help | -v, --version",
   "ss-studio is another name for screenshots.",
 ].join("\n");
 const UNKNOWN_COMMAND_MESSAGE = `Unknown command: wat. To open a folder, write ./wat\n${USAGE}`;
@@ -120,5 +122,43 @@ describe("command dispatch", () => {
 
     expect(launch.probe).toHaveBeenCalledWith(port);
     expect(launch.openProject).toHaveBeenCalledWith(`http://localhost:${port}`, join(dir, "app-store-screenshots.json"));
+  });
+
+  describe("inside an editor run", () => {
+    function insideRun(): { inbox: Promise<string> } {
+      const inbox = mkdtemp(join(tmpdir(), "dispatch-inbox-")).then((dir) => {
+        tempDirs.push(dir);
+        vi.stubEnv("SCREENSHOT_STUDIO_RENDER_INBOX", dir);
+        return dir;
+      });
+      return { inbox };
+    }
+
+    afterEach(() => vi.unstubAllEnvs());
+
+    it.each([
+      ["export", ["--project", "./app-store-screenshots.json"]],
+      ["check", ["--render", "--project", "./app-store-screenshots.json"]],
+    ])("routes %s to the editor before any local browser check", async (command, argv) => {
+      await insideRun().inbox;
+      const detect = vi.fn(() => { throw new Error("probed the browser install"); });
+      await expect(dispatchCommand(command, argv, {
+        storeSpecsPath: "/store-specs.json",
+        browserSetup: { detect } as unknown as BrowserSetupDependencies,
+      })).rejects.toThrow("--project is not available inside an editor run");
+      expect(detect).not.toHaveBeenCalled();
+    });
+
+    it("keeps a plain check local, because it does not render", async () => {
+      await insideRun().inbox;
+      await expect(dispatchCommand("check", ["--project", "/does/not/exist.json"], { storeSpecsPath: "/store-specs.json" }))
+        .rejects.not.toThrow("editor run");
+    });
+
+    it("never routes upload", async () => {
+      const inbox = await insideRun().inbox;
+      await expect(dispatchCommand("upload", ["--store", "google"], { storeSpecsPath: "/store-specs.json" })).rejects.toThrow();
+      expect(await readdir(inbox)).toEqual([]);
+    });
   });
 });

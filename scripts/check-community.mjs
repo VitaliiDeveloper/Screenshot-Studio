@@ -26,6 +26,8 @@ const schemaSource = await readFile(join(repoRoot, "packages/core/src/model/sche
 const schemaVersionMatch = schemaSource.match(/export const SCHEMA_VERSION = (\d+);/);
 if (!schemaVersionMatch) throw new Error("Cannot resolve the enforced schema version");
 const currentSchemaVersion = Number(schemaVersionMatch[1]);
+const { version } = JSON.parse(await readFile(join(repoRoot, "package.json"), "utf8"));
+const candidateArchive = `screenshot-studio-cli-${version}.tgz`;
 
 for (const path of requiredFiles) {
   const info = await stat(join(repoRoot, path));
@@ -51,7 +53,7 @@ for (const legacyDoc of [
 ]) {
   if (readme.includes(legacyDoc)) throw new Error(`README still links legacy documentation: ${legacyDoc}`);
 }
-assertIncludes(readme, "screenshot-studio-cli-0.1.0.tgz", "README candidate artifact");
+assertIncludes(readme, candidateArchive, "README candidate artifact");
 
 const examplesReadme = await readFile(join(repoRoot, "examples/README.md"), "utf8");
 const examplesSchemaVersion = examplesReadme.match(/\bstrict v(\d+) documents\b/i);
@@ -83,12 +85,12 @@ assertIncludes(security, "Current `main` branch", "current supported security su
 
 const releasing = await readFile(join(repoRoot, "docs/releasing.md"), "utf8");
 assertIncludes(releasing, "requires explicit owner authorization", "release authorization boundary");
-assertIncludes(releasing, "screenshot-studio-cli-0.1.0.tgz", "release candidate artifact");
+assertIncludes(releasing, candidateArchive, "release candidate artifact");
 assertIncludes(releasing, "--pack-destination ../../../artifacts", "release artifact destination");
 assertIncludes(releasing, "SHA-512 SRI", "release integrity algorithm");
 assertIncludes(
   releasing,
-  "npm publish ./artifacts/screenshot-studio-cli-0.1.0.tgz --access public --dry-run --json",
+  `npm publish ./artifacts/${candidateArchive} --access public --dry-run --json`,
   "release exact-artifact integrity dry run",
 );
 

@@ -6,7 +6,7 @@ import type { DesignLayout, Element, Screen } from "@screenshot-studio/core/mode
 import { MenuSelect } from "@web/components/editor-ui";
 import { applyScopeScreens, scopedElementPatches, type ApplyScope } from "@web/lib/editor/editor-apply-scope";
 import { screenTargetLabel } from "@web/lib/editor/editor-issues";
-import { outputFamilyEditorLabel } from "@web/lib/editor/editor-workspace";
+import { outputFamilyEditorLabel } from "@web/lib/editor/store-target-labels";
 
 interface ApplyScopeProps {
   layout: DesignLayout;
@@ -56,17 +56,6 @@ export function ApplyScopeSelect({ screen, specs, value, onChange }: Omit<ApplyS
       className="w-32 shrink-0"
     />
   );
-}
-
-export interface ApplyScopeChoice {
-  scope: ApplyScope;
-  /** The selection (or, with nothing selected, the screen) the scope was chosen on. */
-  key: string;
-}
-
-/** A wider scope holds only while the layer or screen it was chosen on stays selected. */
-export function resolveApplyScope(choice: ApplyScopeChoice | null, key: string): ApplyScope {
-  return choice?.key === key ? choice.scope : "screen";
 }
 
 function plural(count: number, noun: string): string {

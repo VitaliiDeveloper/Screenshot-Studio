@@ -9,10 +9,7 @@ import {
   groupedVisibleDeviceFramePresetOccurrences,
   nextDeviceFrameCardIndex,
 } from "./DeviceFramePresetPicker.js";
-import {
-  defaultDeviceFrameInputForScreen,
-  deviceFrameContextForScreen,
-} from "@web/lib/editor/editor-workspace";
+import { defaultDeviceFrameInputForScreen, deviceFrameContextForScreen } from "@web/lib/editor/device-frame-context";
 
 Object.assign(globalThis, { React });
 vi.mock("./DeviceFramePresetThumbnail.js", () => ({

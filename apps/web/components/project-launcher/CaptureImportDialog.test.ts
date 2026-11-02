@@ -8,8 +8,6 @@ import { CaptureImportDialog, captureImportPlatformOptions } from "./CaptureImpo
 import { createCaptureImportState, type CaptureImportState } from "./capture-import-model.js";
 
 const currentTarget = {
-  projectId: "project_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-  revision: `"${"1".repeat(64)}"`,
   projectName: "Current receiver",
   preferredLayoutId: "primary",
   layouts: [{ id: "primary", name: "Primary layout" }, { id: "secondary", name: "Secondary" }],

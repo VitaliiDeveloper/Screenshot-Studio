@@ -22,14 +22,16 @@ import type { StoreSpecs } from "@screenshot-studio/core/export";
 import type { ProjectIssue } from "@screenshot-studio/core/validation";
 import { createBadgePrimitive, createDeviceFrameElement, createIconElement, createShapeElement, createTextElement } from "@screenshot-studio/core/model";
 import {
-  ADD_CATEGORIES,
-  defaultDeviceFrameInputForScreen,
-  filterAddCatalog,
-  type AddCatalogItem,
   type ResourceDialog,
   type WorkspacePanel,
   type WorkspaceView,
 } from "@web/lib/editor/editor-workspace";
+import {
+  ADD_CATEGORIES,
+  filterAddCatalog,
+  type AddCatalogItem,
+} from "@web/lib/editor/add-catalog";
+import { defaultDeviceFrameInputForScreen } from "@web/lib/editor/device-frame-context";
 import { editorStore } from "@web/lib/editor/editor-store";
 import { mutateAndSave } from "@web/lib/editor/mutate-and-save";
 import { ScreensSection } from "./ScreensSection";

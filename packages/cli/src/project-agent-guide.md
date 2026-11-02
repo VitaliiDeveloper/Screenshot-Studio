@@ -145,7 +145,8 @@ editor's **Keep 1:1** mode and requires every exact-size target to match the roo
 order. The policy changes structural screen operations, not rendered pixels.
 
 `isolated` clips every screen independently. In `connected`, each exact
-platform/device/locale/`storeTargetId` group forms a gapless horizontal strip in layout order;
+platform/device/locale/`storeTargetId` group forms a gapless horizontal strip in layout order, running
+right to left in an RTL locale so the first screen is rightmost and its left edge meets the second;
 root screens have no `storeTargetId`, while explicit variants pair `variantOf` with a target id and
 must not be mistaken for duplicate roots. Elements stay owned by one screen with owner-local coordinates,
 and export crops the requested artboard through the
@@ -167,7 +168,8 @@ screenshots screen list --project ./app-store-screenshots.json      # order, scr
 screenshots locale list --project ./app-store-screenshots.json      # locale, direction, screen count
 screenshots template list --project ./app-store-screenshots.json    # source, id, family, target, name
 # screen packs: built-in-pack or project-pack, id, family, style (a Design pack id), screen count, name
-# invalid-pack lines name a broken packs/ file and the reason
+# invalid-pack lines name a broken packs/ file and the reason; invalid-template and invalid-theme
+# lines name a broken templates/ or themes/ file
 screenshots theme list --project ./app-store-screenshots.json       # source, id, name (built-in, project-pack = Design packs)
 screenshots element list --locale en --project ./app-store-screenshots.json
 # screen id, locale, element id, type, role, then JSON-quoted text or the media path ("-" when empty)
@@ -194,7 +196,7 @@ screenshots element get <screen-id> <element-id> --project ./app-store-screensho
 | Find problems before export | `check --render [--json] [--strict]` |
 | Export a bundle | `export [--locale <l>] [--platform <p> --device <d>]` |
 | Export one screen | `export --screen <id> [--size <target-id>]` (no bundle filters) |
-| Export for fastlane deliver/supply | `export --profile fastlane [--locale <l>]` (writes `fastlane/`; ambiguous locales such as `pt` or `zh` abort it) |
+| Export for fastlane deliver/supply | `export --profile fastlane [--locale <l>]` (writes `fastlane/` and removes stale generated images unless filtered; ambiguous locales such as `pt` or `zh` abort it) |
 | Store app identifiers for upload | `publishing set [--google-package <name>] [--apple-app-id <id>]`, `publishing show`, `publishing clear <google\|apple>` |
 | Upload to Google Play or App Store Connect | Human-only: the user runs `upload --store google\|apple [--dry-run]`; agents never run it |
 | Move, resize, restyle, hide, or lock any element | `element set <screen-id> <element-id> --json '{"x":80,"color":"#FFFFFF"}'` |
@@ -226,7 +228,10 @@ artboard pixels and degrees, and a group child's `x`/`y` are relative to its gro
 
 ## Check before export
 
-`screenshots check --render --json --project ./app-store-screenshots.json` lists the editor's Issues
+Inside a run the editor started, the editor renders `export` and `check --render` for you, so
+`--out` and `--project` are not available on them and PNGs land in the project's `export/` folder.
+
+`screenshots check --render --json` lists the editor's Issues
 and export preflight for the layout `export` ships (or `--layout`) without writing anything. It exits
 1 on any blocker; `--strict` also fails on warnings. Without `--render` it is browser-free and skips
 text overflow. The JSON report is:
@@ -246,7 +251,8 @@ text overflow. The JSON report is:
 }
 ```
 
-`kind` is one of `missing-locale-screen`, `missing-image`, `text-overflow`, `invalid-project`,
+`kind` is one of `missing-locale-screen`, `missing-image`, `text-overflow`,
+`unequal-connected-artboard`, `invalid-project`,
 `unresolved-font`, `missing-font-file`, `unknown-size`, `artboard-size`, `export-path`, or
 `android-tablet-screen-count`; fields that do not apply are `null`. For `missing-locale-screen`,
 `screenId` is the first-locale screen to copy and `locale` is the locale that lacks it. Fix each
@@ -255,8 +261,8 @@ issue with the commands above, then run `check` again.
 Even with `--render`, `textMeasured` is `false` while a font blocker remains: text is never measured
 on fallback fonts, so fix the fonts and run `check --render` again before trusting a pass. A failure
 that is not a report (missing project, unknown `--layout`, bad `--store-specs`, or a render-host
-error) also exits 1 but prints no JSON, only an error on stderr; treat stdout that does not parse
-as a tool error, not as a list of issues.
+error) exits 2 and prints no JSON, only an error on stderr; treat it as a tool error, not as a list
+of issues.
 
 ## Recipe: generate or refresh copy
 
@@ -273,7 +279,7 @@ as a tool error, not as a list of issues.
 
    The command changes only `content` and keeps ids, roles, font identities, and unrelated locales.
    Prefer `--all-sizes` so exact-size variants do not drift, and handle any reported skipped size.
-   If copy no longer fits, adjust that text element's literal box/typography in JSON and then
+   If copy no longer fits, adjust that text element's box or typography with `element set` and then
    visually inspect it; do not add an automatic runtime layout rule.
 4. Make adjacent slides visibly different in composition while keeping the deck's theme and type
    hierarchy consistent.
@@ -281,9 +287,8 @@ as a tool error, not as a list of issues.
 
    ```bash
    screenshots screen list --project ./app-store-screenshots.json
-   screenshots check --render --project ./app-store-screenshots.json
-   screenshots dev --project ./app-store-screenshots.json
-   screenshots export --locale en --project ./app-store-screenshots.json
+   screenshots check --render
+   screenshots export --locale en
    ```
 
 ## Recipe: lay out slides
@@ -370,7 +375,6 @@ as a tool error, not as a list of issues.
 
    ```bash
    screenshots screen list --project ./app-store-screenshots.json
-   screenshots dev --project ./app-store-screenshots.json
    screenshots export --locale ar --project ./app-store-screenshots.json
    ```
 

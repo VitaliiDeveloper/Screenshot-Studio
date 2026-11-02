@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from "vitest";
-import { isProjectRelativePath } from "./project-resource-path.js";
+import {
+  archivableResourceStem,
+  isProjectRelativePath,
+  isSensitiveProjectArchivePath,
+  isTransientResourceBasename,
+} from "./project-resource-path.js";
 
 describe("isProjectRelativePath", () => {
   it.each([
@@ -51,5 +56,25 @@ describe("isProjectRelativePath", () => {
     "assets/x\u001fx.png",
   ])("rejects unsafe project path %s", (value) => {
     expect(isProjectRelativePath(value)).toBe(false);
+  });
+});
+
+describe("archivableResourceStem", () => {
+  const archived = (basename: string) => (
+    !isSensitiveProjectArchivePath(basename) && !isTransientResourceBasename(basename)
+  );
+
+  it.each(["lock", "stage", "temp", "tmp", "a.lock.b", "secret", "secret-sauce", "credentials-screen", "x_secrets"])(
+    "replaces a stem the archive would drop: %s",
+    (stem) => {
+      expect(archived(`${stem}.png`)).toBe(false);
+      expect(archivableResourceStem(stem, "asset")).toBe("asset");
+    },
+  );
+
+  it.each(["hero", "My-Finder-capture", "secretive", "unlocked", "stage-left"])("keeps the archivable stem %s", (stem) => {
+    expect(archivableResourceStem(stem, "asset")).toBe(stem);
+    expect(archived(`${stem}.png`)).toBe(true);
+    expect(archived(`${stem}-2.png`)).toBe(true);
   });
 });

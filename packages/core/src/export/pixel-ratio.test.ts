@@ -19,6 +19,12 @@ describe("exportPixelRatio", () => {
     )).toBeCloseTo(2 / 7);
   });
 
+  it("throws when canvas truncation would miss the exact target", () => {
+    expect(() => exportPixelRatio({ width: 444, height: 592 }, { width: 2064, height: 2752 })).toThrow(
+      /2064×2751/,
+    );
+  });
+
   it("throws when aspect ratios differ (would distort)", () => {
     expect(() => exportPixelRatio({ width: 1000, height: 1000 }, { width: 1320, height: 2868 })).toThrow(
       /distort/,

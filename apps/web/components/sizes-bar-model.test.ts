@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import type { DesignLayout, Screen } from "@screenshot-studio/core/model";
 import { DEFAULT_STORE_SPECS } from "@screenshot-studio/core/export";
-import { adjacentSizeScreenId } from "@web/lib/editor/editor-workspace";
+import { adjacentSizeScreenId } from "@web/lib/editor/workspace-output-rows";
 import { NEW_DESTINATION_GROUP, sizeChipTooltip, sizesBarModel } from "./sizes-bar-model.js";
 
 const specs = DEFAULT_STORE_SPECS;

@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 import { type BigIntStats } from "node:fs";
-import { lstat } from "node:fs/promises";
 import { errorText } from "@screenshot-studio/core/storage";
 import { SafeFileConflictError } from "./types.js";
 import type {
   CapturedError,
+  EvidenceHandle,
   FilePublicationDestinationState,
   InspectionHandle,
+  OpenEvidence,
   PublicationDependencies,
   PublicationInspectionDependencies,
   SafeFileOwnership,
   StageIdentity,
   TrackedFileEvidence,
-  VerificationHandle,
 } from "./types.js";
 import {
   contentRevision,
@@ -49,6 +49,13 @@ export async function destinationMatches(
 export function stageIdentity(stats: BigIntStats, bytes: Uint8Array): StageIdentity {
   return { device: stats.dev, inode: stats.ino, revision: contentRevision(bytes) };
 }
+export async function namedStageIdentity(
+  stagePath: string,
+  bytes: Uint8Array,
+): Promise<StageIdentity | undefined> {
+  const stats = await lstatBigIntIfExists(stagePath);
+  return stats?.isFile() ? stageIdentity(stats, bytes) : undefined;
+}
 export function evidenceWithLinks(
   evidence: TrackedFileEvidence,
   links: bigint,
@@ -83,7 +90,7 @@ export function expectedEvidence(
 }
 export async function readBoundRegularFileEvidence(
   path: string,
-  openVerification: NonNullable<PublicationDependencies["openVerification"]>,
+  openVerification: OpenEvidence,
   changedMessage: string,
   requireStableLinkCount = true,
 ): Promise<TrackedFileEvidence | null> {
@@ -91,7 +98,7 @@ export async function readBoundRegularFileEvidence(
   if (!initial) return null;
   if (!initial.isFile()) throw new Error(`${changedMessage}: ${path}`);
 
-  let handle: VerificationHandle;
+  let handle: EvidenceHandle;
   try {
     handle = await openVerification(path, verificationFlags());
   } catch (error) {
@@ -174,7 +181,7 @@ export async function inspectBoundedDestinationBytes(
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const initial = await lstatBigIntIfExists(path);
     if (!initial) return { state: "missing", evidence: null };
-    if (!initial.isFile()) throw publicationDestinationError(path, await lstat(path));
+    if (!initial.isFile()) throw publicationDestinationError(path, initial);
     if (initial.size !== BigInt(expected.byteLength)) {
       return { state: "conflicting", evidence: null };
     }

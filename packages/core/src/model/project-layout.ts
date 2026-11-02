@@ -28,7 +28,7 @@ export interface LayoutMutationResult {
 }
 
 function normalizedName(value: string): string {
-  return value.trim().toLocaleLowerCase();
+  return value.trim().toLowerCase();
 }
 
 function validatedName(project: Project, value: string, exceptId?: string): string {

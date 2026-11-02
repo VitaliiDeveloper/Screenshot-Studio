@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { readFile } from "node:fs/promises";
+import { readFile, realpath } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import {
   buildBundleEntries,
@@ -32,6 +32,7 @@ import {
   withStableProjectExport,
 } from "./export.js";
 import { fastlaneBundleEntries, fastlaneSkippedSummary } from "./fastlane-layout.js";
+import { pruneStaleFastlaneFiles } from "./fastlane-prune.js";
 import { loadProjectFile, resolveProjectPath } from "./project-io.js";
 import { createRenderBrowserSession } from "./render-driver.js";
 import { publishFileSafely } from "./safe-file-publisher.js";
@@ -130,7 +131,10 @@ export async function runExportCommand(
   const log = dependencies.log ?? console.log;
   const projectPath = resolveProjectPath(flags);
   const storeSpecsPath = flags["store-specs"] ? resolve(flags["store-specs"]) : defaultStoreSpecsPath;
-  const explicitOutDir = flags.out ? resolve(flags.out) : undefined;
+  // An explicit --out is the user's own location, so an existing link there (macOS /tmp) is followed;
+  // the default <project>/export stays a no-follow root.
+  const explicitOut = flags.out ? resolve(flags.out) : undefined;
+  const explicitOutDir = explicitOut && await realpath(explicitOut).catch(() => explicitOut);
   const mode = resolveExportMode(flags);
   const browser = resolveBrowserChoice(flags.browser);
   // fastlane only re-lays out the store bundle, so it stays a CLI profile outside the core list.
@@ -186,7 +190,10 @@ export async function runExportCommand(
       resolveLayoutReference(context.project, layoutId);
       assertProjectFontsResolved(context.project, layoutId);
       let entries = buildBundleEntries(context.project, layoutId, specs, mode.filters);
+      // A filtered export covers only part of the tree, so whatever it did not render is not stale.
+      const prune = fastlane && !Object.values(mode.filters).some(Boolean);
       if (fastlane) {
+        if (!prune) log("Warning: a filtered fastlane export removes nothing, so stale files may remain");
         const layout = fastlaneBundleEntries(entries);
         const skippedSummary = fastlaneSkippedSummary(layout.skipped);
         if (skippedSummary) log(skippedSummary);
@@ -205,7 +212,14 @@ export async function runExportCommand(
         outDir,
         entries,
         renderSession: session!,
-        publicationGuard: context.publish,
+        publicationGuard: prune
+          ? (publish) => context.publish(async () => {
+            const zipPath = await publish();
+            const published = entries.map(({ relativePath }) => relativePath);
+            await pruneStaleFastlaneFiles({ outDir, published, specs, log });
+            return zipPath;
+          })
+          : context.publish,
         profile,
         project: context.project,
       }));

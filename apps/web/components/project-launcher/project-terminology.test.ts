@@ -7,7 +7,7 @@ const screenTemplateDialog = readFileSync(
   "utf8",
 );
 const workspaceModel = readFileSync(
-  new URL("../../lib/editor/editor-workspace.ts", import.meta.url),
+  new URL("../../lib/editor/add-catalog.ts", import.meta.url),
   "utf8",
 );
 const screensSection = readFileSync(new URL("../ScreensSection.tsx", import.meta.url), "utf8");
@@ -61,6 +61,10 @@ describe("project creation terminology", () => {
     expect(screensSection).toContain("setDismissedOnboardingScreenId");
     expect(screensSection).not.toContain("Start blank");
     expect(captureImportHook).toContain("useCaptureImportController");
+    expect(captureImportHook).toContain("activateNewProject: switchActiveProject");
+    expect(captureImportHook).not.toContain("discardActiveProjectPersistence");
+    expect(captureImportHook).toContain("applyToCurrentProject: withFlushedProject");
+    expect(captureImportHook).toContain("await reloadFromDisk()");
     expect(editorPage).toContain("useEditorCaptureImport");
     expect(editorPage).toContain("<CaptureImportDialog");
     expect(editorPage).toContain("onImportCaptures={captureImport.open}");
