@@ -84,6 +84,29 @@ describe("publishFileSafely", () => {
     expect(await readdir(root)).toEqual([]);
   });
 
+  it("cleans its owned stage when the opened stage cannot be inspected", async () => {
+    const root = await workspace("safe-file-stage-stat-failure-");
+
+    await expect(publishWithDependencies({
+      root,
+      relativePath: "resource.txt",
+      bytes: utf8("bytes"),
+    }, {
+      randomId: () => "stat-failure",
+      openStage: async (path, flags, mode) => {
+        const handle = await open(path, flags, mode);
+        return {
+          writeFile: handle.writeFile.bind(handle),
+          sync: handle.sync.bind(handle),
+          close: handle.close.bind(handle),
+          stat: async () => { throw new Error("stage stat failed"); },
+        };
+      },
+    })).rejects.toThrow("stage stat failed");
+
+    expect(await readdir(root)).toEqual([]);
+  });
+
   it("reports the retained private quarantine when failed-stage cleanup cannot unlink", async () => {
     const root = await workspace("safe-file-stage-write-recovery-path-");
     let recoveryPath = "";

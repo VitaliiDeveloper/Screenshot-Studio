@@ -49,6 +49,13 @@ export async function destinationMatches(
 export function stageIdentity(stats: BigIntStats, bytes: Uint8Array): StageIdentity {
   return { device: stats.dev, inode: stats.ino, revision: contentRevision(bytes) };
 }
+export async function namedStageIdentity(
+  stagePath: string,
+  bytes: Uint8Array,
+): Promise<StageIdentity | undefined> {
+  const stats = await lstatBigIntIfExists(stagePath);
+  return stats?.isFile() ? stageIdentity(stats, bytes) : undefined;
+}
 export function evidenceWithLinks(
   evidence: TrackedFileEvidence,
   links: bigint,
