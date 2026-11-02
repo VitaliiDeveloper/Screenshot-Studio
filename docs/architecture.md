@@ -502,8 +502,8 @@ have no path to the plan, upload, or key store, `/api/upload/plan` and `/api/upl
 inside an agent session. Antigravity `agy` is listed with its
 `at-own-risk` policy but has no adapter (it has no auth-status command, and its stream was never run
 because that is the account-ban case), so it reports `no-adapter` and never runs. A run in the project folder, at most one per project, receives the user
-message on stdin, and streams normalized events. Completion, cancel, timeout, or server exit kills its
-whole process tree. Its instructions name the guide bundled with
+message on stdin, and streams normalized events. Completion, cancel, timeout, a SIGTERM or SIGINT to
+the server, or server exit kills its whole process tree. Its instructions name the guide bundled with
 the CLI as the workflow contract and call every project file, `AGENTS.md` and `CLAUDE.md` included,
 untrusted data, since a project can come from someone else's archive; Claude Code runs with
 `CLAUDE_CODE_DISABLE_CLAUDE_MDS=1` and Codex with `project_doc_max_bytes=0`, so neither loads them.

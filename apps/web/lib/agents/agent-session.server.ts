@@ -25,6 +25,7 @@ import { skillReference } from "./agent-adapter.server.js";
 import { agentAdapter } from "./agent-adapters.server.js";
 import type { AgentAttachment } from "./agent-attachments.js";
 import { createRunFolder, removeRunFolder } from "./agent-attachment-store.server.js";
+import { cancelRunsOnShutdown } from "./agent-run-shutdown.server.js";
 import { sharedAgentConsentStore, type AgentConsentStore } from "./agent-consent.server.js";
 import { readCodexAuthStore, type CodexAuthStore } from "./codex-auth-store.server.js";
 
@@ -194,12 +195,9 @@ function serverGlobalMap<T>(key: symbol, onCreate?: (map: Map<string, T>) => voi
 
 // Keyed by the project folder's real path, so one project never runs two agents at once.
 function activeRuns(): Map<string, () => void> {
-  return serverGlobalMap<() => void>(ACTIVE_RUNS_GLOBAL_KEY, (runs) => {
-    // Agent process groups are detached; they must not keep editing a project after the server exits.
-    process.once("exit", () => {
-      for (const cancel of runs.values()) cancel();
-    });
-  });
+  return serverGlobalMap<() => void>(ACTIVE_RUNS_GLOBAL_KEY, (runs) => cancelRunsOnShutdown(() => {
+    for (const cancel of runs.values()) cancel();
+  }));
 }
 
 // shortcut: snapshots live in server memory, so a server restart drops a pending Undo run; persist
