@@ -3,15 +3,19 @@ import { mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as React from "react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { projectRevision } from "@screenshot-studio/core/storage";
 import RenderPage from "./page";
 
 Object.assign(globalThis, { React });
 
+const request = vi.hoisted(() => ({ host: "127.0.0.1:3000" }));
+vi.mock("next/headers", () => ({ headers: async () => new Headers({ host: request.host }) }));
+
 const temporaryRoots: string[] = [];
 
 afterEach(async () => {
+  request.host = "127.0.0.1:3000";
   await Promise.all(temporaryRoots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
 });
 
@@ -75,5 +79,14 @@ describe("RenderPage project revision pin", () => {
 
     expect(result.props["data-render-error"]).toBe("revision-mismatch");
     expect(result.props.children).toMatch(/revision/i);
+  });
+
+  it("refuses to read a project for a non-loopback Host", async () => {
+    const project = await projectFile();
+    request.host = "evil.example:3000";
+
+    const result = await RenderPage({ searchParams: Promise.resolve({ project: project.path }) });
+
+    expect(result.props["data-render-error"]).toBe("non-loopback");
   });
 });

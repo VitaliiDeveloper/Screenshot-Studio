@@ -3,13 +3,17 @@ import { jsonError } from "@web/lib/api-error-response.server.js";
 
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
-/** DNS rebinding reaches the loopback server under a foreign Host; agent routes spawn local CLIs. */
-export function isLoopbackRequest(req: Request): boolean {
+/** DNS rebinding reaches the loopback server under a foreign Host; local-only routes reject it. */
+export function isLoopbackHost(host: string | null): boolean {
   try {
-    return LOOPBACK_HOSTS.has(new URL(`http://${req.headers.get("host") ?? new URL(req.url).host}`).hostname);
+    return host !== null && LOOPBACK_HOSTS.has(new URL(`http://${host}`).hostname);
   } catch {
     return false;
   }
+}
+
+export function isLoopbackRequest(req: Request): boolean {
+  return isLoopbackHost(req.headers.get("host") ?? new URL(req.url).host);
 }
 
 export function rejectNonLoopbackRequest(
