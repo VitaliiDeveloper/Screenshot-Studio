@@ -139,10 +139,7 @@ async function ensureDirectories(
 ): Promise<() => Promise<void>> {
   const ancestors = await ensureAncestors(boundary, directorySegments(relativePath), true);
   if (!ancestors) throw new Error(`Bundle directory creation failed "${relativePath}"`);
-  const revalidate = () => revalidateAncestors(boundary, ancestors);
-  // ensureAncestors checks nothing for a file directly in the root, so the root is checked here.
-  await revalidate();
-  return revalidate;
+  return () => revalidateAncestors(boundary, ancestors);
 }
 
 async function stagePublications(
