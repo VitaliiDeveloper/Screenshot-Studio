@@ -2,6 +2,7 @@
 import { readFile } from "node:fs/promises";
 import { dirname, extname } from "node:path";
 import {
+  archivableResourceStem,
   countProjectFontUsage,
   DEFAULT_FONT_WEIGHT,
   FONT_WEIGHT_MAX,
@@ -140,7 +141,7 @@ function extensionOrThrow(path: string): string {
 }
 
 function targetAssetPath(family: string, weight: number, extension: string): string {
-  return `assets/fonts/${slugify(family)}-${weight}${extension}`;
+  return `assets/fonts/${archivableResourceStem(slugify(family), "font")}-${weight}${extension}`;
 }
 
 function googleCssUrl(family: string, weight: number): string {

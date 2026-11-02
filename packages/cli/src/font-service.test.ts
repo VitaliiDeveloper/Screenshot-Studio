@@ -175,6 +175,17 @@ describe("font-service safety", () => {
     expect((await loadProjectFile(path)).fonts).toEqual([]);
   });
 
+  it("stores a family the project archive would drop under an archivable name", async () => {
+    const { path } = await projectFile();
+    const added = await addUploadedFont(path, {
+      family: "Secret Sans",
+      weight: 400,
+      filename: "font.ttf",
+      bytes: validTtf,
+    });
+    expect(added.fonts.map((font) => font.path)).toEqual(["assets/fonts/font-400.ttf"]);
+  });
+
   it("publishes a valid add, rejects a duplicate, and safely removes the unused font", async () => {
     const { dir, path } = await projectFile();
     const publishFontFile = vi.fn(publishFileSafelyWithOwnership);

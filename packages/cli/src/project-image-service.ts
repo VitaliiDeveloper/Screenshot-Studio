@@ -2,6 +2,7 @@
 import { basename, dirname, extname } from "node:path";
 import sharp from "sharp";
 import { MAX_IMAGE_PIXELS } from "@screenshot-studio/core/export";
+import { archivableResourceStem } from "@screenshot-studio/core/model";
 import {
   ProjectRevisionConflictError,
   readIdentifiedProjectSnapshot,
@@ -170,10 +171,11 @@ export async function assertProjectImageBytes(bytes: Uint8Array): Promise<ImageI
 
 export function safeStem(path: string): string {
   const sourceStem = basename(path, extname(path));
-  return sourceStem
+  const stem = sourceStem
     .normalize("NFKD")
     .replace(/[^A-Za-z0-9._-]+/g, "-")
-    .replace(/^[-._]+|[-._]+$/g, "") || "asset";
+    .replace(/^[-._]+|[-._]+$/g, "");
+  return archivableResourceStem(stem || "asset", "asset");
 }
 
 /** Import one external image into project-owned storage without mutating project JSON. */
