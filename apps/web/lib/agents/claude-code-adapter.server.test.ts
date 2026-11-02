@@ -42,6 +42,15 @@ describe("Claude Code adapter", () => {
     ]);
   });
 
+  it("ignores the init and tool-result lines that verbose output adds", () => {
+    const normalizer = claudeCodeAdapter.normalizer();
+    expect(normalizer.line(JSON.stringify({ type: "system", subtype: "init", cwd: "/project", tools: ["Bash"] }))).toEqual([]);
+    expect(normalizer.line(JSON.stringify({
+      type: "user",
+      message: { role: "user", content: [{ type: "tool_result", tool_use_id: "toolu_1", content: "secret tool output" }] },
+    }))).toEqual([]);
+  });
+
   it("reports usage limits and lost sign-in as typed states", async () => {
     expect(await normalize("claude-stream-usage-limit.ndjson")).toEqual([
       { type: "error", code: "usage-limit", message: expect.any(String), resets: "3pm (Europe/Kyiv)" },
@@ -83,6 +92,7 @@ describe("Claude Code adapter", () => {
       .toEqual(["--permission-mode", "dontAsk"]);
     expect(args.slice(args.indexOf("--output-format"), args.indexOf("--output-format") + 2))
       .toEqual(["--output-format", "stream-json"]);
+    expect(args).toContain("--verbose");
     const disallowed = args.slice(args.indexOf("--disallowedTools") + 1, args.indexOf("--permission-mode"));
     expect(disallowed).toEqual(expect.arrayContaining(["WebSearch", "WebFetch", "mcp__*", "Bash(screenshots dev *)"]));
     expect(JSON.parse(args[args.indexOf("--settings") + 1] ?? "")).toEqual({

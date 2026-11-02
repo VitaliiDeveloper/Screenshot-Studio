@@ -63,6 +63,8 @@ export const claudeCodeAdapter: AgentAdapter = {
     return [
       "-p",
       "--output-format", "stream-json",
+      // Print mode refuses stream-json without it, unless the user's own config sets `verbose`.
+      "--verbose",
       // Never `--bare`: it ignores the subscription login. `--restricted` drops user/project
       // settings, hooks and MCP, and keeps shell and web tools off unless named in `--tools`.
       "--restricted",
