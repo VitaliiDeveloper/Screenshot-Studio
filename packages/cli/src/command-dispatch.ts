@@ -69,6 +69,7 @@ async function runFontManagementCommand(args: string[], flags: Record<string, st
 const USAGE = [
   "Usage: screenshots [./project-folder] [--port <port>] [--no-open] [--app]",
   "       screenshots <init|export|check|screen|dev|import|font|theme|locale|asset|layout|setup|template|element|copy|publishing|upload> [flags]",
+  "       screenshots -h, --help | -v, --version",
   "ss-studio is another name for screenshots.",
 ].join("\n");
 
