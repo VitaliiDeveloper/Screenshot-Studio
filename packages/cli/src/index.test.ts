@@ -139,8 +139,12 @@ describe("resolveDevOptions", () => {
     });
   });
 
-  it("rejects a non-numeric port", () => {
-    expect(() => resolveDevOptions({ port: "abc" })).toThrow(/--port/);
+  it.each(["abc", "0", "65536", "0x10", "1e3", "80.0", " 80"])("rejects port %j", (port) => {
+    expect(() => resolveDevOptions({ port })).toThrow(/--port/);
+  });
+
+  it("accepts the highest port", () => {
+    expect(resolveDevOptions({ port: "65535" }).port).toBe(65535);
   });
 });
 

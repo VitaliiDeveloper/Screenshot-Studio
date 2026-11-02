@@ -105,7 +105,8 @@ export async function preflightCaptureImportPlanResources(
         relativePath: resource.destinationPath,
         bytes: resource.bytes,
       });
-    } catch {
+    } catch (error) {
+      if (!(error instanceof SafeFileConflictError)) throw error;
       state = "conflicting";
     }
     if (state === "conflicting") {

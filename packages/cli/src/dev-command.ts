@@ -14,8 +14,8 @@ export interface DevOptions {
 
 export function parsePortFlag(value: string | undefined): number | undefined {
   if (!value) return undefined;
-  const port = Number(value);
-  if (!Number.isInteger(port) || port <= 0) throw new Error("--port must be a positive integer");
+  const port = /^\d+$/.test(value) ? Number(value) : 0;
+  if (port < 1 || port > 65535) throw new Error("--port must be a whole number from 1 to 65535");
   return port;
 }
 

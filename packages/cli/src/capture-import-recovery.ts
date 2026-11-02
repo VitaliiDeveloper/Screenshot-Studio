@@ -328,8 +328,17 @@ export async function reconcileCaptureImport(
     const stagePath = join(root, ...resource.stageRelativePath.split("/"));
     const stageCleanupPath = join(root, ...resource.stageCleanupRelativePath.split("/"));
     if (!resource.ownership) {
-      if (await pathExists(stagePath) || await pathExists(stageCleanupPath)) {
-        throw new Error("Capture import recovery required: prepared stage lacks ownership evidence");
+      const leftovers: string[] = [];
+      for (const path of [stagePath, stageCleanupPath]) {
+        if (await pathExists(path)) leftovers.push(path);
+      }
+      if (leftovers.length > 0) {
+        // Without ownership evidence a stage is indistinguishable from an identical later file, so a person decides.
+        throw new Error(
+          "Capture import recovery required: prepared stage lacks ownership evidence. "
+          + `An interrupted import left ${leftovers.join(" and ")}; delete only what is listed and run the command again. `
+          + `Keep ${captureImportIntentPath(canonicalPath)}: recovery still needs it.`,
+        );
       }
       continue;
     }

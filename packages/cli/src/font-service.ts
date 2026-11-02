@@ -19,8 +19,10 @@ import {
 } from "@screenshot-studio/core/storage";
 import {
   FontValidationError,
+  MAX_FONT_BYTES,
   parseSupportedFont,
 } from "./font-validation.js";
+import { readCappedBody } from "./read-capped-body.js";
 import {
   loadProjectFile,
   updateProjectFile,
@@ -43,6 +45,7 @@ const SUPPORTED_EXTENSIONS = new Set([".ttf", ".otf", ".woff", ".woff2"]);
 const GOOGLE_CSS_ENDPOINT = "https://fonts.googleapis.com/css2";
 const GOOGLE_FONT_HOST = "fonts.gstatic.com";
 const FONT_INGEST_USER_AGENT = "ScreenshotStudio-FontIngest/1.0";
+const GOOGLE_FONT_TIMEOUT_MS = 30_000;
 const MANAGED_FONT_PREFIX = "assets/fonts/";
 
 export class FontConflictError extends Error {
@@ -167,6 +170,7 @@ export async function downloadGoogleFont(
   try {
     const cssResponse = await fetchImpl(googleCssUrl(family, weight), {
       headers: { "user-agent": FONT_INGEST_USER_AGENT },
+      signal: AbortSignal.timeout(GOOGLE_FONT_TIMEOUT_MS),
     });
     if (!cssResponse.ok) throw new GoogleFontError(`Google Fonts CSS request failed: HTTP ${cssResponse.status}`);
     const fontUrl = extractSingleFontUrl(await cssResponse.text());
@@ -180,9 +184,13 @@ export async function downloadGoogleFont(
     } catch (error) {
       throw new GoogleFontError((error as Error).message);
     }
-    const fontResponse = await fetchImpl(parsedFontUrl.href);
+    // A redirect would leave the host checked above.
+    const fontResponse = await fetchImpl(parsedFontUrl.href, {
+      redirect: "error",
+      signal: AbortSignal.timeout(GOOGLE_FONT_TIMEOUT_MS),
+    });
     if (!fontResponse.ok) throw new GoogleFontError(`Google Fonts download failed: HTTP ${fontResponse.status}`);
-    return { bytes: Buffer.from(await fontResponse.arrayBuffer()), extension };
+    return { bytes: await readCappedBody(fontResponse, MAX_FONT_BYTES), extension };
   } catch (error) {
     if (error instanceof GoogleFontError) throw error;
     throw new GoogleFontError(`Google Fonts request failed: ${(error as Error).message}`, {
