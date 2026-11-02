@@ -532,8 +532,9 @@ plugin, browser, computer-use, memory, hook, and sub-agent features are off. The
 probe and the run; an `ephemeral` store reports not signed in. Unlike Claude Code's restricted tools,
 Codex has no command allowlist and can read the whole disk except `<data root>/store-credentials/`, the
 one folder its profile closes. Claude Code gets the same folder as a `Read` deny rule, which also binds
-Glob and Grep, and as `sandbox.filesystem` entries for Bash. `Bash(screenshots *)` can still leave Claude
-Code's sandbox, because `screenshots export` cannot run its render host inside it. Codex may also edit project files directly;
+Glob and Grep, and as `sandbox.filesystem` entries for Bash. `allowUnsandboxedCommands` is off, so no
+Bash command can leave Claude Code's sandbox; the editor renders for the run instead. `font add --google`
+needs network, so it fails inside both sandboxes and the user adds that font in the Fonts dialog. Codex may also edit project files directly;
 only `app-store-screenshots.json` is covered by the run's schema verdict and Undo run, and the run's
 result lists the other files it changed.
 

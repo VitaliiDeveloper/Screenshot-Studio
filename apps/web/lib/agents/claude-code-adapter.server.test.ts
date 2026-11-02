@@ -98,6 +98,7 @@ describe("Claude Code adapter", () => {
     expect(JSON.parse(args[args.indexOf("--settings") + 1] ?? "")).toEqual({
       sandbox: {
         enabled: true,
+        allowUnsandboxedCommands: false,
         failIfUnavailable: true,
         filesystem: { denyRead: ["/data/store-keys"], denyWrite: ["/data/store-keys"] },
       },
