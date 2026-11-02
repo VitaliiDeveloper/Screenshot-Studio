@@ -61,6 +61,11 @@ The full config keeps files sequential because each file owns mutable project st
 own server/browser lifecycle. Reuse a session inside one file only when isolation and fresh-page
 assertions remain explicit.
 
+Parity files compare a headed render with a headless one. A headed window on macOS always lands on
+screen and takes focus, so local macOS runs fill the headed slot with full Chrome in new headless
+mode, which shows no window. Truly headed parity comes from Linux CI under `xvfb-run`. Set
+`SCREENSHOTS_E2E_HEADED=1` for a truly headed run on macOS.
+
 Launcher 3 browser ownership is intentionally one exact file. It proves compact Projects boundaries,
 configured-local compatibility, Folder import into a managed copy, project-details archive download,
 ZIP re-import, and direct Workspace landing:
