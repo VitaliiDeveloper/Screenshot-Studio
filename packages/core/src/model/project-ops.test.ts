@@ -251,6 +251,14 @@ describe("project-ops", () => {
     expect(() => cloneLocaleSet(project, "default", "en", "   ")).toThrow(/must not be empty/);
   });
 
+  it("cloneLocaleSet trims the target locale before comparing and storing it", () => {
+    const project = sampleProject();
+    const result = cloneLocaleSet(project, "default", "en", " uk ");
+
+    expect(new Set(result.layouts[0]!.screens.map((screen) => screen.locale))).toEqual(new Set(["en", "uk"]));
+    expect(() => cloneLocaleSet(project, "default", "en", "en ")).toThrow(/already exists/);
+  });
+
   it("removeLocaleSet removes the whole set and protects the last locale", () => {
     const project = cloneLocaleSet(sampleProject(), "default", "en", "uk");
     const result = removeLocaleSet(project, "default", "en");
