@@ -410,9 +410,17 @@ describe("runExportCommand fastlane stale files", () => {
   it("holds the export lease until the prune finishes", async () => {
     const fixture = await fastlaneFixture();
 
-    // Returning without awaiting the guard is what a render-host exit race does to the caller.
+    // Returning mid-publication is what a render-host exit race does to the caller.
     const { done } = run(fixture.path, { out: fixture.outDir }, async (options) => {
-      void publishRendered(options);
+      await new Promise<void>((crossedGuard) => {
+        void publishRendered({
+          ...options,
+          publicationGuard: (publish) => options.publicationGuard(() => {
+            crossedGuard();
+            return publish();
+          }),
+        });
+      });
       return join(fixture.outDir, "app-store-screenshots-bundle.zip");
     });
     await done;
