@@ -386,6 +386,8 @@ async function settleRun(
       status: "failed",
     };
   };
+  // A restore would `mkdir -p` a deleted project back as an uncatalogued folder.
+  if (!existsSync(projectDir)) return rejected("The project folder was removed during the run", snapshot);
   // The lock path resolves through the project file, so a deleted file cannot be locked by anyone;
   // it is restored without the lock.
   if (!existsSync(projectFile)) {

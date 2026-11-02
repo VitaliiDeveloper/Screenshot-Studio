@@ -21,6 +21,8 @@ import {
   type AgentEvent,
   type AgentRun,
 } from "./agent-session.server.js";
+import { stopAgentRun } from "./agent-run-guard.server.js";
+import { holdAgentRun } from "./agent-run-test-support.js";
 
 const PROJECT = {
   meta: { name: "Agents", schemaVersion: 1 },
@@ -313,6 +315,40 @@ describe.skipIf(process.platform === "win32")("agent session runner", () => {
     expect(events.at(-2)).toMatchObject({ type: "result", status: "rejected", reason: expect.stringMatching(/removed/) });
     expect(events.at(-1)).toMatchObject({ type: "done", status: "failed" });
     expect(JSON.parse(await readFile(join(projectDir, "app-store-screenshots.json"), "utf8"))).toEqual(parseProject(PROJECT));
+  });
+
+  it("does not recreate a project folder removed during the run", async () => {
+    await fakeClaude(hang());
+    const run = await start();
+
+    await rm(projectDir, { recursive: true });
+    run.cancel();
+    const events = await collect(run);
+
+    expect(events.at(-2)).toMatchObject({ type: "result", status: "rejected", reason: expect.stringMatching(/folder/) });
+    expect(events.at(-1)).toMatchObject({ type: "done", status: "failed" });
+    expect(await exists(projectDir)).toBe(false);
+  });
+
+  it("stops a run and waits for its verdict", async () => {
+    await fakeClaude(hang());
+    const run = await start();
+    const events = collect(run);
+
+    expect(await stopAgentRun(join(projectDir, "app-store-screenshots.json"))).toBe(true);
+
+    expect(await cancelAgentRun(projectDir)).toBe(false);
+    expect((await events).at(-1)).toMatchObject({ type: "done", status: "cancelled" });
+    expect(await stopAgentRun(join(projectDir, "app-store-screenshots.json"))).toBe(true);
+  });
+
+  it("reports a run that does not end in time", async () => {
+    const release = await holdAgentRun(projectDir);
+    try {
+      expect(await stopAgentRun(join(projectDir, "app-store-screenshots.json"), 1)).toBe(false);
+    } finally {
+      release();
+    }
   });
 
   it("reports the files a run changed outside the project file, guides first, and Undo run leaves them", async () => {
