@@ -27,11 +27,14 @@ import {
   type AppStoreUploadPlan,
   type RemoteImage,
 } from "./store-upload-plan.js";
+import {
+  APP_STORE_CONNECT_ISSUER_ID_ENV,
+  APP_STORE_CONNECT_KEY_ID_ENV,
+  APP_STORE_CONNECT_KEY_PATH_ENV,
+} from "./store-credential-env.js";
 import { refuseAgentUpload, type UploadCommandDependencies } from "./upload-command.js";
 
-export const APP_STORE_CONNECT_KEY_ID_ENV = "APP_STORE_CONNECT_KEY_ID";
-export const APP_STORE_CONNECT_ISSUER_ID_ENV = "APP_STORE_CONNECT_ISSUER_ID";
-export const APP_STORE_CONNECT_KEY_PATH_ENV = "APP_STORE_CONNECT_KEY_PATH";
+export { APP_STORE_CONNECT_ISSUER_ID_ENV, APP_STORE_CONNECT_KEY_ID_ENV, APP_STORE_CONNECT_KEY_PATH_ENV };
 
 export interface AppStoreUploadDependencies extends Omit<UploadCommandDependencies, "endpoints"> {
   apiRoot?: string;

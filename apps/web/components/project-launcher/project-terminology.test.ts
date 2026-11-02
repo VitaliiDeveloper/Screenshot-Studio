@@ -61,6 +61,10 @@ describe("project creation terminology", () => {
     expect(screensSection).toContain("setDismissedOnboardingScreenId");
     expect(screensSection).not.toContain("Start blank");
     expect(captureImportHook).toContain("useCaptureImportController");
+    expect(captureImportHook).toContain("activateNewProject: switchActiveProject");
+    expect(captureImportHook).not.toContain("discardActiveProjectPersistence");
+    expect(captureImportHook).toContain("applyToCurrentProject: withFlushedProject");
+    expect(captureImportHook).toContain("await reloadFromDisk()");
     expect(editorPage).toContain("useEditorCaptureImport");
     expect(editorPage).toContain("<CaptureImportDialog");
     expect(editorPage).toContain("onImportCaptures={captureImport.open}");

@@ -20,6 +20,7 @@ import {
   createTemplateScreen,
   listTemplates,
   loadTemplate,
+  projectPackAssetPath,
   TemplateNotFoundError,
   TemplateValidationError,
 } from "./template-service.js";
@@ -79,6 +80,14 @@ async function fixture() {
 }
 
 describe("template-service", () => {
+  it("names pack assets so the project archive keeps them, also after truncation", () => {
+    const bytes = new Uint8Array([1]);
+    const archivable = /^assets\/packs\/brand\/[0-9a-f]{12}-asset\.png$/;
+    expect(projectPackAssetPath("brand", "assets/secret!.png", bytes, ".png")).toMatch(archivable);
+    expect(projectPackAssetPath("brand", `assets/${"a".repeat(73)}-secretx.png`, bytes, ".png"))
+      .toMatch(archivable);
+  });
+
   it("lists definitions in stable id order", async () => {
     const { dir, projectPath, template } = await fixture();
     await writeFile(join(dir, "templates/blank.json"), JSON.stringify({ ...template, id: "blank", name: "Blank" }));

@@ -8,6 +8,8 @@ file coordination but may be new to Node.js processes and lockfiles.
 ## Short version
 
 - `writeProjectAtomic()` makes one file replacement atomic.
+- `writeProjectConditionalAtomic()` replaces the file only if it still has the revision and file
+  identity the transaction read; the editor and CLI save paths use it.
 - `withProjectMutation()` makes the complete **read → modify → write** transaction exclusive.
 - Screenshot Studio owns that API; [`proper-lockfile`](https://github.com/moxystudio/node-proper-lockfile)
   is a replaceable implementation detail inside `@screenshot-studio/core/storage`.
@@ -228,6 +230,30 @@ try {
 ```
 
 The callback form is preferred because it makes forgotten cleanup harder.
+
+## Conditional writes
+
+The examples above show the lock contract with `writeProjectAtomic()`. Real save paths
+(`apps/web/app/api/project/route.ts`, `packages/cli/src/project-io.ts`, and
+`packages/cli/src/capture-import-transaction.ts`) read with `readIdentifiedProjectSnapshot()` and
+write with `writeProjectConditionalAtomic()` inside the same lock:
+
+```ts
+await withProjectMutation(projectPath, async () => {
+  const snapshot = await readIdentifiedProjectSnapshot(projectPath);
+  const updatedProject = renameFirstScreen(snapshot.project, "Welcome");
+  await writeProjectConditionalAtomic(projectPath, updatedProject, snapshot);
+});
+```
+
+Just before the rename, the conditional write re-reads the file and throws
+`ProjectRevisionConflictError` without writing if its revision or file identity changed. The lock
+excludes Screenshot Studio writers; this check also catches a writer that skips the lock, such as a
+direct JSON edit or a replaced file. Node has no compare-and-rename, so the check narrows that
+writer's window but cannot close it.
+
+Use the unconditional `writeProjectAtomic()` only for a deliberate restore that must win over whatever
+is on disk, such as the agent-session rollback in `apps/web/lib/agents/agent-session.server.ts`.
 
 ## Incorrect usage
 

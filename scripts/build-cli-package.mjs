@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
+import { execFileSync } from "node:child_process";
 import { chmod, cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
+import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 import JSZip from "jszip";
@@ -9,6 +11,7 @@ import {
   isPortableRenderHostPath,
   PACKAGE_LINKS_MANIFEST,
 } from "./package-archive.mjs";
+import { pnpmCommand } from "./pnpm-command.mjs";
 import { generateThirdPartyNotices } from "./release-audit.mjs";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -17,6 +20,13 @@ const packageRoot = join(cliRoot, "package");
 const webRoot = join(repoRoot, "apps", "web");
 const standaloneRoot = join(webRoot, ".next", "standalone");
 const expectedServer = join(standaloneRoot, "apps", "web", "server.js");
+
+const [pnpm, webBuildArgs] = pnpmCommand(["--filter", "@screenshot-studio/web", "build"]);
+execFileSync(pnpm, webBuildArgs, {
+  cwd: repoRoot,
+  stdio: "inherit",
+  env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1" },
+});
 
 await rm(packageRoot, { recursive: true, force: true });
 await mkdir(join(packageRoot, "dist"), { recursive: true });

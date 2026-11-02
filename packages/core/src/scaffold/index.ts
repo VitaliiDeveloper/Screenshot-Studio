@@ -237,7 +237,7 @@ export function validateProjectScaffold(scaffold: ProjectScaffold): ProjectScaff
   const paths = new Map<string, string>();
   const exactPaths = new Set<string>();
   for (const resource of parsed.resources) {
-    const folded = resource.path.normalize("NFC").toLocaleLowerCase();
+    const folded = resource.path.normalize("NFC").toLowerCase();
     if (folded === PROJECT_DOCUMENT_FILENAME) {
       throw new Error(`${PROJECT_DOCUMENT_FILENAME} is reserved for the generated project document`);
     }

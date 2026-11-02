@@ -656,7 +656,7 @@ function validateLayouts(proj: ProjectShape, ctx: z.RefinementCtx): void {
         path: ["layouts", layoutIndex, "name"],
       });
     }
-    const normalizedName = trimmedName.toLocaleLowerCase();
+    const normalizedName = trimmedName.toLowerCase();
     if (layoutNames.has(normalizedName)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { setPublishing, type Project, type PublishingPatch } from "@screenshot-studio/core/model";
 import type { ProjectLockOptions } from "@screenshot-studio/core/storage";
+import { rejectFlagsOutsideSubcommand } from "./command-flags.js";
 import { loadProjectFile, updateProjectFile } from "./project-io.js";
 
 const USAGE = "Usage: screenshots publishing <show|set|clear> [--google-package <name>] [--apple-app-id <id>] [--json]";
@@ -22,6 +23,10 @@ export async function runPublishingCommand(
   lockOptions: ProjectLockOptions = {},
 ): Promise<string> {
   const [subcommand = "show", store, extra] = args;
+  rejectFlagsOutsideSubcommand("publishing", subcommand, flags, {
+    "google-package": ["set"],
+    "apple-app-id": ["set"],
+  });
   const json = flags.json === "true";
   if (subcommand === "show") {
     if (store) throw new Error(USAGE);

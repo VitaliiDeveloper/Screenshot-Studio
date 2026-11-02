@@ -186,6 +186,24 @@ describe("createProjectSaveCoordinator", () => {
     ]);
   });
 
+  it("skips saving the project the server already holds and saves the next edit once", async () => {
+    const loaded = { meta: { name: "loaded" } } as unknown as Project;
+    const edited = { meta: { name: "edited" } } as unknown as Project;
+    let current = loaded;
+    const save = vi.fn(async () => undefined);
+    const coordinator = createProjectSaveCoordinator(save, () => current);
+    coordinator.markPersisted(loaded);
+
+    await coordinator.saveLatest();
+    await expect(coordinator.runFlushed(async () => "ran")).resolves.toBe("ran");
+    expect(save).not.toHaveBeenCalled();
+
+    current = edited;
+    await coordinator.saveLatest();
+    await coordinator.switchProject(async () => "opened", () => undefined);
+    expect(save.mock.calls).toEqual([[edited]]);
+  });
+
   it("does not activate or reset when the final drain fails", async () => {
     const current = { meta: { name: "unsaved" } } as unknown as Project;
     const coordinator = createProjectSaveCoordinator(

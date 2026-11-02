@@ -2,7 +2,6 @@
 import { existsSync } from "node:fs";
 import { lstat, readdir, readFile, realpath } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { createInterface } from "node:readline";
 import type { Project } from "@screenshot-studio/core/model";
 import {
   errorText,
@@ -25,6 +24,8 @@ import { skillReference } from "./agent-adapter.server.js";
 import { agentAdapter } from "./agent-adapters.server.js";
 import type { AgentAttachment } from "./agent-attachments.js";
 import { createRunFolder, removeRunFolder } from "./agent-attachment-store.server.js";
+import { boundedEvent, readBoundedLines } from "./agent-output-limits.server.js";
+import { cancelRunsOnShutdown } from "./agent-run-shutdown.server.js";
 import { sharedAgentConsentStore, type AgentConsentStore } from "./agent-consent.server.js";
 import { readCodexAuthStore, type CodexAuthStore } from "./codex-auth-store.server.js";
 
@@ -79,8 +80,7 @@ export type AgentEvent =
   | { type: "done"; status: AgentDoneStatus; summary: string | null; durationMs: number | null };
 
 export interface AgentRunContext {
-  agentGuidePath: string | null;
-  /** The guide that ships with the app; set only when the project has no AGENTS.md of its own. */
+  /** The guide that ships with the CLI; a project's own AGENTS.md may come from an imported archive. */
   bundledGuidePath: string | null;
   skillPath: string | null;
   /** The Codex credentials store the readiness probe used; null for other agents. */
@@ -195,12 +195,9 @@ function serverGlobalMap<T>(key: symbol, onCreate?: (map: Map<string, T>) => voi
 
 // Keyed by the project folder's real path, so one project never runs two agents at once.
 function activeRuns(): Map<string, () => void> {
-  return serverGlobalMap<() => void>(ACTIVE_RUNS_GLOBAL_KEY, (runs) => {
-    // Agent process groups are detached; they must not keep editing a project after the server exits.
-    process.once("exit", () => {
-      for (const cancel of runs.values()) cancel();
-    });
-  });
+  return serverGlobalMap<() => void>(ACTIVE_RUNS_GLOBAL_KEY, (runs) => cancelRunsOnShutdown(() => {
+    for (const cancel of runs.values()) cancel();
+  }));
 }
 
 // shortcut: snapshots live in server memory, so a server restart drops a pending Undo run; persist
@@ -356,7 +353,7 @@ async function otherFileChanges(projectDir: string, before: FolderManifest | nul
     if (previous !== fingerprint) files.push({ path, change: previous === undefined ? "added" : "modified" });
   }
   for (const path of before.keys()) if (!after.has(path)) files.push({ path, change: "removed" });
-  // The guides steer every later run of either agent, so their changes lead the list.
+  // The guides steer agents the user starts outside the editor, so their changes lead the list.
   files.sort(comparePaths);
   return { files: files.slice(0, OTHER_FILES_LIMIT), count: files.length };
 }
@@ -429,19 +426,16 @@ function bundledSkillPath(): string {
   return join(dirname(resolveStoreSpecsPath()), "skills", "screenshot-studio", "SKILL.md");
 }
 
-function runContext(projectDir: string, codexAuthStore: CodexAuthStore | null): AgentRunContext {
-  const agentGuidePath = join(projectDir, "AGENTS.md");
-  const hasAgentGuide = existsSync(agentGuidePath);
+function runContext(codexAuthStore: CodexAuthStore | null): AgentRunContext {
   const appRoot = dirname(resolveStoreSpecsPath());
   const skillPath = bundledSkillPath();
-  // Editor-created projects have no AGENTS.md. A checkout keeps the guide in the CLI source; the
-  // packaged CLI copies it to dist/, beside the runtime/ folder that holds store-specs.json.
-  const bundledGuidePath = hasAgentGuide ? null : [
+  // A checkout keeps the guide in the CLI source; the packaged CLI copies it to dist/, beside the
+  // runtime/ folder that holds store-specs.json.
+  const bundledGuidePath = [
     join(appRoot, "packages", "cli", "src", "project-agent-guide.md"),
     join(appRoot, "..", "dist", "project-agent-guide.md"),
   ].find((path) => existsSync(path)) ?? null;
   return {
-    agentGuidePath: hasAgentGuide ? agentGuidePath : null,
     bundledGuidePath,
     skillPath: existsSync(skillPath) ? skillPath : null,
     codexAuthStore,
@@ -544,7 +538,7 @@ export async function startAgentRun(options: AgentRunOptions): Promise<AgentRun>
       mode,
       model: options.model ?? null,
       effort: options.effort ?? null,
-      context: runContext(projectDir, codexAuthStore),
+      context: runContext(codexAuthStore),
       attachments: folder.files,
     };
     const run = launchRun(definition, adapter, request, {
@@ -581,7 +575,8 @@ function finishedRun(event: AgentEvent): AgentRun {
 
 /** Cancels the project's run, if any; a run still in its readiness check never launches. */
 export async function cancelAgentRun(projectDir: string): Promise<boolean> {
-  const cancel = activeRuns().get(await realpath(projectDir));
+  const resolved = await realProjectDir(projectDir);
+  const cancel = resolved === null ? undefined : activeRuns().get(resolved);
   cancel?.();
   return cancel !== undefined;
 }
@@ -645,7 +640,7 @@ function launchRun(
     for (const event of next) {
       if (ended) return;
       if (event.type !== "done") {
-        if (streamOpen) controller.enqueue(event);
+        if (streamOpen) controller.enqueue(boundedEvent(event));
         continue;
       }
       ended = true;
@@ -664,9 +659,7 @@ function launchRun(
     { type: "error", code: "timeout", message: "The agent run timed out", resets: null },
     { type: "done", status: "failed", summary: null, durationMs: null },
   ]), options.timeoutMs);
-  if (child.stdout) {
-    createInterface({ input: child.stdout, crlfDelay: Infinity }).on("line", (line) => emit(normalizer.line(line)));
-  }
+  if (child.stdout) readBoundedLines(child.stdout, (line) => emit(normalizer.line(line)));
   child.stderr?.setEncoding("utf8").on("data", (chunk: string) => {
     stderr = (stderr + chunk).slice(-STDERR_LIMIT);
   });

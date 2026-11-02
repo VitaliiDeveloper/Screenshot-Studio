@@ -214,19 +214,16 @@ describe("importCaptures", () => {
     await writeFile(capturePath, first);
     await importCaptures({ projectPath, inputDir: dir });
 
-    await expect(importCaptures({ projectPath, inputDir: dir })).resolves.toMatchObject({ imported: 1 });
+    await expect(importCaptures({ projectPath, inputDir: dir })).rejects.toThrow(/invalid entries/i);
     await writeFile(capturePath, second);
     await importCaptures({ projectPath, inputDir: dir, refresh: true });
     await writeFile(capturePath, first);
     const reverted = await importCaptures({ projectPath, inputDir: dir, refresh: true });
 
-    expect(reverted.refresh).toEqual({ captures: 1, references: 2, unchanged: 0, unmatched: 0 });
+    expect(reverted.refresh).toEqual({ captures: 1, references: 1, unchanged: 0, unmatched: 0 });
     const written = JSON.parse(await readFile(projectPath, "utf8")) as Project;
     expect(written.layouts[0]!.screens.slice(1).map((screen) => screen.elements[0]))
-      .toMatchObject([
-        { assetUrl: importedCapturePath("apple-iphone-en-01", first) },
-        { assetUrl: importedCapturePath("apple-iphone-en-01", first) },
-      ]);
+      .toMatchObject([{ assetUrl: importedCapturePath("apple-iphone-en-01", first) }]);
   }, FOUR_IMPORTS_TIMEOUT_MS);
 
   it("marks a different existing receiver asset invalid during no-write preview", async () => {

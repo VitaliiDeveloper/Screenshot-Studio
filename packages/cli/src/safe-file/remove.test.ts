@@ -50,6 +50,18 @@ describe("removeRegularFileSafely", () => {
     await expect(removeRegularFileSafely(root, "missing.txt")).resolves.toBe(false);
   });
 
+  it("returns false when the leaf vanishes just before its quarantine", async () => {
+    const root = await workspace("safe-file-remove-vanished-");
+    await writeFile(join(root, "resource.txt"), "bytes");
+
+    await expect(removeWithDependencies(root, "resource.txt", undefined, {
+      quarantineFile: async (source, target) => {
+        await unlink(source);
+        await rename(source, target);
+      },
+    })).resolves.toBe(false);
+  });
+
   it("removes only a regular leaf and reports true", async () => {
     const root = await workspace("safe-file-remove-regular-");
     const destination = join(root, "resource.txt");

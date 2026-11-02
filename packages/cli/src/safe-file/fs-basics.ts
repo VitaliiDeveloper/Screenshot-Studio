@@ -30,7 +30,7 @@ export async function lstatBigIntIfExists(path: string): Promise<BigIntStats | n
     throw error;
   }
 }
-export function publicationDestinationError(path: string, stats: Stats): Error {
+export function publicationDestinationError(path: string, stats: Pick<Stats, "isSymbolicLink">): Error {
   if (stats.isSymbolicLink()) {
     return new Error(`Unsafe symbolic link at publication destination: ${path}`);
   }

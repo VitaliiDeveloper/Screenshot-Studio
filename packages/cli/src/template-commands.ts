@@ -7,6 +7,7 @@ import {
   type ScreenTemplate,
 } from "@screenshot-studio/core/templates";
 import { templatePackMetadata } from "@screenshot-studio/core/packs";
+import { rejectFlagsOutsideSubcommand } from "./command-flags.js";
 import {
   createBuiltInTemplatePackScreens,
   createBuiltInTemplateScreen,
@@ -14,7 +15,7 @@ import {
   createTemplateScreen,
   exportLayoutPack,
   listBuiltInTemplates,
-  listTemplates,
+  listTemplatesWithErrors,
   loadProjectPackListing,
   templateId,
 } from "./template-service.js";
@@ -28,6 +29,14 @@ const USAGE = "Usage: screenshots template <list|add <id> --locale <locale> [--b
 
 export function resolveTemplateAction(args: string[], flags: Record<string, string>): TemplateAction {
   const [subcommand, id, extra] = args;
+  rejectFlagsOutsideSubcommand("template", subcommand, flags, {
+    locale: ["add", "export-pack"],
+    layout: ["add"],
+    "built-in": ["add"],
+    pack: ["add"],
+    out: ["export-pack"],
+    force: ["export-pack"],
+  });
   if (subcommand === "list" && !id) return { kind: "list" };
   if (subcommand === "export-pack" && id && !extra) {
     if (!flags.out) throw new Error("template export-pack requires --out packs/<name>");
@@ -80,9 +89,9 @@ export async function runTemplateCommand(
   }
   const specs = await loadSpecs(storeSpecsPath);
   if (action.kind === "list") {
-    const [builtIns, templates, local] = await Promise.all([
+    const [builtIns, { definitions: templates, errors }, local] = await Promise.all([
       listBuiltInTemplates(projectPath, specs),
-      listTemplates(projectPath),
+      listTemplatesWithErrors(projectPath),
       loadProjectPackListing(projectPath),
     ]);
     const packs = [
@@ -96,7 +105,7 @@ export async function runTemplateCommand(
           ...templates.map((template) => ({ source: "project", ...templateSummary(template) })),
         ],
         packs: packs.map(({ source, pack }) => ({ source, ...pack })),
-        errors: local.errors,
+        errors: [...local.errors, ...errors.map(({ file, error }) => ({ file, message: error.message }))],
       });
     }
     return [
@@ -104,6 +113,7 @@ export async function runTemplateCommand(
       ...packs.map(({ source, pack }) => formatTemplatePack(source, pack)),
       ...templates.map((template) => formatTemplate("project", template)),
       ...local.errors.map((error) => `invalid-pack ${error.file}: ${error.message}`),
+      ...errors.map(({ file, error }) => `invalid-template ${file}: ${error.message}`),
     ].join("\n");
   }
   if (action.source === "pack") {
