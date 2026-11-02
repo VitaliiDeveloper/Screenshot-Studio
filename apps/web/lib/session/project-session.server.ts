@@ -216,7 +216,7 @@ export class ProjectSessionRegistry {
       if (touch) this.#touch(session);
       return session;
     } catch (error) {
-      this.invalidateManagedProject(session.projectId);
+      if (!isStorageLockTimeout(error)) this.invalidateManagedProject(session.projectId);
       throw error;
     }
   }
@@ -373,6 +373,10 @@ export async function resolveActiveProjectSession(
   throw new NoActiveProjectError();
 }
 
+function isStorageLockTimeout(error: unknown): boolean {
+  return error instanceof Error && error.name === "StorageLockTimeoutError";
+}
+
 /**
  * The answer every project route gives to a changed lifecycle or a busy lock. It matches by name
  * because the shared registry can hold a source whose errors come from another route bundle's copy.
@@ -382,7 +386,7 @@ export function projectLockErrorResponse(error: unknown): Response | undefined {
   if (error.name === "ManagedProjectLifecycleChangedError") {
     return jsonError(409, "This project changed or was deleted elsewhere; reload it before continuing", "lifecycle-changed");
   }
-  if (error.name === "StorageLockTimeoutError") {
+  if (isStorageLockTimeout(error)) {
     return jsonError(423, "The project is busy with another operation; try again in a moment", "project-busy");
   }
   return undefined;
