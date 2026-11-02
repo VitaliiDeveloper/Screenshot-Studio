@@ -478,3 +478,34 @@ describe("dialog focus", () => {
     expect(await inDialog()).toBe(true);
   });
 });
+
+describe("asset picker errors", () => {
+  const openPicker = async (page: Page) => {
+    await page.getByRole("button", { name: "Shipments app", exact: true }).click();
+    await page.getByRole("button", { name: "Replace screenshot", exact: true }).click();
+    return page.getByRole("dialog", { name: /picker/ });
+  };
+
+  it("keeps the grid visible beside the error for one corrupt image", async () => {
+    const corrupt = join(dir, "assets", "corrupt.png");
+    writeFileSync(corrupt, "not an image");
+    try {
+      const page = await openEditor({ width: 1440, height: 1000 });
+      const dialog = await openPicker(page);
+      const assets = dialog.getByRole("button", { name: /^Use / });
+      await dialog.getByRole("button", { name: "Use assets/corrupt.png", exact: true }).click();
+      await dialog.getByRole("alert").waitFor({ state: "visible" });
+      expect(await assets.count()).toBeGreaterThan(1);
+    } finally {
+      rmSync(corrupt);
+    }
+  });
+
+  it("does not sit on the scanning message after the listing fails", async () => {
+    const page = await openEditor({ width: 1440, height: 1000 });
+    await page.route("**/api/assets", (route) => route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: "listing failed" }) }));
+    const dialog = await openPicker(page);
+    await dialog.getByRole("alert").waitFor({ state: "visible" });
+    expect(await dialog.getByText("Scanning project images…").count()).toBe(0);
+  });
+});

@@ -274,11 +274,10 @@ export function AssetPickerDialog({
         </button>
       </div>
 
-      {error ? (
-        <StatusMessage tone="error">{error}</StatusMessage>
-      ) : assets === null ? (
+      {error ? <StatusMessage tone="error" className="mb-4">{error}</StatusMessage> : null}
+      {assets === null ? (error ? null : (
         <p role="status" className="grid flex-1 place-items-center text-center text-xs text-[color:var(--editor-color-text-secondary)]">Scanning project images…</p>
-      ) : visibleAssets.length === 0 ? (
+      )) : visibleAssets.length === 0 ? (
         <EmptyResourceState
           icon={FolderOpen}
           title={assets.length === 0 ? "No project images found" : "No matching images"}
