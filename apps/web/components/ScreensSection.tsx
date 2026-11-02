@@ -39,6 +39,7 @@ import { LayerSearch } from "./LayerSearch";
 import { LayersSection } from "./LayersSection";
 import { rowHoverControl, SortableRow, treeRowButton } from "./SortableRow";
 import { AddMenu, ConfirmationDialog, cx, editorUi } from "./editor-ui";
+import { useFocusRescue } from "./editor-ui/use-focus-rescue";
 
 const DynamicScreenThumbnail = dynamic(
   () => import("./ScreenThumbnail").then((module) => module.ScreenThumbnail),
@@ -249,6 +250,7 @@ export function ScreensSection({
     setClosingScreenId((current) => (current === id ? null : current));
   }, []);
   const screenListRef = useRef<HTMLDivElement>(null);
+  const focusRescue = useFocusRescue(() => screenListRef.current?.querySelector<HTMLElement>("button[aria-current]"));
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -319,7 +321,7 @@ export function ScreensSection({
   };
 
   return (
-    <section className="border-b border-[var(--editor-color-border)] pb-2">
+    <section className="border-b border-[var(--editor-color-border)] pb-2" {...focusRescue}>
       {firstRun ? (
         <div className="mx-3 mt-3 rounded-xl border border-[var(--editor-color-accent-muted)] bg-[var(--editor-color-accent-subtle)] p-3 text-xs text-[color:var(--editor-color-text-strong)]" data-testid="first-screen-onboarding">
           <h2 className="text-sm font-semibold">Your blank screen is ready</h2>

@@ -43,10 +43,20 @@ afterEach(async () => {
 
 function project() {
   const root = JSON.parse(readFileSync(projectFile, "utf8")) as { layouts: Array<{
-    screens: Array<{ elements: Array<{ id: string; x: number; y: number }> }>;
+    screens: Array<{ id: string; elements: Array<{
+      id: string;
+      x: number;
+      y: number;
+      width: number;
+      name?: string;
+      color?: string;
+      shadow?: unknown;
+    }> }>;
   }> };
   return root.layouts[0]!;
 }
+
+const heroLayer = (id: string) => project().screens[0]!.elements.find((element) => element.id === id);
 
 async function openEditor(viewport: { width: number; height: number }): Promise<Page> {
   page = await browser.newPage({ viewport });
@@ -230,5 +240,149 @@ describe("status bar and keyboard shortcuts", () => {
     page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
     await page.goto(`${server.url}/editor?intent=export`, { waitUntil: "load" });
     await page.getByRole("dialog", { name: "Export" }).waitFor({ state: "visible" });
+  });
+});
+
+describe("keyboard focus never drops to the page behind a selection", () => {
+  const focusedLabel = (page: Page) => page.evaluate(() => {
+    const active = document.activeElement;
+    return active?.getAttribute("aria-label") ?? active?.textContent?.trim() ?? active?.tagName;
+  });
+  // ArrowDown nudges by 10 px and Backspace deletes the selection whenever focus is on <body>.
+  const expectKeysLeave = async (page: Page, id: string) => {
+    const before = heroLayer(id);
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("Backspace");
+    await page.waitForTimeout(800);
+    expect(heroLayer(id)).toEqual(before);
+  };
+  const selectLayer = async (page: Page, name: string) => {
+    await page.getByRole("button", { name, exact: true }).click();
+  };
+
+  it("moves focus to the replacement control when an optional effect toggles", async () => {
+    const page = await openEditor({ width: 1440, height: 1000 });
+    await selectLayer(page, "Hero support");
+    await page.getByRole("button", { name: "Add shadow", exact: true }).focus();
+    await page.keyboard.press("Enter");
+    await expect.poll(() => heroLayer("hero-support")?.shadow).toBeTruthy();
+    expect(await focusedLabel(page)).toBe("Remove shadow");
+    await expectKeysLeave(page, "hero-support");
+
+    // Undo removes the focused button too, without any click on it.
+    await page.keyboard.press("Control+z");
+    await expect.poll(() => heroLayer("hero-support")?.shadow ?? null).toBeNull();
+    expect(await focusedLabel(page)).toBe("Add shadow");
+    await expectKeysLeave(page, "hero-support");
+  });
+
+  it("returns focus from the layer menu to its trigger, or a live control after a delete", async () => {
+    const page = await openEditor({ width: 1440, height: 1000 });
+    await selectLayer(page, "Hero support");
+    const openMenu = async (layer: string) => {
+      await page.getByRole("button", { name: `More actions for ${layer}`, exact: true }).focus();
+      await page.keyboard.press("Enter");
+    };
+
+    for (const item of ["Lock layer", "Hide layer"]) {
+      await openMenu("Hero headline");
+      await page.getByRole("menuitem", { name: item, exact: true }).focus();
+      await page.keyboard.press("Enter");
+      await expect.poll(() => focusedLabel(page)).toBe("More actions for Hero headline");
+      await expectKeysLeave(page, "hero-support");
+    }
+
+    await openMenu("Hero headline");
+    await page.getByRole("menuitem", { name: "Delete layer", exact: true }).focus();
+    await page.keyboard.press("Enter");
+    await expect.poll(() => heroLayer("headline")).toBeUndefined();
+    expect(await focusedLabel(page)).toBe("Add element");
+    await expectKeysLeave(page, "hero-support");
+  });
+
+  it("keeps focus in the inspector when a multi-selection action replaces its section", async () => {
+    const page = await openEditor({ width: 1440, height: 1000 });
+    const hero = page.getByRole("list", { name: "Layers for Hero", exact: true });
+    const selectBoth = async () => {
+      await hero.getByRole("button", { name: "Hero headline", exact: true }).click();
+      await hero.getByRole("button", { name: "Hero support", exact: true }).click({ modifiers: ["Shift"] });
+    };
+
+    await selectBoth();
+    await page.getByRole("button", { name: "Delete selected", exact: true }).focus();
+    await page.keyboard.press("Enter");
+    await expect.poll(() => heroLayer("headline")).toBeUndefined();
+    expect(await page.evaluate(() => document.activeElement?.getAttribute("role"))).toBe("tab");
+    const layers = project().screens[0]!.elements.length;
+    await page.keyboard.press("t");
+    await page.waitForTimeout(800);
+    expect(project().screens[0]!.elements.length).toBe(layers);
+
+    await page.keyboard.press("Control+z");
+    await expect.poll(() => heroLayer("headline")).toBeTruthy();
+    await selectBoth();
+    await page.getByRole("button", { name: /^Group/ }).focus();
+    await page.keyboard.press("Enter");
+    await expect.poll(() => heroLayer("headline")).toBeUndefined();
+    expect(await page.evaluate(() => document.activeElement?.getAttribute("role"))).toBe("tab");
+    const groupedLayers = project().screens[0]!.elements.length;
+    await page.keyboard.press("Backspace");
+    await page.waitForTimeout(800);
+    expect(project().screens[0]!.elements.length).toBe(groupedLayers);
+  });
+
+  it("lands on the active screen row after deleting a screen", async () => {
+    const page = await openEditor({ width: 1440, height: 1000 });
+    const saveFastSupport = () => project().screens.find((screen) => screen.id === "save-fast")!
+      .elements.find((element) => element.id === "save-fast-support")!;
+    await page.getByRole("button", { name: /^Save Fast · /, exact: false }).first().click();
+    await page.getByRole("button", { name: "Save fast support", exact: true }).click();
+    await expect.poll(() => page.getByTestId("editor-stage").first().getAttribute("data-selection-count")).toBe("1");
+
+    const deleteHero = page.getByRole("button", { name: "Delete Hero", exact: true }).first();
+    await deleteHero.focus();
+    await page.keyboard.press("Enter");
+    const dialog = page.getByRole("dialog", { name: "Delete screen?" });
+    // Cancelling keeps the live trigger: the fallback only stands in for a removed one.
+    await page.keyboard.press("Escape");
+    await dialog.waitFor({ state: "detached" });
+    await expect.poll(() => focusedLabel(page)).toBe("Delete Hero");
+    await page.keyboard.press("Enter");
+    await dialog.getByRole("button", { name: "Delete screen", exact: true }).focus();
+    await page.keyboard.press("Enter");
+    await dialog.waitFor({ state: "detached" });
+
+    await expect.poll(() => page.evaluate(() => document.activeElement?.hasAttribute("data-screen-id"))).toBe(true);
+    const before = { ...saveFastSupport() };
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("Backspace");
+    await page.waitForTimeout(800);
+    expect(saveFastSupport()).toEqual(before);
+  });
+
+  it("renames a layer with Enter, cancels with Escape, and returns focus to the row", async () => {
+    const page = await openEditor({ width: 1440, height: 1000 });
+    await selectLayer(page, "Hero support");
+    const rename = async (typed: string, key: "Enter" | "Escape") => {
+      await page.getByRole("button", { name: /^More actions for Hero support/ }).focus();
+      await page.keyboard.press("Enter");
+      await page.getByRole("menuitem", { name: "Rename layer", exact: true }).click();
+      await page.keyboard.press("ControlOrMeta+a");
+      await page.keyboard.type(typed);
+      await page.keyboard.press(key);
+    };
+
+    await rename("Cancelled", "Escape");
+    const list = page.getByRole("list", { name: "Layers for Hero", exact: true });
+    await expect.poll(() => focusedLabel(page)).toBe("More actions for Hero support");
+    expect(await list.isVisible()).toBe(true);
+    await page.waitForTimeout(800);
+    expect(heroLayer("hero-support")?.name).toBe("Hero support");
+    await expectKeysLeave(page, "hero-support");
+
+    await rename("Renamed", "Enter");
+    await expect.poll(() => heroLayer("hero-support")?.name).toBe("Renamed");
+    await expect.poll(() => focusedLabel(page)).toBe("More actions for Renamed");
+    await expectKeysLeave(page, "hero-support");
   });
 });
