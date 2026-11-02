@@ -1,27 +1,27 @@
 // SPDX-License-Identifier: Apache-2.0
-import { constants } from "node:fs";
 import {
   link,
-  lstat,
   mkdir,
   mkdtemp,
   open,
   rename,
   rm,
   unlink,
-  type FileHandle,
 } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import JSZip from "jszip";
 import type { BundleEntry } from "@screenshot-studio/core/export";
 import { isProjectRelativePath } from "@screenshot-studio/core/model";
-import { errorText, noFollowFlags } from "@screenshot-studio/core/storage";
+import { errorText } from "@screenshot-studio/core/storage";
+import {
+  evidenceMatches,
+  evidenceWithLinks,
+  readBoundRegularFileEvidence,
+} from "./safe-file/evidence.js";
 import {
   errorWithCleanup,
-  lstatBigIntIfExists,
   lstatIfExists,
   publicationDestinationError,
-  verificationFlags,
 } from "./safe-file/fs-basics.js";
 import {
   assertCanonicalContainment,
@@ -31,7 +31,16 @@ import {
   resolveRootBoundaryIfExists,
   revalidateAncestors,
 } from "./safe-file/paths.js";
-import type { CapturedError, RootBoundary, StageHandle } from "./safe-file/types.js";
+import { requireExactEvidence } from "./safe-file/quarantine.js";
+import { createOwnedStage } from "./safe-file/stage.js";
+import type {
+  CapturedError,
+  OpenEvidence,
+  RootBoundary,
+  StageHandle,
+  StageIdentity,
+  TrackedFileEvidence,
+} from "./safe-file/types.js";
 
 export interface RenderedBundleEntry {
   entry: BundleEntry;
@@ -47,24 +56,12 @@ export interface BundleExtraFile {
   bytes: Buffer;
 }
 
-type VerificationHandle = Pick<FileHandle, "stat" | "readFile" | "close">;
-
-interface StageIdentity {
-  device: bigint;
-  inode: bigint;
-}
-
-interface TrackedFileEvidence extends StageIdentity {
-  links: bigint;
-  bytes: Buffer;
-}
-
 interface BundleOutputDependencies {
   makeTempDirectory?: typeof mkdtemp;
   move?: typeof rename;
   remove?: typeof rm;
   openStage?: (path: string, flags: number, mode: number) => Promise<StageHandle>;
-  openVerification?: (path: string, flags: number) => Promise<VerificationHandle>;
+  openVerification?: OpenEvidence;
   linkFile?: (source: string, destination: string) => Promise<void>;
   unlinkFile?: (path: string) => Promise<void>;
 }
@@ -112,65 +109,20 @@ async function ensureDirectories(
   return revalidate;
 }
 
-function noFollowStageFlags(): number {
-  return noFollowFlags(constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL);
-}
-
-async function writeStagedFile(
-  path: string,
-  bytes: Buffer,
-  openStage: NonNullable<BundleOutputDependencies["openStage"]>,
-): Promise<StageIdentity> {
-  let handle: StageHandle | undefined;
-  let identity: StageIdentity | null = null;
-  let primaryError: CapturedError | null = null;
-  try {
-    handle = await openStage(path, noFollowStageFlags(), 0o666);
-    const stats = handle.stat
-      ? await handle.stat({ bigint: true })
-      : await lstat(path, { bigint: true });
-    if (!stats.isFile() || stats.isSymbolicLink()) {
-      throw new Error(`Bundle staged output must be a regular file "${path}"`);
-    }
-    identity = { device: stats.dev, inode: stats.ino };
-    await handle.writeFile(bytes);
-    await handle.sync();
-  } catch (error) {
-    primaryError = { value: error };
-  }
-
-  if (handle) {
-    try {
-      await handle.close();
-    } catch (closeError) {
-      if (primaryError !== null) {
-        primaryError = {
-          value: errorWithCleanup(primaryError.value, closeError, "stage close failed"),
-        };
-      } else {
-        primaryError = { value: closeError };
-      }
-    }
-  }
-  if (primaryError !== null) throw primaryError.value;
-  if (identity === null) throw new Error(`Bundle stage identity was not captured "${path}"`);
-  return identity;
-}
-
 async function requireOwnedStage(
   path: string,
   identity: StageIdentity,
   expectedBytes: Buffer,
-  openVerification: NonNullable<BundleOutputDependencies["openVerification"]>,
+  openVerification: OpenEvidence,
 ): Promise<TrackedFileEvidence> {
-  let evidence: TrackedFileEvidence;
-  try {
-    evidence = await readBoundRegularFileEvidence(path, openVerification);
-  } catch (error) {
-    throw new Error(`Bundle stage changed before publication "${path}"`, { cause: error });
-  }
+  const evidence = await readBoundRegularFileEvidence(
+    path,
+    openVerification,
+    "Bundle stage changed before publication",
+  );
   if (
-    evidence.device !== identity.device
+    !evidence
+    || evidence.device !== identity.device
     || evidence.inode !== identity.inode
     || evidence.links !== 1n
   ) {
@@ -180,74 +132,6 @@ async function requireOwnedStage(
     throw new Error(`Bundle stage contents changed after staging "${path}"`);
   }
   return evidence;
-}
-
-async function readBoundRegularFileEvidence(
-  path: string,
-  openVerification: NonNullable<BundleOutputDependencies["openVerification"]>,
-): Promise<TrackedFileEvidence> {
-  let handle: VerificationHandle | undefined;
-  let primaryError: CapturedError | null = null;
-  let evidence: TrackedFileEvidence | null = null;
-  try {
-    handle = await openVerification(path, verificationFlags());
-    const stats = await handle.stat({ bigint: true });
-    if (!stats.isFile()) throw new Error(`Tracked bundle file must be a regular file "${path}"`);
-    evidence = {
-      device: stats.dev,
-      inode: stats.ino,
-      links: stats.nlink,
-      bytes: await handle.readFile(),
-    };
-  } catch (error) {
-    primaryError = { value: error };
-  }
-
-  if (handle) {
-    try {
-      await handle.close();
-    } catch (closeError) {
-      if (primaryError !== null) {
-        primaryError = {
-          value: errorWithCleanup(
-            primaryError.value,
-            closeError,
-            "tracked file verification close failed",
-          ),
-        };
-      } else {
-        primaryError = {
-          value: new Error(`Tracked bundle file verification close failed "${path}"`, {
-            cause: closeError,
-          }),
-        };
-      }
-    }
-  }
-  if (primaryError !== null) throw primaryError.value;
-  if (evidence === null) throw new Error(`Tracked bundle file evidence was not captured "${path}"`);
-
-  const named = await lstatBigIntIfExists(path);
-  if (
-    !named?.isFile()
-    || named.dev !== evidence.device
-    || named.ino !== evidence.inode
-    || named.nlink !== evidence.links
-  ) {
-    throw new Error(`Tracked bundle file name changed during verification "${path}"`);
-  }
-  return evidence;
-}
-
-function evidenceWithLinks(evidence: TrackedFileEvidence, links: bigint): TrackedFileEvidence {
-  return { ...evidence, links };
-}
-
-function evidenceMatches(actual: TrackedFileEvidence, expected: TrackedFileEvidence): boolean {
-  return actual.device === expected.device
-    && actual.inode === expected.inode
-    && actual.links === expected.links
-    && actual.bytes.equals(expected.bytes);
 }
 
 function evidenceIdentityKey(evidence: TrackedFileEvidence): string {
@@ -261,23 +145,6 @@ function requireTrackedEvidence(
 ): TrackedFileEvidence {
   if (!evidence) throw new Error(`${label} evidence is missing "${path}"`);
   return evidence;
-}
-
-async function requireExactTrackedFile(
-  path: string,
-  expected: TrackedFileEvidence,
-  label: string,
-  openVerification: NonNullable<BundleOutputDependencies["openVerification"]>,
-): Promise<void> {
-  let actual: TrackedFileEvidence;
-  try {
-    actual = await readBoundRegularFileEvidence(path, openVerification);
-  } catch (error) {
-    throw new Error(`${label} changed "${path}"`, { cause: error });
-  }
-  if (!evidenceMatches(actual, expected)) {
-    throw new Error(`${label} changed "${path}"`);
-  }
 }
 
 async function requireAbsentDestination(
@@ -296,7 +163,7 @@ async function removePublishedOutputSafely(
   expected: TrackedFileEvidence,
   revalidate: () => Promise<void>,
   move: NonNullable<BundleOutputDependencies["move"]>,
-  openVerification: NonNullable<BundleOutputDependencies["openVerification"]>,
+  openVerification: OpenEvidence,
   linkFile: NonNullable<BundleOutputDependencies["linkFile"]>,
 ): Promise<void> {
   await revalidate();
@@ -308,27 +175,27 @@ async function removePublishedOutputSafely(
   }
   await move(outputPath, quarantinePath);
 
-  let quarantined: TrackedFileEvidence;
-  try {
-    quarantined = await readBoundRegularFileEvidence(quarantinePath, openVerification);
-  } catch (error) {
-    throw new Error(`Bundle quarantined output changed "${quarantinePath}"`, { cause: error });
-  }
+  const quarantined = await readBoundRegularFileEvidence(
+    quarantinePath,
+    openVerification,
+    "Bundle quarantined output changed",
+  );
+  if (!quarantined) throw new Error(`Bundle quarantined output disappeared "${quarantinePath}"`);
   if (!evidenceMatches(quarantined, expected)) {
     try {
       await requireAbsentDestination(outputPath, revalidate);
       await linkFile(quarantinePath, outputPath);
       const restoredCompetitor = evidenceWithLinks(quarantined, quarantined.links + 1n);
-      await requireExactTrackedFile(
+      await requireExactEvidence(
         quarantinePath,
         restoredCompetitor,
-        "Bundle quarantined replacement",
+        "Bundle quarantined replacement changed",
         openVerification,
       );
-      await requireExactTrackedFile(
+      await requireExactEvidence(
         outputPath,
         restoredCompetitor,
-        "Bundle restored replacement",
+        "Bundle restored replacement changed",
         openVerification,
       );
     } catch (restoreError) {
@@ -349,31 +216,31 @@ async function restoreBackupSafely(
   outputPath: string,
   backupEvidence: TrackedFileEvidence,
   revalidate: () => Promise<void>,
-  openVerification: NonNullable<BundleOutputDependencies["openVerification"]>,
+  openVerification: OpenEvidence,
   linkFile: NonNullable<BundleOutputDependencies["linkFile"]>,
 ): Promise<TrackedFileEvidence> {
   await revalidate();
   if (await lstatIfExists(outputPath)) {
     throw new Error(`Cannot restore bundle backup over occupied destination "${outputPath}"`);
   }
-  await requireExactTrackedFile(
+  await requireExactEvidence(
     backupPath,
     backupEvidence,
-    "Bundle backup",
+    "Bundle backup changed",
     openVerification,
   );
   await linkFile(backupPath, outputPath);
   const linkedEvidence = evidenceWithLinks(backupEvidence, backupEvidence.links + 1n);
-  await requireExactTrackedFile(
+  await requireExactEvidence(
     backupPath,
     linkedEvidence,
-    "Bundle linked backup",
+    "Bundle linked backup changed",
     openVerification,
   );
-  await requireExactTrackedFile(
+  await requireExactEvidence(
     outputPath,
     linkedEvidence,
-    "Bundle restored output",
+    "Bundle restored output changed",
     openVerification,
   );
   return linkedEvidence;
@@ -460,12 +327,22 @@ export async function writeBundleOutputs({
   let preserveStagingForRecovery = false;
   try {
     const stagedIdentities = new Map<string, StageIdentity>();
+    const stageBoundary = await resolveOrCreateRootBoundary(stagedFilesRoot);
     for (const publication of publications) {
       const stagedPath = resolveSafeBundleOutputPath(stagedFilesRoot, publication.relativePath);
-      await mkdir(dirname(stagedPath), { recursive: true });
+      const revalidateStage = await ensureDirectories(stageBoundary, publication.relativePath);
       stagedIdentities.set(
         stagedPath,
-        await writeStagedFile(stagedPath, publication.bytes, openStage),
+        await createOwnedStage(
+          stagedPath,
+          publication.bytes,
+          openStage,
+          unlink,
+          rename,
+          link,
+          openVerification,
+          revalidateStage,
+        ),
       );
     }
 
@@ -506,13 +383,17 @@ export async function writeBundleOutputs({
           state.backupEvidence = await readBoundRegularFileEvidence(
             publication.outputPath,
             openVerification,
+            "Bundle output changed before backup",
           );
+          if (!state.backupEvidence) {
+            throw new Error(`Bundle output disappeared before backup "${publication.outputPath}"`);
+          }
           await move(publication.outputPath, backupPath);
           state.backupMoved = true;
-          await requireExactTrackedFile(
+          await requireExactEvidence(
             backupPath,
             state.backupEvidence,
-            "Bundle backup",
+            "Bundle backup changed",
             openVerification,
           );
         }
@@ -530,23 +411,23 @@ export async function writeBundleOutputs({
         state.published = true;
         state.publishedEvidence = evidenceWithLinks(stageEvidence, 1n);
         const linkedEvidence = evidenceWithLinks(stageEvidence, 2n);
-        await requireExactTrackedFile(
+        await requireExactEvidence(
           stagedPath,
           linkedEvidence,
-          "Bundle linked stage",
+          "Bundle linked stage changed",
           openVerification,
         );
-        await requireExactTrackedFile(
+        await requireExactEvidence(
           publication.outputPath,
           linkedEvidence,
-          "Bundle linked output",
+          "Bundle linked output changed",
           openVerification,
         );
         await unlinkFile(stagedPath);
-        await requireExactTrackedFile(
+        await requireExactEvidence(
           publication.outputPath,
           state.publishedEvidence,
-          "Bundle published output",
+          "Bundle published output changed",
           openVerification,
         );
       }
@@ -611,16 +492,16 @@ export async function writeBundleOutputs({
             backupEvidence.links
               + (restoredLinkDeltas.get(evidenceIdentityKey(backupEvidence)) ?? 0n),
           );
-          await requireExactTrackedFile(
+          await requireExactEvidence(
             state.backupPath,
             finalEvidence,
-            "Bundle retained backup",
+            "Bundle retained backup changed",
             openVerification,
           );
-          await requireExactTrackedFile(
+          await requireExactEvidence(
             state.outputPath,
             finalEvidence,
-            "Bundle restored output",
+            "Bundle restored output changed",
             openVerification,
           );
         } catch (rollbackError) {
