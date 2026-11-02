@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { existsSync } from "node:fs";
-import { lstat, readdir, readFile, realpath } from "node:fs/promises";
+import { readFile, realpath } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import type { Project } from "@screenshot-studio/core/model";
 import {
   errorText,
   projectRevision,
@@ -18,16 +17,15 @@ import { detectAgent } from "./agent-registry.server.js";
 import {
   AGENT_DEFINITIONS,
   agentEnv,
-  killProcessTree,
-  spawnAgentProcess,
   type AgentDefinition,
 } from "./agents.server.js";
 import { skillReference } from "./agent-adapter.server.js";
 import { agentAdapter } from "./agent-adapters.server.js";
 import type { AgentAttachment } from "./agent-attachments.js";
 import { createRunFolder, removeRunFolder } from "./agent-attachment-store.server.js";
-import { boundedEvent, readBoundedLines } from "./agent-output-limits.server.js";
-import { cancelRunsOnShutdown } from "./agent-run-shutdown.server.js";
+import { launchRun } from "./agent-run-process.server.js";
+import { activeRuns, editorWrites, pendingOutcomes } from "./agent-run-state.server.js";
+import { folderManifest, PROJECT_FILE_NAME, settleRun } from "./agent-run-verdict.server.js";
 import { sharedAgentConsentStore, type AgentConsentStore } from "./agent-consent.server.js";
 import { readCodexAuthStore, type CodexAuthStore } from "./codex-auth-store.server.js";
 
@@ -158,65 +156,10 @@ export interface AgentRunOutcome {
   finishedAt: string;
 }
 
-interface PendingOutcome {
-  snapshot: Project;
-  outcome: AgentRunOutcome;
-}
-
-interface SettledRun {
-  result: Extract<AgentEvent, { type: "result" }>;
-  status: AgentDoneStatus;
-}
-
-export const PROJECT_FILE_NAME = "app-store-screenshots.json";
-
 const DEFAULT_RUN_TIMEOUT_MS = 10 * 60_000;
 // An export holds an editor write for its whole render, so a run waits a while before giving up.
 const DEFAULT_DRAIN_TIMEOUT_MS = 30_000;
 const DRAIN_POLL_MS = 25;
-// Longer than the mutation lock's 30 s stale window, which bounds an abandoned lock's lifetime.
-const VERDICT_LOCK_TIMEOUT_MS = 45_000;
-const STDERR_LIMIT = 64 * 1024;
-const FOLDER_SCAN_LIMIT = 5_000;
-const OTHER_FILES_LIMIT = 50;
-const AGENT_GUIDES = ["AGENTS.md", "CLAUDE.md"];
-const CRITIC_CHANGED_REASON = "The critic changed the project, but a critic run is read-only";
-const ACTIVE_RUNS_GLOBAL_KEY = Symbol.for("screenshot-studio.agent-runs");
-const EDITOR_WRITES_GLOBAL_KEY = Symbol.for("screenshot-studio.agent-editor-writes");
-const OUTCOMES_GLOBAL_KEY = Symbol.for("screenshot-studio.agent-outcomes");
-
-// Shared across Next dev module evaluations like the project session registry, so a recompiled
-// route sees the same runs and snapshots.
-function serverGlobalMap<T>(key: symbol, onCreate?: (map: Map<string, T>) => void): Map<string, T> {
-  const serverGlobal = globalThis as typeof globalThis & { [key: symbol]: unknown };
-  const existing = serverGlobal[key] as Map<string, T> | undefined;
-  if (existing) return existing;
-  const created = new Map<string, T>();
-  serverGlobal[key] = created;
-  onCreate?.(created);
-  return created;
-}
-
-// Keyed by the project folder's real path, so one project never runs two agents at once.
-function activeRuns(): Map<string, () => void> {
-  return serverGlobalMap<() => void>(ACTIVE_RUNS_GLOBAL_KEY, (runs) => cancelRunsOnShutdown(() => {
-    for (const cancel of runs.values()) cancel();
-  }));
-}
-
-// shortcut: snapshots live in server memory, so a server restart drops a pending Undo run; persist
-// them under the project folder when the chat needs Undo to survive restarts.
-function pendingOutcomes(): Map<string, PendingOutcome> {
-  return serverGlobalMap<PendingOutcome>(OUTCOMES_GLOBAL_KEY);
-}
-
-// Editor writes in flight per project folder. A run reserves its slot, then waits for this count to
-// drain before its snapshot; an editor write checks the slot and counts itself in one synchronous
-// step. So no editor write can land between a run's snapshot and its verdict, where Undo or a
-// rejected result would silently drop it.
-function editorWrites(): Map<string, number> {
-  return serverGlobalMap<number>(EDITOR_WRITES_GLOBAL_KEY);
-}
 
 async function realProjectDir(projectDir: string): Promise<string | null> {
   return realpath(projectDir).catch(() => null);
@@ -283,149 +226,6 @@ export async function undoAgentOutcome(projectDir: string): Promise<AgentRunOutc
   }
   pendingOutcomes().delete(resolved);
   return pending.outcome;
-}
-
-function changedScreenIds(before: Project, after: Project): string[] {
-  const serialized = (project: Project) => new Map(project.layouts.flatMap((layout) =>
-    layout.screens.map((screen) => [`${layout.id}/${screen.id}`, JSON.stringify(screen)] as const)
-  ));
-  const previous = serialized(before);
-  const next = serialized(after);
-  const ids = new Set<string>();
-  for (const [key, value] of next) if (previous.get(key) !== value) ids.add(key.slice(key.indexOf("/") + 1));
-  for (const key of previous.keys()) if (!next.has(key)) ids.add(key.slice(key.indexOf("/") + 1));
-  return [...ids];
-}
-
-/** Path → stat fingerprint of every entry in a project folder. */
-type FolderManifest = Map<string, string>;
-
-/** The project file and the lock and temp files its own writes leave beside it. */
-function projectFileOrSidecar(name: string): boolean {
-  return name === PROJECT_FILE_NAME
-    || (name.startsWith(`.${PROJECT_FILE_NAME}.`) && (name.endsWith(".tmp") || name.endsWith(".screenshot-studio.lock")));
-}
-
-function skipMissing<T>(fallback: T): (error: unknown) => T {
-  return (error) => {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return fallback;
-    throw error;
-  };
-}
-
-/** Null past `FOLDER_SCAN_LIMIT` entries or on a read error, so a partial scan never reports a guess. */
-async function folderManifest(projectDir: string): Promise<FolderManifest | null> {
-  const manifest: FolderManifest = new Map();
-  const folders = [""];
-  let visited = 0;
-  try {
-    for (let folder = folders.pop(); folder !== undefined; folder = folders.pop()) {
-      const entries = (await readdir(join(projectDir, folder), { withFileTypes: true }).catch(skipMissing([])))
-        .filter(({ name }) => name !== ".DS_Store" && !(folder === "" && projectFileOrSidecar(name)));
-      visited += entries.length;
-      if (visited > FOLDER_SCAN_LIMIT) return null;
-      const files: string[] = [];
-      for (const entry of entries) {
-        const path = folder ? `${folder}/${entry.name}` : entry.name;
-        // Dirent types are lstat's, so a symlinked folder is fingerprinted as a link, never followed.
-        (entry.isDirectory() ? folders : files).push(path);
-      }
-      await Promise.all(files.map(async (path) => {
-        const stat = await lstat(join(projectDir, path)).catch(skipMissing(null));
-        // ctime moves on every write and cannot be set back, unlike mtime.
-        if (stat) manifest.set(path, `${stat.mode}:${stat.size}:${stat.mtimeMs}:${stat.ctimeMs}`);
-      }));
-    }
-  } catch {
-    return null;
-  }
-  return manifest;
-}
-
-function comparePaths(a: AgentOtherFile, b: AgentOtherFile): number {
-  const rank = (path: string) => (AGENT_GUIDES.includes(path) ? AGENT_GUIDES.indexOf(path) : AGENT_GUIDES.length);
-  // Paths are unique, so two entries never compare equal.
-  return rank(a.path) - rank(b.path) || (a.path < b.path ? -1 : 1);
-}
-
-async function otherFileChanges(projectDir: string, before: FolderManifest | null): Promise<AgentOtherFiles | null> {
-  const after = before && await folderManifest(projectDir);
-  if (!before || !after) return null;
-  const files: AgentOtherFile[] = [];
-  for (const [path, fingerprint] of after) {
-    const previous = before.get(path);
-    if (previous !== fingerprint) files.push({ path, change: previous === undefined ? "added" : "modified" });
-  }
-  for (const path of before.keys()) if (!after.has(path)) files.push({ path, change: "removed" });
-  // The guides steer agents the user starts outside the editor, so their changes lead the list.
-  files.sort(comparePaths);
-  return { files: files.slice(0, OTHER_FILES_LIMIT), count: files.length };
-}
-
-/**
- * The verdict on the project file after the agent exited: a document the strict schema rejects
- * (or a missing one) is rolled back to the pre-run snapshot; a valid one becomes the pending outcome
- * the chat can keep or undo. A critic run that changed the project is rolled back too, and it never
- * replaces the pending outcome of the run it reviewed. Either way the result lists the other files
- * the run left changed.
- */
-async function settleRun(
-  projectDir: string,
-  snapshot: ProjectSnapshot,
-  folderBefore: FolderManifest | null,
-  status: AgentDoneStatus,
-  mode: AgentRunMode,
-): Promise<SettledRun> {
-  const projectFile = join(projectDir, PROJECT_FILE_NAME);
-  const otherFiles = await otherFileChanges(projectDir, folderBefore);
-  const rejected = (reason: string, restored: ProjectSnapshot): SettledRun => {
-    const pending = pendingOutcomes().get(projectDir);
-    if (mode === "edit") pendingOutcomes().delete(projectDir);
-    // The restore rewrites the reviewed run's state, so Undo follows it to the rewritten revision.
-    else if (pending?.outcome.revision === snapshot.revision) pending.outcome = { ...pending.outcome, revision: restored.revision };
-    return {
-      result: {
-        type: "result", status: "rejected", reason, changed: false, changedScreens: [], revision: restored.revision, otherFiles,
-      },
-      status: "failed",
-    };
-  };
-  // A restore would `mkdir -p` a deleted project back as an uncatalogued folder.
-  if (!existsSync(projectDir)) return rejected("The project folder was removed during the run", snapshot);
-  // The lock path resolves through the project file, so a deleted file cannot be locked by anyone;
-  // it is restored without the lock.
-  if (!existsSync(projectFile)) {
-    return rejected(`The agent removed ${PROJECT_FILE_NAME}`, await writeProjectAtomic(projectFile, snapshot.project));
-  }
-  // Read and rollback in one locked section, so a terminal CLI write cannot slip between them. A CLI
-  // killed mid-write leaves its lock until it goes stale, so the wait outlasts the stale window.
-  const verdict = await withProjectMutation(projectFile, async () => {
-    try {
-      const current = await readProjectSnapshot(projectFile);
-      if (mode === "critic" && current.revision !== snapshot.revision) {
-        return { valid: false as const, reason: CRITIC_CHANGED_REASON, restored: await writeProjectAtomic(projectFile, snapshot.project) };
-      }
-      return { valid: true as const, current };
-    } catch (error) {
-      return { valid: false as const, reason: errorText(error), restored: await writeProjectAtomic(projectFile, snapshot.project) };
-    }
-  }, { timeoutMs: VERDICT_LOCK_TIMEOUT_MS });
-  if (!verdict.valid) return rejected(verdict.reason, verdict.restored);
-  const { current } = verdict;
-  const changed = current.revision !== snapshot.revision;
-  const changedScreens = changed ? changedScreenIds(snapshot.project, current.project) : [];
-  if (changed) {
-    pendingOutcomes().set(projectDir, {
-      snapshot: snapshot.project,
-      outcome: { revision: current.revision, changedScreens, otherFiles, finishedAt: new Date().toISOString() },
-    });
-  } else if (mode === "edit") {
-    pendingOutcomes().delete(projectDir);
-  }
-  return {
-    result: { type: "result", status: "accepted", reason: null, changed, changedScreens, revision: current.revision, otherFiles },
-    status,
-  };
 }
 
 function bundledSkillPath(): string {
@@ -586,91 +386,4 @@ export async function cancelAgentRun(projectDir: string): Promise<boolean> {
   const cancel = resolved === null ? undefined : activeRuns().get(resolved);
   cancel?.();
   return cancel !== undefined;
-}
-
-function launchRun(
-  definition: AgentDefinition,
-  adapter: AgentAdapter,
-  request: AgentRunRequest,
-  options: {
-    projectDir: string;
-    env: NodeJS.ProcessEnv;
-    timeoutMs: number;
-    settle: (status: AgentDoneStatus) => Promise<SettledRun>;
-    release: () => void;
-  },
-): AgentRun {
-  const normalizer = adapter.normalizer();
-  let controller!: ReadableStreamDefaultController<AgentEvent>;
-  let streamOpen = true;
-  let ended = false;
-  let stderr = "";
-
-  const events = new ReadableStream<AgentEvent>({
-    start(streamController) {
-      controller = streamController;
-    },
-    cancel() {
-      streamOpen = false;
-      cancel();
-    },
-  });
-  const child = spawnAgentProcess(definition.binary, adapter.args(request), {
-    cwd: options.projectDir,
-    env: options.env,
-    input: request.message,
-  });
-
-  function close(next: AgentEvent[]): void {
-    if (streamOpen) {
-      for (const event of next) controller.enqueue(event);
-    }
-    // The project slot stays taken until the verdict is in, so no second run starts on an unchecked file.
-    options.release();
-    if (streamOpen) controller.close();
-    streamOpen = false;
-  }
-
-  async function finish(done: Extract<AgentEvent, { type: "done" }>): Promise<void> {
-    try {
-      const settled = await options.settle(done.status);
-      close([settled.result, { ...done, status: settled.status }]);
-    } catch (error) {
-      close([
-        { type: "error", code: "failed", message: `The project could not be verified after the run: ${errorText(error)}`, resets: null },
-        { ...done, status: "failed" },
-      ]);
-    }
-  }
-
-  function emit(next: AgentEvent[]): void {
-    for (const event of next) {
-      if (ended) return;
-      if (event.type !== "done") {
-        if (streamOpen) controller.enqueue(boundedEvent(event));
-        continue;
-      }
-      ended = true;
-      clearTimeout(timer);
-      // Also reaps anything the agent left running: no background work outlives a run, and the
-      // verdict below reads a file nothing is still writing.
-      killProcessTree(child);
-      void finish(event);
-    }
-  }
-  function cancel(): void {
-    emit([{ type: "done", status: "cancelled", summary: null, durationMs: null }]);
-  }
-
-  const timer = setTimeout(() => emit([
-    { type: "error", code: "timeout", message: "The agent run timed out", resets: null },
-    { type: "done", status: "failed", summary: null, durationMs: null },
-  ]), options.timeoutMs);
-  if (child.stdout) readBoundedLines(child.stdout, (line) => emit(normalizer.line(line)));
-  child.stderr?.setEncoding("utf8").on("data", (chunk: string) => {
-    stderr = (stderr + chunk).slice(-STDERR_LIMIT);
-  });
-  child.once("error", () => emit(normalizer.end({ code: null, stderr })));
-  child.once("close", (code) => emit(normalizer.end({ code, stderr })));
-  return { events, cancel };
 }
