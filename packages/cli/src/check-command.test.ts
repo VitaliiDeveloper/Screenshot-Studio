@@ -58,7 +58,7 @@ function brokenProject(): Promise<string> {
   ]);
 }
 
-function noBrowser(): Required<CheckCommandDependencies> {
+function noBrowser(): CheckCommandDependencies {
   return {
     startWebServer: vi.fn(async () => { throw new Error("fast check started a server"); }),
     collectRenderedLayoutIssues: vi.fn(async () => { throw new Error("fast check launched a browser"); }),

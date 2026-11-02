@@ -65,6 +65,8 @@ export interface CheckReport {
 export interface CheckCommandDependencies {
   startWebServer?: typeof startWebServer;
   collectRenderedLayoutIssues?: typeof collectRenderedLayoutIssues;
+  /** Replaces the parser's text for an invalid project, which can quote the file it read. */
+  invalidProjectMessage?: string;
 }
 
 export interface CheckCommandResult {
@@ -250,7 +252,7 @@ export async function collectCheckReport(
       id: "invalid-project",
       kind: "invalid-project",
       level: "blocker",
-      message: error.message,
+      message: dependencies.invalidProjectMessage ?? error.message,
       layoutId: null,
       screenId: null,
       size: null,
