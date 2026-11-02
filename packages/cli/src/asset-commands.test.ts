@@ -27,6 +27,13 @@ afterEach(() => {
 });
 
 describe("runAssetCommand", () => {
+  it("rejects a processing flag the subcommand would ignore", async () => {
+    await expect(runAssetCommand("unused.json", ["auto-crop", "a.png"], { tolerance: "8" }))
+      .rejects.toThrow("--tolerance applies only to asset remove-background");
+    await expect(runAssetCommand("unused.json", ["remove-background", "a.png"], { threshold: "8" }))
+      .rejects.toThrow("--threshold applies only to asset auto-crop");
+  });
+
   it("imports an image from outside the project without touching the project file", async () => {
     const projectPath = await projectWithSource("screenshot-studio-asset-command-import-");
     const projectBefore = await readFile(projectPath);

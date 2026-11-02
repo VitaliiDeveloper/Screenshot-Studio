@@ -21,6 +21,7 @@ import {
 } from "@screenshot-studio/core/export";
 import type { ProjectLockOptions } from "@screenshot-studio/core/storage";
 import { assertProjectMediaFile, parseJsonObject } from "./element-commands.js";
+import { rejectFlagsOutsideSubcommand } from "./command-flags.js";
 import { loadProjectFile, updateProjectFile } from "./project-io.js";
 import { parseLayoutDirection } from "./direction.js";
 import { resolveMutationLayout } from "./layout-commands.js";
@@ -52,6 +53,20 @@ function requireFlag(flags: Record<string, string>, key: string, subcommand = "a
 
 export function resolveScreenAction(args: string[], flags: Record<string, string>): ScreenAction {
   const [subcommand, id] = args;
+  rejectFlagsOutsideSubcommand("screen", subcommand, flags, {
+    json: ["show"],
+    platform: ["add", "migrate-lead"],
+    device: ["add", "migrate-lead"],
+    locale: ["add"],
+    id: ["add"],
+    name: ["add"],
+    direction: ["add"],
+    size: ["add"],
+    background: ["set"],
+    cascade: ["rm"],
+    to: ["reorder"],
+    from: ["migrate-lead"],
+  });
   switch (subcommand) {
     case "list":
       return { kind: "list" };

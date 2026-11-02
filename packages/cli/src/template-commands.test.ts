@@ -61,6 +61,15 @@ describe("resolveTemplateAction", () => {
     expect(() => resolveTemplateAction(["add", "neutral-iphone-basics"], { locale: "en", pack: "true", "built-in": "true" }))
       .toThrow(/either --built-in or --pack/);
   });
+
+  it("rejects a flag the subcommand would ignore", () => {
+    expect(() => resolveTemplateAction(["export-pack", "default"], { out: "packs/house", layout: "x" }))
+      .toThrow("--layout applies only to template add");
+    expect(() => resolveTemplateAction(["add", "accent-card"], { locale: "en", out: "packs/house" }))
+      .toThrow("--out applies only to template export-pack");
+    expect(() => resolveTemplateAction(["add", "accent-card"], { locale: "en", force: "true" }))
+      .toThrow("--force applies only to template export-pack");
+  });
 });
 
 describe("runTemplateCommand", () => {

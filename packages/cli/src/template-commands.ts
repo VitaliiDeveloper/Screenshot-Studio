@@ -7,6 +7,7 @@ import {
   type ScreenTemplate,
 } from "@screenshot-studio/core/templates";
 import { templatePackMetadata } from "@screenshot-studio/core/packs";
+import { rejectFlagsOutsideSubcommand } from "./command-flags.js";
 import {
   createBuiltInTemplatePackScreens,
   createBuiltInTemplateScreen,
@@ -28,6 +29,14 @@ const USAGE = "Usage: screenshots template <list|add <id> --locale <locale> [--b
 
 export function resolveTemplateAction(args: string[], flags: Record<string, string>): TemplateAction {
   const [subcommand, id, extra] = args;
+  rejectFlagsOutsideSubcommand("template", subcommand, flags, {
+    locale: ["add", "export-pack"],
+    layout: ["add"],
+    "built-in": ["add"],
+    pack: ["add"],
+    out: ["export-pack"],
+    force: ["export-pack"],
+  });
   if (subcommand === "list" && !id) return { kind: "list" };
   if (subcommand === "export-pack" && id && !extra) {
     if (!flags.out) throw new Error("template export-pack requires --out packs/<name>");

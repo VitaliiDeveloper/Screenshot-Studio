@@ -81,3 +81,20 @@ export function parseCommandFlags(argv: string[], spec: CommandFlagSpec): Parsed
 
   return { args, flags };
 }
+
+/**
+ * Rejects a flag given to a subcommand that would silently ignore it, because flags are declared
+ * per command. `scopes` maps each subcommand-specific flag to the subcommands that read it.
+ */
+export function rejectFlagsOutsideSubcommand(
+  command: string,
+  subcommand: string | undefined,
+  flags: Record<string, string>,
+  scopes: Record<string, readonly string[]>,
+): void {
+  for (const [flag, subcommands] of Object.entries(scopes)) {
+    if (flags[flag] === undefined || subcommands.includes(subcommand ?? "")) continue;
+    const owners = new Intl.ListFormat("en").format(subcommands.map((name) => `${command} ${name}`));
+    throw new Error(`--${flag} applies only to ${owners}`);
+  }
+}
