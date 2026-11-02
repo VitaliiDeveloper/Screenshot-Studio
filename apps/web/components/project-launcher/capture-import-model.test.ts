@@ -13,8 +13,6 @@ import {
 } from "./capture-import-model.js";
 
 const currentTarget: CaptureImportCurrentTarget = {
-  projectId: "project_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-  revision: `"${"1".repeat(64)}"`,
   projectName: "Current",
   preferredLayoutId: "primary",
   layouts: [
