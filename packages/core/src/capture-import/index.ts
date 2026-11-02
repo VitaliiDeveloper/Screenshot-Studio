@@ -24,6 +24,7 @@ import {
   type Project as ProjectModel,
   type ScreenPlacement,
 } from "@screenshot-studio/core/model";
+import { jsonIgnoringGeneratedIds } from "./generated-ids.js";
 
 const IMPORT_DIGEST_LENGTH = 12;
 const PRIVATE_ASSET_BASENAME = /(?:^|[-_.])(?:credentials?|secrets?|service-account|id_rsa|id_ed25519)(?:[-_.]|$)/iu;
@@ -687,15 +688,18 @@ export function planCaptureImport(input: {
   };
 }
 
+// The planned project embeds the base, so the raw base digest (which changes with a starter
+// scaffold's fresh ids) stays out; applyCaptureImportPlan still checks it exactly.
 function planFingerprint(plan: Omit<CaptureImportPlan, "confirmationFingerprint">): string {
-  return jsonDigest({
-    ...plan,
+  const { baseProjectFingerprint: _base, ...confirmed } = plan;
+  return digest(new TextEncoder().encode(jsonIgnoringGeneratedIds({
+    ...confirmed,
     project: Project.parse(plan.project),
     resources: plan.resources.map(({ bytes, ...resource }) => ({
       ...resource,
       bytesDigest: digest(bytes),
     })),
-  });
+  })));
 }
 
 export function withCaptureImportInvalidEntries(

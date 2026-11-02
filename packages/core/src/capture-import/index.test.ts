@@ -3,8 +3,13 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { PNG } from "pngjs";
 import { describe, expect, it } from "vitest";
-import { DEFAULT_STORE_SPECS } from "@screenshot-studio/core/export";
-import { Project, type Project as ProjectModel } from "@screenshot-studio/core/model";
+import { DEFAULT_STORE_SPECS, findStoreTarget } from "@screenshot-studio/core/export";
+import {
+  Project,
+  ensureStoreTargetVariant,
+  setOutputFamilyScreenSetMode,
+  type Project as ProjectModel,
+} from "@screenshot-studio/core/model";
 import {
   applyCaptureImportPlan,
   assertCaptureImportConfirmation,
@@ -302,6 +307,24 @@ describe("planCaptureImport", () => {
     expect(() => assertCaptureImportConfirmation(plan, plan.confirmationFingerprint)).not.toThrow();
     expect(() => assertCaptureImportConfirmation(plan, "0".repeat(64))).toThrow(/preview changed/i);
     expect(() => assertCaptureImportConfirmation(plan, undefined)).toThrow(/preview changed/i);
+  });
+
+  it("confirms a re-planned preview that adds exact-size variants to a synchronized family", () => {
+    const synchronized = setOutputFamilyScreenSetMode(sampleProject(), "default", "apple-iphone-en-01", "synchronized");
+    const target = findStoreTarget(DEFAULT_STORE_SPECS, "apple", "iphone", "6.5");
+    const project = ensureStoreTargetVariant(synchronized, "default", "apple-iphone-en-01", target).project;
+    const discovery = discoverCaptureImport({ files: [file("apple/iphone/en/home.png")] });
+    const plan = () => planCaptureImport({
+      project, layoutId: "default", destinationKind: "current-project", discovery,
+    });
+
+    const preview = plan();
+    const replanned = plan();
+
+    expect(replanned.project.layouts[0]!.screens.filter(({ variantOf }) => variantOf === "apple-iphone-en-home"))
+      .toHaveLength(1);
+    expect(() => assertCaptureImportConfirmation(replanned, preview.confirmationFingerprint)).not.toThrow();
+    expect(() => applyCaptureImportPlan(project, replanned)).not.toThrow();
   });
 
   it("previews the explicit receiver with deterministic fresh IDs, paths, and a strict Project", () => {

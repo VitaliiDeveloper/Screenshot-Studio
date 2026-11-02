@@ -113,6 +113,32 @@ describe("createManagedProjectFromCaptureImport", () => {
     }]);
   });
 
+  it("applies a confirmed preview onto a built-in starter", async () => {
+    const { service } = await setup();
+    const png = new Uint8Array(await readFile(new URL(
+      "../../../../fixtures/regressions/screenshot-parity/assets/shot.png",
+      import.meta.url,
+    )));
+    const discovery = discoverCaptureImport({
+      files: [{ relativePath: "apple/iphone/en/01.png", bytes: png }],
+    });
+    const scaffoldInput = {
+      name: "Starter", platform: "apple", device: "iphone", layoutMode: "isolated", templateId: "iphone-starter",
+    } as const;
+
+    const preview = await previewManagedProjectCaptureImport({
+      scaffoldInput, discovery, creationService: service, specs,
+    });
+
+    await expect(createManagedProjectFromCaptureImport({
+      scaffoldInput,
+      discovery,
+      confirmationFingerprint: preview.confirmationFingerprint,
+      creationService: service,
+      specs,
+    })).resolves.toMatchObject({ name: "Starter" });
+  });
+
   it("does not allocate or publish when preview is invalid or cancelled", async () => {
     const { repository, service } = await setup();
     const createStage = vi.spyOn(repository, "createStage");
