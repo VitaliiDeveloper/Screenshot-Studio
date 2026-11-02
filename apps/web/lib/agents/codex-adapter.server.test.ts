@@ -17,7 +17,7 @@ const REQUEST: AgentRunRequest = {
   mode: "edit",
   model: null,
   effort: null,
-  context: { agentGuidePath: "/project/AGENTS.md", bundledGuidePath: null, skillPath: "/app/skills/screenshot-studio/SKILL.md", codexAuthStore: "keyring" },
+  context: { bundledGuidePath: "/app/cli/project-agent-guide.md", skillPath: "/app/skills/screenshot-studio/SKILL.md", codexAuthStore: "keyring" },
   attachments: [],
 };
 
@@ -96,11 +96,12 @@ describe("Codex adapter", () => {
     expect(args).not.toContain(REQUEST.message);
     expect(overrides).toEqual(expect.arrayContaining([
       'approval_policy="never"', 'web_search="disabled"', 'cli_auth_credentials_store="keyring"',
+      "project_doc_max_bytes=0",
     ]));
     expect(args.filter((_, index) => args[index - 1] === "--disable"))
       .toEqual(expect.arrayContaining(["apps", "plugins", "browser_use", "computer_use", "multi_agent", "hooks"]));
     const instructions = overrides.find((override) => override.startsWith("developer_instructions="));
-    expect(JSON.parse(instructions!.slice("developer_instructions=".length))).toContain("/project/AGENTS.md");
+    expect(JSON.parse(instructions!.slice("developer_instructions=".length))).toContain("/app/cli/project-agent-guide.md");
     expect(args.at(-1)).toBe("-");
   });
 

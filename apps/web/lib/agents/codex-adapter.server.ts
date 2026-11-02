@@ -94,6 +94,8 @@ export const codexAdapter: AgentAdapter = {
       "--skip-git-repo-check",
       "-c", 'approval_policy="never"',
       "-c", 'web_search="disabled"',
+      // No budget for the project's AGENTS.md, which an imported project may ship as instructions.
+      "-c", "project_doc_max_bytes=0",
       ...codexAuthStoreOverride(request.context.codexAuthStore ?? "file"),
       "-c", "tools.update_plan.enabled=true",
       ...DISABLED_FEATURES.flatMap((feature) => ["--disable", feature]),

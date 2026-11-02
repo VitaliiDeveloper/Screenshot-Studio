@@ -21,10 +21,6 @@ const ownFolder = () => join(attachmentRoot(), String(process.pid));
 // Agent runs end with their process tree, but a server that exits mid-run skips every other cleanup.
 process.once("exit", () => rmSync(ownFolder(), { recursive: true, force: true }));
 
-/**
- * Writes the attachments into a fresh folder outside every project. The file names are generated
- * here from the detected type, so nothing the client sent reaches the file system or a CLI argument.
- */
 /** A real directory (never a symlink) that only this user can enter, or an error. */
 async function requirePrivateDirectory(path: string): Promise<void> {
   const info = await lstat(path);
@@ -40,6 +36,10 @@ async function privateDirectory(path: string): Promise<void> {
   await requirePrivateDirectory(path);
 }
 
+/**
+ * Writes the attachments into a fresh folder outside every project. The file names are generated
+ * here from the detected type, so nothing the client sent reaches the file system or a CLI argument.
+ */
 export async function createRunFolder(attachments: readonly AgentAttachment[]): Promise<AgentRunFolder> {
   await privateDirectory(attachmentRoot());
   await privateDirectory(ownFolder());
