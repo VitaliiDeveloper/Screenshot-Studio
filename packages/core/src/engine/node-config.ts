@@ -24,6 +24,7 @@ export type ImageCache = Map<string, HTMLImageElement>;
 export interface ElementRenderContext {
   images?: ImageCache;
   direction?: LayoutDirection;
+  zoom?: number; // Editor stage scale, which `strokeScaleEnabled: false` drops. Export leaves it unset.
 }
 
 export type NodeFilter = { kind: "blur"; radius: number };
@@ -198,7 +199,7 @@ export function elementToNodeConfig(
   element: Element,
   context: ElementRenderContext = {},
 ): NodeConfig {
-  const { images, direction = "ltr" } = context;
+  const { images, direction = "ltr", zoom = 1 } = context;
   const common = {
     id: element.id,
     x: element.x,
@@ -291,8 +292,7 @@ export function elementToNodeConfig(
               scaleX: element.width / 24,
               scaleY: element.height / 24,
               stroke: element.color,
-              strokeWidth: element.strokeWidth,
-              strokeScaleEnabled: false,
+              strokeWidth: element.strokeWidth * zoom, strokeScaleEnabled: false,
               lineCap: "round",
               lineJoin: "round",
             },

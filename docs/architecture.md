@@ -392,7 +392,7 @@ or below, a device tilted about its centre (stored as a literal `rotation` with 
 Konva needs), a second smaller `device-frame` behind the first on Feature 1, and a stat headline on
 Social proof. Every device's rotated bounds stay inside the artboard width and clear of every text box. Applying a Design pack writes its solid or linear-gradient background to every
 screen of the target layout, including exact-target variants, and bakes palette and typography into
-role-tagged element literals. Typography sizes are fractions of each screen's artboard short side,
+role-tagged element literals, replacing a role-tagged shape's gradient with its solid palette color. Typography sizes are fractions of each screen's artboard short side,
 and letter spacing is a fraction of the baked size, so one pack fits artboards from 384 to 3840 px.
 Applying a pack does not move or resize elements; the pack id is not persisted. No global template,
 screen pack, or Design pack definition is copied into a project, and no catalog becomes hidden
