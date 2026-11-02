@@ -209,6 +209,34 @@ describe("capture import transaction", () => {
     await expect(readFile(captureImportIntentPath(input.projectPath))).resolves.toBeTruthy();
   });
 
+  it("names the pre-evidence stage and finishes recovery once the user deletes it", async () => {
+    const input = await setup();
+    let stagePath = "";
+    let intentPath = "";
+    await expect(applyCaptureImportToProject({
+      projectPath: input.projectPath,
+      discovery: input.discovery,
+      layoutId: "default",
+    }, {
+      boundary(boundary, context) {
+        if (boundary === "stage-created") {
+          stagePath = context.stagePath!;
+          intentPath = context.intentPath;
+          throw new CaptureImportCrashSimulation(boundary);
+        }
+      },
+    })).rejects.toBeInstanceOf(CaptureImportCrashSimulation);
+
+    const failure = await reconcileCaptureImport(input.projectPath).catch((error: Error) => error);
+    expect((failure as Error).message).toContain(stagePath);
+    expect((failure as Error).message).toContain(intentPath);
+
+    await rm(stagePath);
+    await reconcileCaptureImport(input.projectPath);
+    await expect(readFile(intentPath)).rejects.toMatchObject({ code: "ENOENT" });
+    expect(await readFile(input.projectPath, "utf8")).toBe(serializeProject(project()));
+  });
+
   it("reconciles pre-commit and post-commit crash boundaries idempotently", async () => {
     const beforeCommit = await setup();
     let resourcePath = "";
