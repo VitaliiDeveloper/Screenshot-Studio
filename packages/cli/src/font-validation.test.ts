@@ -59,10 +59,18 @@ describe("parseSupportedFont", () => {
   });
 
   it.each([
-    [() => ttfFixture, "font.otf"],
-    [() => OTF_FIXTURE, "font.ttf"],
+    ["otf", () => ttfFixture, "Pacifico-Regular.otf"],
+    ["ttf", () => OTF_FIXTURE, "Extra.ttf"],
+  ] as const)("accepts either sfnt flavour named .%s and keeps that extension", (format, fixture, filename) => {
+    expect(parseSupportedFont(fixture(), filename)).toMatchObject({ format });
+  });
+
+  it.each([
+    [() => ttfFixture, "font.woff"],
+    [() => OTF_FIXTURE, "font.woff2"],
     [() => WOFF_FIXTURE, "font.woff2"],
     [() => WOFF2_FIXTURE, "font.woff"],
+    [() => WOFF_FIXTURE, "font.ttf"],
   ])("rejects a parsed container that does not match %s", (fixture, filename) => {
     expect(() => parseSupportedFont(fixture(), filename)).toThrow(/does not match/i);
   });
