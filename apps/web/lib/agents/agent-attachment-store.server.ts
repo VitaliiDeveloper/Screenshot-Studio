@@ -29,7 +29,7 @@ async function requirePrivateDirectory(path: string): Promise<void> {
   }
 }
 
-async function privateDirectory(path: string): Promise<void> {
+export async function privateDirectory(path: string): Promise<void> {
   await mkdir(path, { mode: 0o700 }).catch((error: NodeJS.ErrnoException) => {
     if (error.code !== "EEXIST") throw error;
   });
@@ -77,12 +77,12 @@ function processAlive(pid: number): boolean {
  * including this process's own, stay.
  * shortcut: a crashed server's pid reused by a live process keeps that folder until the process ends.
  */
-export async function sweepStaleRunFolders(): Promise<void> {
+export async function sweepStaleRunFolders(root = attachmentRoot()): Promise<void> {
   // A root this user does not own is left alone; nothing under it is ours to delete.
-  const entries = await requirePrivateDirectory(attachmentRoot()).then(() => readdir(attachmentRoot()), () => []);
+  const entries = await requirePrivateDirectory(root).then(() => readdir(root), () => []);
   await Promise.all(entries.filter((name) => /^\d+$/.test(name)).map(async (name) => {
     const pid = Number(name);
     if (pid === process.pid || processAlive(pid)) return;
-    await rm(join(attachmentRoot(), name), { recursive: true, force: true }).catch(() => undefined);
+    await rm(join(root, name), { recursive: true, force: true }).catch(() => undefined);
   }));
 }

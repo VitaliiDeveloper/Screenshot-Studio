@@ -21,7 +21,7 @@ import {
 } from "@web/lib/agents/agent-attachments.js";
 import { isRecord } from "@web/lib/json-guards.js";
 
-export type AgentSessionDependencies = Pick<AgentRunOptions, "env" | "timeoutMs" | "definitions" | "consent"> & {
+export type AgentSessionDependencies = Pick<AgentRunOptions, "env" | "timeoutMs" | "definitions" | "consent" | "renderHost"> & {
   heartbeatMs?: number;
 };
 

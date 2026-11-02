@@ -23,6 +23,9 @@ import { skillReference } from "./agent-adapter.server.js";
 import { agentAdapter } from "./agent-adapters.server.js";
 import type { AgentAttachment } from "./agent-attachments.js";
 import { createRunFolder, removeRunFolder } from "./agent-attachment-store.server.js";
+import { RENDER_INBOX_ENV } from "@screenshot-studio/core/agent-render";
+import { startRenderBroker, type RenderBroker } from "./agent-render-broker.server.js";
+import type { RenderHost } from "./agent-render-job.server.js";
 import { launchRun } from "./agent-run-process.server.js";
 import { activeRuns, editorWrites, pendingOutcomes } from "./agent-run-state.server.js";
 import { folderManifest, PROJECT_FILE_NAME, settleRun } from "./agent-run-verdict.server.js";
@@ -140,6 +143,8 @@ export interface AgentRunOptions {
   definitions?: readonly AgentDefinition[];
   /** Where `at-own-risk` consent is stored; the app's own store when omitted. */
   consent?: AgentConsentStore;
+  /** Lets `screenshots export` and `check --render` render through this editor from inside the sandbox. */
+  renderHost?: RenderHost;
 }
 
 export interface AgentRun {
@@ -297,6 +302,7 @@ export async function startAgentRun(options: AgentRunOptions): Promise<AgentRun>
   }
   let cancelledBeforeLaunch = false;
   let runFolder: string | null = null;
+  let broker: RenderBroker | null = null;
   runs.set(projectDir, () => {
     cancelledBeforeLaunch = true;
   });
@@ -332,10 +338,12 @@ export async function startAgentRun(options: AgentRunOptions): Promise<AgentRun>
     // never leaves a file behind or fails on the temp directory.
     const folder = options.attachments?.length ? await createRunFolder(options.attachments) : { dir: null, files: [] };
     runFolder = folder.dir;
+    if (options.renderHost) broker = await startRenderBroker({ projectDir, host: options.renderHost });
     // Stop can arrive during any await above; DELETE already answered it, so the run must not launch.
     if (cancelledBeforeLaunch) {
       runs.delete(projectDir);
       if (folder.dir) await removeRunFolder(folder.dir);
+      await broker?.stop();
       return finishedRun({ type: "done", status: "cancelled", summary: null, durationMs: null });
     }
     // A new edit run supersedes the previous Undo: its snapshot is the state the user chose to go on from.
@@ -350,9 +358,12 @@ export async function startAgentRun(options: AgentRunOptions): Promise<AgentRun>
     };
     const run = launchRun(definition, adapter, request, {
       projectDir,
-      env: agentEnv(options.env),
+      env: broker ? { ...agentEnv(options.env), [RENDER_INBOX_ENV]: broker.inboxDir } : agentEnv(options.env),
       timeoutMs: options.timeoutMs ?? DEFAULT_RUN_TIMEOUT_MS,
-      settle: (doneStatus) => settleRun(projectDir, snapshot, folderBefore, doneStatus, mode),
+      settle: async (doneStatus) => {
+        await broker?.stop();
+        return settleRun(projectDir, snapshot, folderBefore, doneStatus, mode);
+      },
       // The process tree is dead by now, so nothing still reads the images.
       release: () => {
         runs.delete(projectDir);
@@ -364,6 +375,7 @@ export async function startAgentRun(options: AgentRunOptions): Promise<AgentRun>
   } catch (error) {
     runs.delete(projectDir);
     if (runFolder) await removeRunFolder(runFolder);
+    await broker?.stop();
     throw error;
   }
 }
