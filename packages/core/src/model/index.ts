@@ -4,6 +4,7 @@ import { getLayout } from "./project-layout.js";
 
 export * from "./schema.js";
 export * from "./project-resource-path.js";
+export * from "./device-frame-types.js";
 export * from "./device-frames.js";
 export * from "./font-identity.js";
 export * from "./built-in-fonts.js";

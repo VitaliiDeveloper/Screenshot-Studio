@@ -10,7 +10,7 @@ import {
   type Project,
   type Screen,
 } from "@screenshot-studio/core/model";
-import type { ImageCache, NodeConfig } from "./node-config.js";
+import type { ImageCache, NodeConfig } from "./node-types.js";
 import { backgroundToNodeConfig, elementToNodeConfig } from "./node-config.js";
 import { applyNodeFilter } from "./node-filter.js";
 
