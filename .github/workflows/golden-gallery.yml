@@ -8,6 +8,9 @@ on:
     branches:
       - "main"
 
+permissions:
+  contents: read
+
 jobs:
   golden-gallery:
     # Pixel references are an integration-boundary gate, like the full browser suite.
