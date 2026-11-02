@@ -134,11 +134,15 @@ function parseCentralDirectory(bytes: Uint8Array, limits: ZipLimits): CentralEnt
   return entries;
 }
 
-function findZipObject(zip: JSZip, name: string): JSZipObject | undefined {
-  return Object.values(zip.files).find((entry) => {
+function zipObjectsByName(zip: JSZip): Map<string, JSZipObject> {
+  const objects = new Map<string, JSZipObject>();
+  for (const entry of Object.values(zip.files)) {
     const originalName = (entry as JSZipObject & { unsafeOriginalName?: string }).unsafeOriginalName;
-    return entry.name === name || originalName === name;
-  });
+    for (const name of [entry.name, originalName]) {
+      if (name !== undefined && !objects.has(name)) objects.set(name, entry);
+    }
+  }
+  return objects;
 }
 
 export async function readProjectZipFiles(
@@ -156,9 +160,10 @@ export async function readProjectZipFiles(
   } catch (error) {
     throw new ProjectZipError("ZIP payload could not be decoded", "invalid", { cause: error });
   }
+  const zipObjects = zipObjectsByName(zip);
   return centralEntries.flatMap((metadata): ProjectImportFile[] => {
     if (metadata.directory) return [];
-    const entry = findZipObject(zip, metadata.name);
+    const entry = zipObjects.get(metadata.name);
     if (!entry || entry.dir) throw invalid(`ZIP entry could not be decoded: ${metadata.name}`);
     return [{
       relativePath: metadata.name,
