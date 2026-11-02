@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { constants, type BigIntStats, type Stats } from "node:fs";
+import { constants, type Stats } from "node:fs";
 import {
   link,
   lstat,
@@ -16,7 +16,15 @@ import JSZip from "jszip";
 import type { BundleEntry } from "@screenshot-studio/core/export";
 import { isProjectRelativePath } from "@screenshot-studio/core/model";
 import { errorText, noFollowFlags } from "@screenshot-studio/core/storage";
+import {
+  errorWithCleanup,
+  hasCode,
+  lstatBigIntIfExists,
+  lstatIfExists,
+  verificationFlags,
+} from "./safe-file/fs-basics.js";
 import { resolveOrCreateRootBoundary } from "./safe-file/paths.js";
+import type { CapturedError, StageHandle } from "./safe-file/types.js";
 
 export interface RenderedBundleEntry {
   entry: BundleEntry;
@@ -32,8 +40,6 @@ export interface BundleExtraFile {
   bytes: Buffer;
 }
 
-type StageHandle = Pick<FileHandle, "writeFile" | "sync" | "close">
-  & Partial<Pick<FileHandle, "stat">>;
 type VerificationHandle = Pick<FileHandle, "stat" | "readFile" | "close">;
 
 interface StageIdentity {
@@ -46,10 +52,6 @@ interface TrackedFileEvidence extends StageIdentity {
   bytes: Buffer;
 }
 
-interface CapturedError {
-  value: unknown;
-}
-
 interface BundleOutputDependencies {
   makeTempDirectory?: typeof mkdtemp;
   move?: typeof rename;
@@ -58,36 +60,6 @@ interface BundleOutputDependencies {
   openVerification?: (path: string, flags: number) => Promise<VerificationHandle>;
   linkFile?: (source: string, destination: string) => Promise<void>;
   unlinkFile?: (path: string) => Promise<void>;
-}
-
-function withSecondaryError(primary: unknown, secondary: unknown, action: string): AggregateError {
-  return new AggregateError(
-    [primary, secondary],
-    `${errorText(primary)}; ${action}: ${errorText(secondary)}`,
-    { cause: primary },
-  );
-}
-
-function hasCode(error: unknown, code: string): boolean {
-  return (error as NodeJS.ErrnoException | undefined)?.code === code;
-}
-
-async function lstatIfExists(path: string): Promise<Stats | null> {
-  try {
-    return await lstat(path);
-  } catch (error) {
-    if (hasCode(error, "ENOENT")) return null;
-    throw error;
-  }
-}
-
-async function lstatBigIntIfExists(path: string): Promise<BigIntStats | null> {
-  try {
-    return await lstat(path, { bigint: true });
-  } catch (error) {
-    if (hasCode(error, "ENOENT")) return null;
-    throw error;
-  }
 }
 
 function collisionKey(relativePath: string): string {
@@ -183,11 +155,6 @@ function noFollowStageFlags(): number {
   return noFollowFlags(constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL);
 }
 
-function noFollowReadFlags(): number {
-  return noFollowFlags(constants.O_RDONLY)
-    | (typeof constants.O_NONBLOCK === "number" ? constants.O_NONBLOCK : 0);
-}
-
 async function writeStagedFile(
   path: string,
   bytes: Buffer,
@@ -217,7 +184,7 @@ async function writeStagedFile(
     } catch (closeError) {
       if (primaryError !== null) {
         primaryError = {
-          value: withSecondaryError(primaryError.value, closeError, "stage close failed"),
+          value: errorWithCleanup(primaryError.value, closeError, "stage close failed"),
         };
       } else {
         primaryError = { value: closeError };
@@ -262,7 +229,7 @@ async function readBoundRegularFileEvidence(
   let primaryError: CapturedError | null = null;
   let evidence: TrackedFileEvidence | null = null;
   try {
-    handle = await openVerification(path, noFollowReadFlags());
+    handle = await openVerification(path, verificationFlags());
     const stats = await handle.stat({ bigint: true });
     if (!stats.isFile()) throw new Error(`Tracked bundle file must be a regular file "${path}"`);
     evidence = {
@@ -281,7 +248,7 @@ async function readBoundRegularFileEvidence(
     } catch (closeError) {
       if (primaryError !== null) {
         primaryError = {
-          value: withSecondaryError(
+          value: errorWithCleanup(
             primaryError.value,
             closeError,
             "tracked file verification close failed",
@@ -722,7 +689,7 @@ export async function writeBundleOutputs({
       await remove(stagingRoot, { recursive: true, force: true });
     } catch (cleanupError) {
       if (primaryError !== null) {
-        throw withSecondaryError(primaryError.value, cleanupError, "staging cleanup failed");
+        throw errorWithCleanup(primaryError.value, cleanupError, "staging cleanup failed");
       }
       throw cleanupError;
     }
