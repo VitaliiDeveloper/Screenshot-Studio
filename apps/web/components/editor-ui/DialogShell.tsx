@@ -125,6 +125,10 @@ export function DialogShell({
       cancelAnimationFrame(frame);
       document.removeEventListener("keydown", onKeyDown);
       if (previousFocus?.isConnected) previousFocus.focus();
+      // A removed or disabled opener leaves focus on <body>, which hands arrows and Delete to the selection.
+      if (previousFocus !== document.body && document.activeElement === document.body) {
+        document.querySelector<HTMLElement>("[data-dialog-focus-fallback]")?.focus();
+      }
     };
   }, [focusResetKey, initialFocus, requestClose]);
 

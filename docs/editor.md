@@ -571,7 +571,9 @@ All interactive controls have accessible names, visible focus, disabled semantic
 Menus support predictable focus movement and dismissal. Dialogs use `DialogShell`'s configured initial
 focus: the heading when context must be announced, otherwise the body control that already took focus
 or the first actionable one in the body, with the header Close button as the last resort. They trap
-focus while open, return focus to a live trigger, and allow Escape only when cancellation is safe.
+focus while open, return focus to a live trigger (a menu action focuses its menu's trigger before it
+opens one), fall back to the Select tool when that trigger is gone or disabled, and allow Escape only
+when cancellation is safe.
 When a commit removes the focused control, focus moves to its replacement or a nearby live control,
 because focus on `<body>` hands arrows and Delete to the canvas selection.
 Errors use alert semantics and identify a recoverable action; progress is announced without pretending
