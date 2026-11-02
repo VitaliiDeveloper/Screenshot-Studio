@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { lstat, mkdir, realpath } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import type { LockOptions } from "proper-lockfile";
 import type { ManagedProjectStorageConfig } from "./managed-project-config.server.js";
 import { acquireStorageLock } from "@web/lib/storage-lock.server.js";
 import { errorCode } from "@screenshot-studio/core/storage";
@@ -52,17 +51,6 @@ function duration(value: number, property: string, minimum: number): number {
     throw new RangeError(`${property} must be a finite number greater than or equal to ${minimum}`);
   }
   return value;
-}
-
-function retries(timeoutMs: number, retryDelayMs: number): LockOptions["retries"] {
-  const count = Math.floor(timeoutMs / retryDelayMs);
-  return count === 0 ? 0 : {
-    retries: count,
-    factor: 1,
-    minTimeout: retryDelayMs,
-    maxTimeout: retryDelayMs,
-    randomize: false,
-  };
 }
 
 export async function ensureManagedStorageRoot(config: ManagedProjectStorageConfig): Promise<string> {
@@ -128,7 +116,8 @@ export async function acquireManagedProjectLifecycleLock(
     releaseFileLock = await acquireStorageLock(managedProjectLifecycleLockPath(config, id), {
       stale: staleAfterMs,
       update: heartbeatMs,
-      retries: retries(timeoutMs, retryDelayMs),
+      timeoutMs,
+      retryDelayMs,
       onCompromised(error) { throw error; },
     });
   } catch (error) {

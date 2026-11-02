@@ -613,7 +613,8 @@ export class ManagedProjectCatalogStore {
     const release = await acquireStorageLock(join(this.config.root, ".catalog.lock"), {
       stale: 30_000,
       update: 10_000,
-      retries: { retries: 600, factor: 1, minTimeout: 50, maxTimeout: 50, randomize: false },
+      timeoutMs: 30_000,
+      retryDelayMs: 50,
     });
     let result: T | undefined;
     let operationError: unknown;
