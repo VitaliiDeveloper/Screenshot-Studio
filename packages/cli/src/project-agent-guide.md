@@ -248,7 +248,8 @@ text overflow. The JSON report is:
 }
 ```
 
-`kind` is one of `missing-locale-screen`, `missing-image`, `text-overflow`, `invalid-project`,
+`kind` is one of `missing-locale-screen`, `missing-image`, `text-overflow`,
+`unequal-connected-artboard`, `invalid-project`,
 `unresolved-font`, `missing-font-file`, `unknown-size`, `artboard-size`, `export-path`, or
 `android-tablet-screen-count`; fields that do not apply are `null`. For `missing-locale-screen`,
 `screenId` is the first-locale screen to copy and `locale` is the locale that lacks it. Fix each
