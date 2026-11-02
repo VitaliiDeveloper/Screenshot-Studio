@@ -17,7 +17,7 @@ const REQUEST: AgentRunRequest = {
   mode: "edit",
   model: "claude-sonnet-5-5",
   effort: "high",
-  context: { agentGuidePath: "/project/AGENTS.md", bundledGuidePath: null, skillPath: "/app/skills/screenshot-studio/SKILL.md", codexAuthStore: null },
+  context: { bundledGuidePath: "/app/cli/project-agent-guide.md", skillPath: "/app/skills/screenshot-studio/SKILL.md", codexAuthStore: null },
   attachments: [],
 };
 
@@ -88,9 +88,9 @@ describe("Claude Code adapter", () => {
     expect(JSON.parse(args[args.indexOf("--settings") + 1] ?? "")).toEqual({
       sandbox: { enabled: true, failIfUnavailable: true },
     });
-    expect(args[args.indexOf("--append-system-prompt") + 1]).toContain("/project/AGENTS.md");
-    expect(args.slice(-6)).toEqual([
-      "--add-dir", "/app/skills/screenshot-studio", "--model", "claude-sonnet-5-5", "--effort", "high",
+    expect(args[args.indexOf("--append-system-prompt") + 1]).toContain("/app/cli/project-agent-guide.md");
+    expect(args.slice(-8)).toEqual([
+      "--add-dir", "/app/skills/screenshot-studio", "--add-dir", "/app/cli", "--model", "claude-sonnet-5-5", "--effort", "high",
     ]);
     expect(claudeCodeAdapter.args({ ...REQUEST, model: null, effort: null })).not.toEqual(
       expect.arrayContaining([expect.stringMatching(/^--(?:model|effort)$/)]),
@@ -101,7 +101,7 @@ describe("Claude Code adapter", () => {
     const args = claudeCodeAdapter.args({ ...REQUEST, attachments: ["/tmp/runs/1/run-a/1.png", "/tmp/runs/1/run-a/2.jpg"] });
 
     expect(args.filter((_, index) => args[index - 1] === "--add-dir"))
-      .toEqual(["/app/skills/screenshot-studio", "/tmp/runs/1/run-a"]);
+      .toEqual(["/app/skills/screenshot-studio", "/app/cli", "/tmp/runs/1/run-a"]);
     const prompt = args[args.indexOf("--append-system-prompt") + 1];
     expect(prompt).toContain("/tmp/runs/1/run-a/1.png\n/tmp/runs/1/run-a/2.jpg");
     expect(prompt).toContain("screenshots asset import <path>");

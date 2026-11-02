@@ -157,6 +157,9 @@ export function agentEnv(source: NodeJS.ProcessEnv = process.env): NodeJS.Proces
   })) as NodeJS.ProcessEnv;
   // `screenshots upload` refuses to run under this marker, so an agent does not run it by accident.
   env.SCREENSHOT_STUDIO_AGENT = "1";
+  // Claude Code would load a project's CLAUDE.md and AGENTS.md as instructions even under
+  // `--restricted`, and an imported project's guides are untrusted.
+  env.CLAUDE_CODE_DISABLE_CLAUDE_MDS = "1";
   return env;
 }
 

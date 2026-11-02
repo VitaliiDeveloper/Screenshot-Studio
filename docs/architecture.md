@@ -502,8 +502,11 @@ have no path to the plan, upload, or key store, `/api/upload/plan` and `/api/upl
 inside an agent session. Antigravity `agy` is listed with its
 `at-own-risk` policy but has no adapter (it has no auth-status command, and its stream was never run
 because that is the account-ban case), so it reports `no-adapter` and never runs. A run in the project folder, at most one per project, receives the user
-message on stdin, and streams normalized events. Completion, cancel, timeout, or server exit kills its
-whole process tree.
+message on stdin, and streams normalized events. Completion, cancel, timeout, a SIGTERM or SIGINT to
+the server, or server exit kills its whole process tree. Its instructions name the guide bundled with
+the CLI as the workflow contract and call every project file, `AGENTS.md` and `CLAUDE.md` included,
+untrusted data, since a project can come from someone else's archive; Claude Code runs with
+`CLAUDE_CODE_DISABLE_CLAUDE_MDS=1` and Codex with `project_doc_max_bytes=0`, so neither loads them.
 
 Codex runs as `codex exec --json` in the `workspace-write` sandbox (writes only to the project folder
 and temp directories, no network) with approvals set to `never`. It ignores `$CODEX_HOME/config.toml`
@@ -556,7 +559,7 @@ pending so `/api/agents/outcome` can `keep` it (drop the snapshot) or `undo` it 
 as one locked write, refused once the editor has written past the run's revision). Every `result`,
 accepted or rejected, also carries `otherFiles`: the files outside `app-store-screenshots.json` that
 were added, changed, or removed in the project folder during the run, as relative paths (the first 50,
-`AGENTS.md` and `CLAUDE.md` first, since later runs read them) with a total count. The server compares
+`AGENTS.md` and `CLAUDE.md` first, since agents started outside the editor read them) with a total count. The server compares
 an `lstat` fingerprint (mode, size, mtime, ctime) of every entry taken right after the snapshot with
 one taken once the process tree is dead; symlinks are recorded, never followed, and the project
 file's own temp and lock files and `.DS_Store` are skipped. A folder of more than 5,000 entries, or

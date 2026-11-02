@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { errorText } from "@screenshot-studio/core/storage";
 import { sharedAgentConsentStore, type AgentConsentStore } from "@web/lib/agents/agent-consent.server.js";
 import { agentAdapter } from "@web/lib/agents/agent-adapters.server.js";
 import { AGENT_DEFINITIONS, type AgentDefinition } from "@web/lib/agents/agents.server.js";
@@ -26,7 +27,11 @@ export async function handleAgentConsentPost(
   if (body.action === "grant" && !agentAdapter(definition.id)) {
     return jsonError(409, `${definition.name} cannot run from the editor yet`, "no-adapter");
   }
-  if (body.action === "grant") await consent.grant(definition);
-  else await consent.revoke(definition.id);
+  try {
+    if (body.action === "grant") await consent.grant(definition);
+    else await consent.revoke(definition.id);
+  } catch (error) {
+    return jsonError(500, errorText(error));
+  }
   return Response.json({ agentId: definition.id, consented: body.action === "grant" }, { headers: { "cache-control": "no-store" } });
 }
