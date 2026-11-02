@@ -132,13 +132,10 @@ function realDependencies(): UpdateCheckDependencies {
   };
 }
 
-async function readOwnVersion(): Promise<string | undefined> {
-  try {
-    const manifest = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8")) as { version?: string };
-    return manifest.version;
-  } catch {
-    return undefined;
-  }
+/** This package's version, from the manifest beside `src/` (source checkout) or `dist/` (published). */
+export async function readOwnVersion(): Promise<string> {
+  const manifest = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8")) as { version: string };
+  return manifest.version;
 }
 
 /** Start the check alongside the command; the returned promise resolves to the notice (or nothing). */
@@ -146,8 +143,7 @@ export async function startUpdateCheck(deps?: UpdateCheckDependencies): Promise<
   // A source checkout (run through tsx) updates with `git pull`, so a registry notice would mislead.
   if (!deps && import.meta.url.endsWith(".ts")) return undefined;
   try {
-    const current = await readOwnVersion();
-    return current ? await checkForUpdate(current, deps ?? realDependencies()) : undefined;
+    return await checkForUpdate(await readOwnVersion(), deps ?? realDependencies());
   } catch {
     return undefined;
   }

@@ -100,6 +100,12 @@ screenshots setup
 ss-studio
 ```
 
+On macOS with Homebrew, which installs Node.js 24 for the CLI, replace the first line with:
+
+```bash
+brew install vitaliideveloper/tap/screenshot-studio
+```
+
 `screenshots setup` downloads the Chromium build that exact exports use (about 550 MB, once).
 `ss-studio` opens the project library at `http://localhost:4747`: choose **New project** and a
 built-in starter, or use **Import** to create a managed copy of an existing Folder, project ZIP, or
@@ -520,10 +526,12 @@ also make one optional request per day to the public npm registry
 (`registry.npmjs.org/@screenshot-studio/cli/latest`) and print a one-line notice when a newer
 version exists. Nothing is sent but the request itself, and failures are ignored. Disable it with
 `SCREENSHOTS_NO_UPDATE_CHECK=1` or `NO_UPDATE_NOTIFIER=1`; it is also skipped when `CI` is set or
-output is not a terminal.
+output is not a terminal. Homebrew installs never check: `brew outdated` lists a new version once
+the tap has it.
 
 Upgrade with `npm install --global @screenshot-studio/cli@latest` and remove the CLI with
-`npm uninstall --global @screenshot-studio/cli`; projects, exports, and the Chromium cache stay.
+`npm uninstall --global @screenshot-studio/cli`, or use `brew upgrade screenshot-studio` and
+`brew uninstall screenshot-studio`; projects, exports, and the Chromium cache stay.
 
 The package contains the built `screenshots` binary, shared store specifications, and prebuilt Next
 render host. To build and install a local package from a checkout instead:

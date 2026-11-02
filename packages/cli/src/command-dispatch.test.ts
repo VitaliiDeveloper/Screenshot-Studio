@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -52,6 +52,29 @@ describe("command dispatch", () => {
     expect(exit).not.toHaveBeenCalled();
   });
 
+  it.each(["--help", "-h"])("prints the usage for %s without launching", async (flag) => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const launch = launchDeps();
+
+    await dispatchCommand(flag, [], { storeSpecsPath: "/store-specs.json", launch });
+
+    expect(log).toHaveBeenCalledExactlyOnceWith(USAGE);
+    expect(launch.probe).not.toHaveBeenCalled();
+  });
+
+  it.each(["--version", "-v"])("prints the package version for %s without launching", async (flag) => {
+    const { version } = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8")) as {
+      version: string;
+    };
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const launch = launchDeps();
+
+    await dispatchCommand(flag, [], { storeSpecsPath: "/store-specs.json", launch });
+
+    expect(log).toHaveBeenCalledExactlyOnceWith(version);
+    expect(launch.probe).not.toHaveBeenCalled();
+  });
+
   it("launches the editor when no command is given", async () => {
     const launch = launchDeps();
     await dispatchCommand(undefined, [], { storeSpecsPath: "/store-specs.json", launch });
@@ -73,7 +96,7 @@ describe("command dispatch", () => {
 
   it.each([
     [["--port", "4800", "wat"], "Unknown command: wat. To open a folder, write ./wat"],
-    [["--help"], "Unknown option --help"],
+    [["--wat"], "Unknown option --wat"],
     [[".", "./other"], "Open one project folder at a time, not ./other"],
   ])("rejects %j with the usage instead of launching", async ([command, ...argv], message) => {
     const launch = launchDeps();

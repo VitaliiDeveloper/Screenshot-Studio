@@ -99,6 +99,26 @@ smoke. If the digest, manifest, or smoke differs, stop promotion and record the 
 overwrite or silently rebuild a published version; use the registry's deprecation mechanism and a
 new reviewed patch version when remediation is required.
 
+## Homebrew tap
+
+`brew install vitaliideveloper/tap/screenshot-studio` installs the npm tarball through
+`Formula/screenshot-studio.rb` in [`VitaliiDeveloper/homebrew-tap`](https://github.com/VitaliiDeveloper/homebrew-tap).
+The tap only follows a version that is already on npm. Pushing to it is publication, so each update
+needs the same explicit owner authorization. Point `url` at the registry tarball and set `sha256`
+from that downloaded file, after checking the file against the registry integrity:
+
+```bash
+curl -fsSLO https://registry.npmjs.org/@screenshot-studio/cli/-/cli-0.1.0.tgz
+shasum -a 256 cli-0.1.0.tgz
+echo "sha512-$(openssl dgst -sha512 -binary cli-0.1.0.tgz | base64)"
+npm view @screenshot-studio/cli@0.1.0 dist.integrity
+```
+
+Before pushing, run `brew install --build-from-source`, `brew test`, and `brew audit --strict --online`
+for `vitaliideveloper/tap/screenshot-studio`. The formula pins `node@24` and sets
+`SCREENSHOTS_NO_UPDATE_CHECK=1` because the update notice names the npm command. Move the pin to the
+next Node.js LTS before Homebrew deprecates `node@24`.
+
 ## Upgrade or uninstall
 
 Install a newer reviewed tarball or registry version with the same global-add command. This
