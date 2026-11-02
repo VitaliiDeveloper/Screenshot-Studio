@@ -19,7 +19,7 @@ import {
 import { readAgentChat, readAgentChoice, writeAgentChat, writeAgentChoice } from "@web/components/agent-chat-memory";
 import { projectRequestHeaders } from "@web/lib/clients/save-project";
 import type { AgentStartRequest } from "@web/lib/editor/agent-start-request";
-import { flushScheduledSave } from "@web/lib/editor/debounced-save";
+import { saveProjectNow } from "@web/lib/editor/debounced-save";
 import { readJsonBody, responseErrorMessage } from "@web/lib/json-response";
 
 /** `running` and `syncing` (verdict reload, Undo run) own the project, so the editor pauses writes. */
@@ -187,8 +187,8 @@ export function useEditorAgentChat(
     let finished = false;
     let launched = false;
     try {
-      // A debounced edit that fired mid-run would be refused, so the run starts from saved work.
-      await flushScheduledSave();
+      // An edit saved mid-run would be refused, so the run starts only from saved work.
+      await saveProjectNow();
       // Images go with the request in one multipart body; the browser sets its boundary header.
       const form = new FormData();
       form.set("agentId", agent.id);
@@ -337,7 +337,7 @@ export function useEditorAgentChat(
     setOutcomeError(null);
     try {
       // A pending edit must reach disk first, so Undo run refuses it instead of overwriting it.
-      await flushScheduledSave();
+      await saveProjectNow();
       await postOutcome("undo");
       setOutcome(null);
       setCriticOffered(false);

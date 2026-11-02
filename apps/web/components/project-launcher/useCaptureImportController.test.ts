@@ -126,7 +126,7 @@ describe("useCaptureImportController", () => {
     expect(source).toContain("controllerRef.current?.abort()");
     expect(source).toContain('destinationKind === "new-project"');
     expect(source).toContain("activateNewProject(operation)");
-    expect(source).toContain(": operation()");
+    expect(source).toContain(": applyToCurrentProject(operation)");
     expect(source).toContain('phase: "preview"');
     expect(source).toContain('phase: "apply"');
   });

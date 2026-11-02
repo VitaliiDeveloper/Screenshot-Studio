@@ -9,7 +9,7 @@ import {
   assertCaptureImportHandoff,
   useCaptureImportController,
 } from "@web/components/project-launcher/useCaptureImportController";
-import { discardActiveProjectPersistence } from "@web/lib/editor/debounced-save";
+import { switchActiveProject, withFlushedProject } from "@web/lib/editor/debounced-save";
 import { editorProjectUrl } from "@web/lib/editor/editor-route";
 import { fetchActiveProject } from "@web/lib/clients/project-session";
 import { getProjectPersistenceIdentity } from "@web/lib/clients/save-project";
@@ -18,20 +18,19 @@ export function useEditorCaptureImport(
   project: Project | null,
   activeProjectId: string | null,
   reloadResources: () => Promise<boolean>,
+  reloadFromDisk: () => Promise<boolean>,
   specs: StoreSpecs | null,
 ) {
   const router = useRouter();
-  const persistence = getProjectPersistenceIdentity();
+  const persistedProjectId = getProjectPersistenceIdentity()?.projectId;
   const currentTarget = useMemo(() => project && activeProjectId
-    && persistence?.projectId === activeProjectId
+    && persistedProjectId === activeProjectId
     ? {
-        projectId: persistence.projectId,
-        revision: persistence.revision,
         projectName: project.meta.name,
         preferredLayoutId: project.preferredExportLayoutId,
         layouts: project.layouts.map(({ id, name }) => ({ id, name })),
       }
-    : null, [activeProjectId, persistence?.projectId, persistence?.revision, project]);
+    : null, [activeProjectId, persistedProjectId, project]);
 
   const complete = useCallback(async (
     result: Parameters<typeof assertCaptureImportHandoff>[0],
@@ -42,15 +41,15 @@ export function useEditorCaptureImport(
       const activeProject = await fetchActiveProject();
       if (signal.aborted) throw new DOMException("Capture import handoff cancelled", "AbortError");
       assertCaptureImportHandoff(result, activeProject?.projectId);
-      discardActiveProjectPersistence();
       router.replace(editorProjectUrl(result.projectId));
       return;
     }
-    const reloaded = await reloadResources();
+    // The apply saved every edit first and advanced the revision, so the pre-import copy is not saved again.
+    const reloaded = await reloadFromDisk();
     if (signal.aborted) throw new DOMException("Capture import handoff cancelled", "AbortError");
     if (!reloaded) throw new Error("Capture import completed, but the editor could not reload it");
     assertCaptureImportHandoff(result, getProjectPersistenceIdentity()?.projectId);
-  }, [reloadResources, router]);
+  }, [reloadFromDisk, router]);
 
   const recover = useCallback(async () => {
     const reloaded = await reloadResources();
@@ -60,6 +59,8 @@ export function useEditorCaptureImport(
   return useCaptureImportController({
     currentTarget,
     ...(specs ? { specs } : {}),
+    activateNewProject: switchActiveProject,
+    applyToCurrentProject: withFlushedProject,
     onCompleted: complete,
     onRecoverStale: recover,
   });
