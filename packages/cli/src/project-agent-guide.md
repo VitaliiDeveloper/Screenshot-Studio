@@ -195,7 +195,7 @@ screenshots element get <screen-id> <element-id> --project ./app-store-screensho
 | Find problems before export | `check --render [--json] [--strict]` |
 | Export a bundle | `export [--locale <l>] [--platform <p> --device <d>]` |
 | Export one screen | `export --screen <id> [--size <target-id>]` (no bundle filters) |
-| Export for fastlane deliver/supply | `export --profile fastlane [--locale <l>]` (writes `fastlane/`; ambiguous locales such as `pt` or `zh` abort it) |
+| Export for fastlane deliver/supply | `export --profile fastlane [--locale <l>]` (writes `fastlane/` and removes stale generated images unless filtered; ambiguous locales such as `pt` or `zh` abort it) |
 | Store app identifiers for upload | `publishing set [--google-package <name>] [--apple-app-id <id>]`, `publishing show`, `publishing clear <google\|apple>` |
 | Upload to Google Play or App Store Connect | Human-only: the user runs `upload --store google\|apple [--dry-run]`; agents never run it |
 | Move, resize, restyle, hide, or lock any element | `element set <screen-id> <element-id> --json '{"x":80,"color":"#FFFFFF"}'` |

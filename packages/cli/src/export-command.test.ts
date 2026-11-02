@@ -4,12 +4,13 @@ import {
   mkdir,
   readFile,
   readdir,
+  realpath,
   rm,
   symlink,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { leadStoreSizeId } from "@screenshot-studio/core/export";
@@ -18,7 +19,7 @@ import {
   singleExportFilename,
   type ExportCommandDependencies,
 } from "./export-command.js";
-import { resolveTarget } from "./export.js";
+import { resolveTarget, writeBundleOutputs } from "./export.js";
 
 const storeSpecsPath = fileURLToPath(new URL("../../../store-specs.json", import.meta.url));
 const temporaryRoots: string[] = [];
@@ -333,5 +334,99 @@ describe("runExportCommand fastlane profile", () => {
     const runtime = commandDependencies(vi.fn(async () => Buffer.from("unused")));
     await expect(runExportCommand({ project: fixture.path, profile: "fastlane", screen: "hero" }, storeSpecsPath, runtime.dependencies))
       .rejects.toThrow("--profile fastlane requires a bundle export, not --screen");
+  });
+});
+
+describe("runExportCommand fastlane stale files", () => {
+  const CURRENT = "fastlane/screenshots/en-US/01_hero_iphone-6.3.png";
+  const STALE = "fastlane/screenshots/en-US/06_settings_iphone-6.3.png";
+  const FILTER_WARNING = "Warning: a filtered fastlane export removes nothing, so stale files may remain";
+
+  async function fastlaneFixture() {
+    const fixture = await projectFixture();
+    const project = JSON.parse(fixture.bytes);
+    project.layouts[0].screens[0].artboard = { width: 1206, height: 2622 };
+    await writeFile(fixture.path, `${JSON.stringify(project)}\n`, "utf8");
+    const outDir = join(fixture.root, "output");
+    await mkdir(join(outDir, "fastlane/screenshots/en-US"), { recursive: true });
+    await writeFile(join(outDir, STALE), "stale");
+    return { ...fixture, outDir };
+  }
+
+  /** Stands in for rendering and keeps the real publisher behind the real publication guard. */
+  const publishRendered: NonNullable<ExportCommandDependencies["exportBundle"]> = async ({
+    outDir,
+    entries,
+    publicationGuard,
+  }) => publicationGuard(() => writeBundleOutputs({
+    outDir,
+    entries: entries.map((entry) => ({ entry, png: Buffer.from("rendered png") })),
+  }));
+
+  function run(
+    project: string,
+    flags: Record<string, string>,
+    exportBundle: NonNullable<ExportCommandDependencies["exportBundle"]> = publishRendered,
+  ) {
+    const runtime = commandDependencies(vi.fn(async () => Buffer.from("unused")));
+    return {
+      log: runtime.log,
+      done: runExportCommand({ project, profile: "fastlane", ...flags }, storeSpecsPath, {
+        ...runtime.dependencies,
+        exportBundle,
+        createRenderBrowserSession: vi.fn(async () => ({ close: vi.fn(async () => undefined) })) as never,
+      }),
+    };
+  }
+
+  it("removes stale generated files after publishing a complete export", async () => {
+    const fixture = await fastlaneFixture();
+
+    const { done, log } = run(fixture.path, { out: fixture.outDir });
+    await done;
+
+    expect(await readFile(join(fixture.outDir, CURRENT), "utf8")).toBe("rendered png");
+    expect(await readdir(join(fixture.outDir, "fastlane/screenshots/en-US"))).toEqual([basename(CURRENT)]);
+    expect(log).toHaveBeenCalledWith(`Removed stale ${join(await realpath(fixture.outDir), STALE)}`);
+    expect(log).not.toHaveBeenCalledWith(FILTER_WARNING);
+  });
+
+  it.each<Record<string, string>>([
+    { platform: "apple" },
+    { device: "iphone" },
+    { locale: "en" },
+  ])("removes nothing and warns once for the filtered export %o", async (filter) => {
+    const fixture = await fastlaneFixture();
+
+    const { done, log } = run(fixture.path, { out: fixture.outDir, ...filter });
+    await done;
+
+    expect(await readFile(join(fixture.outDir, CURRENT), "utf8")).toBe("rendered png");
+    expect(await readFile(join(fixture.outDir, STALE), "utf8")).toBe("stale");
+    expect(log.mock.calls.filter(([message]) => message === FILTER_WARNING)).toHaveLength(1);
+    expect(log).not.toHaveBeenCalledWith(expect.stringMatching(/^Removed stale/));
+  });
+
+  it("removes nothing when publishing the new set fails", async () => {
+    const fixture = await fastlaneFixture();
+    await symlink(join(fixture.root, "elsewhere.png"), join(fixture.outDir, CURRENT));
+
+    const { done, log } = run(fixture.path, { out: fixture.outDir });
+    await expect(done).rejects.toThrow(/symbolic link/i);
+
+    expect(await readFile(join(fixture.outDir, STALE), "utf8")).toBe("stale");
+    expect(log).not.toHaveBeenCalledWith(expect.stringMatching(/^Removed stale/));
+  });
+
+  it("removes nothing when the project changes before publication", async () => {
+    const fixture = await fastlaneFixture();
+
+    const { done } = run(fixture.path, { out: fixture.outDir }, async (options) => {
+      await writeFile(fixture.path, `${await readFile(fixture.path, "utf8")}\n`, "utf8");
+      return publishRendered(options);
+    });
+    await expect(done).rejects.toThrow("Project revision changed before export publication");
+
+    expect(await readFile(join(fixture.outDir, STALE), "utf8")).toBe("stale");
   });
 });
