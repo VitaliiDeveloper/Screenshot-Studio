@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import { useState, type KeyboardEvent, type PointerEvent } from "react";
+import { useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { Lock, LockOpen } from "lucide-react";
 import type {
   CommonElementPatch,
@@ -58,8 +58,10 @@ export function TransformInspectorFields({
   const rotation = normalizeRotation(element.rotation);
   const [ratioLocked, setRatioLocked] = useState(() => defaultAspectRatioLocked(element.type));
 
+  const artboardPreviewRef = useRef<HTMLSpanElement>(null);
+
   const updatePosition = (event: PointerEvent<HTMLButtonElement>) => {
-    const bounds = event.currentTarget.getBoundingClientRect();
+    const bounds = artboardPreviewRef.current!.getBoundingClientRect();
     const patch = directTransformPatch(effectiveLocked, positionFromMiniPointer({
       pointer: { x: event.clientX - bounds.left, y: event.clientY - bounds.top },
       preview: { width: bounds.width, height: bounds.height },
@@ -131,6 +133,7 @@ export function TransformInspectorFields({
           onBlur={onInteractionEnd}
         >
           <span
+            ref={artboardPreviewRef}
             className="pointer-events-none relative h-full w-auto max-w-full overflow-hidden rounded-[var(--editor-radius-compact)] border border-[var(--editor-color-border)] bg-[var(--editor-color-surface)]"
             style={{ aspectRatio: `${artboard.width} / ${artboard.height}` }}
           >

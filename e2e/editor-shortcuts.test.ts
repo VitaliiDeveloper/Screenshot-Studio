@@ -521,6 +521,34 @@ describe("inspector colours", () => {
   });
 });
 
+describe("position preview", () => {
+  it("maps the position preview pointer to the artboard it shows and clamps to it", async () => {
+    const page = await openEditor({ width: 1440, height: 1000 });
+    const layer = () => heroLayer("hero-support")!;
+    await page.getByRole("button", { name: "Hero support", exact: true }).click();
+    const preview = page.getByRole("button", { name: "Element position preview", exact: true });
+    await preview.scrollIntoViewIfNeeded();
+    const artboard = (await preview.locator("> span").boundingBox())!;
+    const { width } = layer();
+    // One preview pixel is about 24 artboard pixels here.
+    const near = (actual: number, expected: number) => Math.abs(actual - expected) < 30;
+
+    const y = artboard.y + artboard.height / 2;
+    await page.mouse.move(artboard.x + artboard.width / 2, y);
+    await page.mouse.down();
+    await page.mouse.move(artboard.x, y, { steps: 4 });
+    await expect.poll(() => near(layer().x, -width / 2)).toBe(true);
+
+    await page.mouse.move(artboard.x - 30, y, { steps: 2 });
+    await page.waitForTimeout(200);
+    expect(near(layer().x, -width / 2)).toBe(true);
+
+    await page.mouse.move(artboard.x + artboard.width, y, { steps: 4 });
+    await page.mouse.up();
+    await expect.poll(() => near(layer().x, 1206 - width / 2)).toBe(true);
+  });
+});
+
 describe("canvas toolbar", () => {
   it("writes canvas toolbar edits to the screens Apply to names", async () => {
     const page = await openEditor({ width: 1440, height: 1000 });
