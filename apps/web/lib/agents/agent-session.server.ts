@@ -2,7 +2,6 @@
 import { existsSync } from "node:fs";
 import { lstat, readdir, readFile, realpath } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { createInterface } from "node:readline";
 import type { Project } from "@screenshot-studio/core/model";
 import {
   errorText,
@@ -25,6 +24,7 @@ import { skillReference } from "./agent-adapter.server.js";
 import { agentAdapter } from "./agent-adapters.server.js";
 import type { AgentAttachment } from "./agent-attachments.js";
 import { createRunFolder, removeRunFolder } from "./agent-attachment-store.server.js";
+import { boundedEvent, readBoundedLines } from "./agent-output-limits.server.js";
 import { cancelRunsOnShutdown } from "./agent-run-shutdown.server.js";
 import { sharedAgentConsentStore, type AgentConsentStore } from "./agent-consent.server.js";
 import { readCodexAuthStore, type CodexAuthStore } from "./codex-auth-store.server.js";
@@ -639,7 +639,7 @@ function launchRun(
     for (const event of next) {
       if (ended) return;
       if (event.type !== "done") {
-        if (streamOpen) controller.enqueue(event);
+        if (streamOpen) controller.enqueue(boundedEvent(event));
         continue;
       }
       ended = true;
@@ -658,9 +658,7 @@ function launchRun(
     { type: "error", code: "timeout", message: "The agent run timed out", resets: null },
     { type: "done", status: "failed", summary: null, durationMs: null },
   ]), options.timeoutMs);
-  if (child.stdout) {
-    createInterface({ input: child.stdout, crlfDelay: Infinity }).on("line", (line) => emit(normalizer.line(line)));
-  }
+  if (child.stdout) readBoundedLines(child.stdout, (line) => emit(normalizer.line(line)));
   child.stderr?.setEncoding("utf8").on("data", (chunk: string) => {
     stderr = (stderr + chunk).slice(-STDERR_LIMIT);
   });
