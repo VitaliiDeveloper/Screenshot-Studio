@@ -17,7 +17,7 @@ const REQUEST: AgentRunRequest = {
   mode: "edit",
   model: "claude-sonnet-5-5",
   effort: "high",
-  context: { bundledGuidePath: "/app/cli/project-agent-guide.md", skillPath: "/app/skills/screenshot-studio/SKILL.md", codexAuthStore: null },
+  context: { bundledGuidePath: "/app/cli/project-agent-guide.md", skillPath: "/app/skills/screenshot-studio/SKILL.md", codexAuthStore: null, storeCredentialsDir: "/data/store-keys" },
   attachments: [],
 };
 
@@ -86,7 +86,12 @@ describe("Claude Code adapter", () => {
     const disallowed = args.slice(args.indexOf("--disallowedTools") + 1, args.indexOf("--permission-mode"));
     expect(disallowed).toEqual(expect.arrayContaining(["WebSearch", "WebFetch", "mcp__*", "Bash(screenshots dev *)"]));
     expect(JSON.parse(args[args.indexOf("--settings") + 1] ?? "")).toEqual({
-      sandbox: { enabled: true, failIfUnavailable: true },
+      sandbox: {
+        enabled: true,
+        failIfUnavailable: true,
+        filesystem: { denyRead: ["/data/store-keys"], denyWrite: ["/data/store-keys"] },
+      },
+      permissions: { deny: ["Read(//data/store-keys/**)"] },
     });
     expect(args[args.indexOf("--append-system-prompt") + 1]).toContain("/app/cli/project-agent-guide.md");
     expect(args.slice(-8)).toEqual([

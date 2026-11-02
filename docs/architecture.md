@@ -519,13 +519,18 @@ the CLI as the workflow contract and call every project file, `AGENTS.md` and `C
 untrusted data, since a project can come from someone else's archive; Claude Code runs with
 `CLAUDE_CODE_DISABLE_CLAUDE_MDS=1` and Codex with `project_doc_max_bytes=0`, so neither loads them.
 
-Codex runs as `codex exec --json` in the `workspace-write` sandbox (writes only to the project folder
-and temp directories, no network) with approvals set to `never`. It ignores `$CODEX_HOME/config.toml`
+Codex runs as `codex exec --json` in a permission profile that extends the built-in `:workspace` one
+(writes only to the project folder and temp directories, no network) with approvals set to `never`.
+`--sandbox` would override the profile, so the adapter does not pass it, and Codex below the version
+floor reports `unsupported-version`, because the profile was only verified from that version on. It ignores `$CODEX_HOME/config.toml`
 and the execpolicy rules, whose `allow` decisions bypass the sandbox. Web search and the connector,
 plugin, browser, computer-use, memory, hook, and sub-agent features are off. The server reads only
 `cli_auth_credentials_store` from that file (`file` when absent) and passes it to both the readiness
 probe and the run; an `ephemeral` store reports not signed in. Unlike Claude Code's restricted tools,
-Codex has no command allowlist and can read the whole disk. It may also edit project files directly;
+Codex has no command allowlist and can read the whole disk except `<data root>/store-credentials/`, the
+one folder its profile closes. Claude Code gets the same folder as a `Read` deny rule, which also binds
+Glob and Grep, and as `sandbox.filesystem` entries for Bash. `Bash(screenshots *)` can still leave Claude
+Code's sandbox, because `screenshots export` cannot run its render host inside it. Codex may also edit project files directly;
 only `app-store-screenshots.json` is covered by the run's schema verdict and Undo run, and the run's
 result lists the other files it changed.
 

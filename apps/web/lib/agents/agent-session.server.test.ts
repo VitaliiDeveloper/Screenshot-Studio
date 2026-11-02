@@ -21,6 +21,7 @@ import {
   type AgentEvent,
   type AgentRun,
 } from "./agent-session.server.js";
+import { storeKeyFolder } from "@web/lib/store-key-folder.server.js";
 import { stopAgentRun } from "./agent-run-guard.server.js";
 import { holdAgentRun } from "./agent-run-test-support.js";
 
@@ -93,7 +94,7 @@ esac`);
 
 function fakeCodex(scenario: string): Promise<void> {
   return writeFake("codex", `case "$1" in
-  --version) echo 'codex-cli 0.163.0' ;;
+  --version) echo 'codex-cli 0.166.0' ;;
   login)
     printf '%s\\n' "$@" > '${root}/login-argv'
     echo 'Logged in using ChatGPT' >&2 ;;
@@ -209,7 +210,7 @@ describe.skipIf(process.platform === "win32")("agent session runner", () => {
     expect(await readFile(join(root, "cwd"), "utf8")).toBe(`${await realpath(projectDir)}\n`);
     expect(await readFile(join(root, "stdin"), "utf8")).toBe("--bare Add German");
     const argv = (await readFile(join(root, "argv"), "utf8")).split("\n");
-    expect(argv.slice(0, 4)).toEqual(["exec", "--json", "--sandbox", "workspace-write"]);
+    expect(argv.slice(0, 2)).toEqual(["exec", "--json"]);
     expect(argv.at(-2)).toBe("-");
     expect(await readFile(join(root, "env"), "utf8")).not.toMatch(/CODEX_API_KEY|OPENAI_API_KEY/);
   });
@@ -315,6 +316,21 @@ describe.skipIf(process.platform === "win32")("agent session runner", () => {
     expect(events.at(-2)).toMatchObject({ type: "result", status: "rejected", reason: expect.stringMatching(/removed/) });
     expect(events.at(-1)).toMatchObject({ type: "done", status: "failed" });
     expect(JSON.parse(await readFile(join(projectDir, "app-store-screenshots.json"), "utf8"))).toEqual(parseProject(PROJECT));
+  });
+
+  it("closes the store key folder of the app's data root to the run, by its real path", async () => {
+    const originalRoot = process.env.SCREENSHOT_STUDIO_DATA_ROOT;
+    process.env.SCREENSHOT_STUDIO_DATA_ROOT = join(root, "app-data");
+    try {
+      await fakeCodex(`/bin/cat '${CODEX_SUCCESS_FIXTURE}'`);
+      await collect(await start({ agentId: "codex", model: null }));
+    } finally {
+      if (originalRoot === undefined) delete process.env.SCREENSHOT_STUDIO_DATA_ROOT;
+      else process.env.SCREENSHOT_STUDIO_DATA_ROOT = originalRoot;
+    }
+    const denied = storeKeyFolder(join(await realpath(root), "app-data"));
+    expect((await readFile(join(root, "argv"), "utf8")).split("\n"))
+      .toContain(`permissions.studio.filesystem={${JSON.stringify(denied)}="none"}`);
   });
 
   it("does not recreate a project folder removed during the run", async () => {

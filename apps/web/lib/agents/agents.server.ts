@@ -87,7 +87,8 @@ export const AGENT_DEFINITIONS: readonly AgentDefinition[] = [
     id: "codex",
     name: "Codex",
     binary: "codex",
-    minVersion: "0.162.1",
+    // The first version verified to honour the permission profile that closes the store key folder.
+    minVersion: "0.166.0",
     authStatusArgs: ["login", "status"],
     // Codex has no stable model aliases and no model-list command; models were withdrawn before.
     models: [],
