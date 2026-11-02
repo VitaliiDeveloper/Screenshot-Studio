@@ -19,6 +19,7 @@ import {
   FontInUseError,
   FontValidationError,
   GoogleFontError,
+  MAX_FONT_BYTES,
   removeFont,
 } from "./font-service.js";
 import { loadProjectFile } from "./project-io.js";
@@ -135,9 +136,45 @@ describe("font-service safety", () => {
     await expect(downloadGoogleFont("Inter", 400, fetch)).rejects.toBeInstanceOf(GoogleFontError);
     expect(fetch).toHaveBeenCalledWith(
       expect.stringContaining("fonts.googleapis.com/css2"),
-      { headers: { "user-agent": "ScreenshotStudio-FontIngest/1.0" } },
+      expect.objectContaining({ headers: { "user-agent": "ScreenshotStudio-FontIngest/1.0" } }),
     );
     expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  const fontCss = "@font-face { src: url(https://fonts.gstatic.com/s/inter/v1/inter.ttf); }";
+
+  it("downloads the font with a timeout and without following redirects", async () => {
+    const fetch = vi.fn()
+      .mockResolvedValueOnce(new Response(fontCss))
+      .mockResolvedValueOnce(new Response("font bytes"));
+
+    await expect(downloadGoogleFont("Inter", 400, fetch)).resolves.toMatchObject({ extension: ".ttf" });
+
+    for (const [, init] of fetch.mock.calls) expect(init.signal).toBeInstanceOf(AbortSignal);
+    expect(fetch.mock.calls[1]![1]).toMatchObject({ redirect: "error" });
+  });
+
+  it("rejects a font whose declared size exceeds the limit without reading it", async () => {
+    let cancelled = false;
+    const body = new ReadableStream({ cancel: () => { cancelled = true; } });
+    const fetch = vi.fn()
+      .mockResolvedValueOnce(new Response(fontCss))
+      .mockResolvedValueOnce(new Response(body, { headers: { "content-length": String(MAX_FONT_BYTES + 1) } }));
+
+    await expect(downloadGoogleFont("Inter", 400, fetch)).rejects.toThrow(/larger than/);
+    expect(cancelled).toBe(true);
+  });
+
+  it("stops reading an undeclared font body once it passes the limit", async () => {
+    const chunk = new Uint8Array(1024 * 1024);
+    let pulled = 0;
+    const body = new ReadableStream<Uint8Array>({ pull(controller) { pulled += 1; controller.enqueue(chunk); } });
+    const fetch = vi.fn()
+      .mockResolvedValueOnce(new Response(fontCss))
+      .mockResolvedValueOnce(new Response(body));
+
+    await expect(downloadGoogleFont("Inter", 400, fetch)).rejects.toThrow(/larger than/);
+    expect(pulled * chunk.byteLength).toBeLessThan(MAX_FONT_BYTES + 4 * chunk.byteLength);
   });
 
   it("validates upload bytes before publishing or mutating project JSON", async () => {
