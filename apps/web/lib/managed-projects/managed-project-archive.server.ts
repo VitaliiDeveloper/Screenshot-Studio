@@ -12,8 +12,12 @@ import { join } from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import JSZip from "jszip";
+import { parseProjectJson } from "@screenshot-studio/core/model";
 import { noFollowFlags, projectRevision, withProjectMutation } from "@screenshot-studio/core/storage";
-import { isSupportedProjectArchivePath } from "./project-archive-policy.js";
+import {
+  collectRequiredProjectResourcePaths,
+  isSupportedProjectArchivePath,
+} from "./project-archive-policy.js";
 import {
   ManagedProjectRepository,
   type ManagedProjectRecord,
@@ -194,6 +198,12 @@ export class ManagedProjectArchiveService {
     }
     const projectBytes = await verifiedFileBytes(projectSource);
     const revision = projectRevision(projectBytes);
+    const project = parseProjectJson(projectBytes.toString("utf8"));
+    const excluded = collectRequiredProjectResourcePaths(project)
+      .filter((path) => !isSupportedProjectArchivePath(path));
+    if (excluded.length > 0) {
+      throw new Error(`Managed project archive would omit referenced resources: ${excluded.join(", ")}`);
+    }
 
     const temporaryRoot = await mkdtemp(join(tmpdir(), "screenshot-studio-project-archive-"));
     const archivePath = join(temporaryRoot, ARCHIVE_FILENAME);

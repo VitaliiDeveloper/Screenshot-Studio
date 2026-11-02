@@ -46,6 +46,14 @@ export function isTransientResourceBasename(basename: string): boolean {
   return TRANSIENT_BASENAME.test(basename);
 }
 
+/**
+ * A generated resource stem that project archives keep. Both policies match keywords between
+ * separators, so no affix can rescue a dropped stem; it is replaced by `fallback` instead.
+ */
+export function archivableResourceStem(stem: string, fallback: string): string {
+  return isSensitiveProjectArchivePath(stem) || isTransientResourceBasename(stem) ? fallback : stem;
+}
+
 export const ProjectRelativePath = z.string().refine(
   isProjectRelativePath,
   "expected a portable project-relative path",
