@@ -24,13 +24,9 @@ import {
   type Screen,
 } from "@screenshot-studio/core/model";
 import type { ProjectIssue } from "@screenshot-studio/core/validation";
-import {
-  outputFamilyEditorLabel,
-  workspaceEditingScope,
-  workspaceOverviewRows,
-  type ResourceDialog,
-  type WorkspaceView,
-} from "@web/lib/editor/editor-workspace";
+import { type ResourceDialog, type WorkspaceView } from "@web/lib/editor/editor-workspace";
+import { outputFamilyEditorLabel } from "@web/lib/editor/store-target-labels";
+import { workspaceEditingScope, workspaceOverviewRows } from "@web/lib/editor/workspace-output-rows";
 import { editorStore, selectEditorLayout } from "@web/lib/editor/editor-store";
 import { mutateAndSave } from "@web/lib/editor/mutate-and-save";
 import type { SearchResult } from "@web/lib/editor/editor-search";

@@ -7,7 +7,6 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useStore } from "zustand";
 import {
-  adjacentSizeScreenId,
   type CanvasPattern,
   type MediaAssetTarget,
   type ResourceDialog,
@@ -15,6 +14,7 @@ import {
   type WorkspaceTool,
   type WorkspaceView,
 } from "@web/lib/editor/editor-workspace";
+import { adjacentSizeScreenId } from "@web/lib/editor/workspace-output-rows";
 import { editorStore, selectEditorLayout } from "@web/lib/editor/editor-store";
 import { countIssues, missingImageTarget } from "@web/lib/editor/editor-issues";
 import type { ProjectIssue } from "@screenshot-studio/core/validation";

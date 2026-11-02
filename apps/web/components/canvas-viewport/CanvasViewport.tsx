@@ -10,12 +10,11 @@ import type { Screen } from "@screenshot-studio/core/model";
 import type { ProjectIssue } from "@screenshot-studio/core/validation";
 import {
   CANVAS_PADDING,
-  workspaceEditingScope,
-  workspaceOverviewRows,
   type CanvasPattern,
   type WorkspaceTool,
   type WorkspaceView,
 } from "@web/lib/editor/editor-workspace";
+import { workspaceEditingScope, workspaceOverviewRows } from "@web/lib/editor/workspace-output-rows";
 import { editorStore, selectEditorLayout } from "@web/lib/editor/editor-store";
 import { cx, editorUi } from "@web/components/editor-ui";
 import { CanvasPatternSelect } from "./CanvasPatternSelect";

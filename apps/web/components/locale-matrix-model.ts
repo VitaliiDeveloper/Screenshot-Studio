@@ -9,7 +9,7 @@ import {
 } from "@screenshot-studio/core/model";
 import type { ProjectIssue } from "@screenshot-studio/core/validation";
 import { screenSizeLabel } from "@web/lib/editor/editor-issues";
-import { outputFamilyEditorLabel } from "@web/lib/editor/editor-workspace";
+import { outputFamilyEditorLabel } from "@web/lib/editor/store-target-labels";
 
 export type MissingLocaleIssue = Extract<ProjectIssue, { kind: "missing-locale-screen" }>;
 
