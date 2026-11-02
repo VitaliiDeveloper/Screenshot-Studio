@@ -8,6 +8,7 @@ import {
 import { resolveManagedProjectStorageConfig } from "@web/lib/managed-projects/managed-project-config.server.js";
 import { ManagedProjectRepository } from "@web/lib/managed-projects/managed-project-repository.server.js";
 import {
+  projectLockErrorResponse,
   projectSessionRegistry,
   type ProjectSessionRegistry,
 } from "@web/lib/session/project-session.server.js";
@@ -197,6 +198,6 @@ export async function handleProjectImportPost(
     if (error instanceof ProjectZipError) {
       return errorResponse(error.code === "limit" ? 413 : 400, error.message, error.code);
     }
-    return errorResponse(500, "Project import failed", "internal");
+    return projectLockErrorResponse(error) ?? errorResponse(500, "Project import failed", "internal");
   }
 }
