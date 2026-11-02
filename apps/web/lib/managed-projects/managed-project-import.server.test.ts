@@ -346,4 +346,46 @@ describe("ManagedProjectImportService", () => {
       ],
     })).resolves.toMatchObject({ name: "Imported" });
   });
+
+  it("ignores the macOS metadata Finder adds to a compressed project", async () => {
+    const { service } = await createService();
+
+    const record = await service.import({
+      kind: "archive",
+      files: [
+        importFile("app-store-screenshots.json", projectJson()),
+        importFile("__MACOSX/._app-store-screenshots.json", "resource fork"),
+        importFile("__MACOSX/assets/._icon.png", "resource fork"),
+        importFile("assets/._icon.png", "resource fork"),
+        importFile("assets/icon.png", "image"),
+      ],
+    });
+
+    await expect(readdir(join(record.projectDirectory, "assets"))).resolves.toEqual(["icon.png"]);
+    await expect(readdir(record.projectDirectory)).resolves.not.toContain("__MACOSX");
+  });
+
+  it("ignores macOS metadata before stripping a selected folder root", async () => {
+    const { service } = await createService();
+
+    await expect(service.import({
+      kind: "folder",
+      files: [
+        importFile("My Project/app-store-screenshots.json", projectJson()),
+        importFile("__MACOSX/My Project/._app-store-screenshots.json", "resource fork"),
+      ],
+    })).resolves.toMatchObject({ name: "Imported" });
+  });
+
+  it.each([".env", ".git/config", "assets/.hidden", "secrets.json", "assets/._cache/.env"])(
+    "still rejects the credential-bearing or hidden path %s",
+    async (path) => {
+      const { service } = await createService();
+
+      await expect(service.import({
+        kind: "archive",
+        files: [importFile("app-store-screenshots.json", projectJson()), importFile(path, "secret")],
+      })).rejects.toMatchObject({ code: "invalid-path" });
+    },
+  );
 });
