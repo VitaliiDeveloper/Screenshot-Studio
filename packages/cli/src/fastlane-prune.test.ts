@@ -66,7 +66,6 @@ describe("pruneStaleFastlaneFiles", () => {
     const stale = [
       `${IMAGES}/phoneScreenshots/02.png`,
       `${IMAGES}/sevenInchScreenshots/01.png`,
-      `${IMAGES}/featureGraphic.png`,
     ];
     await plant(kept, ...stale);
 
@@ -74,6 +73,18 @@ describe("pruneStaleFastlaneFiles", () => {
 
     expect(await exists(kept)).toBe(true);
     for (const path of stale) expect(await exists(path)).toBe(false);
+  });
+
+  it("keeps an unpublished Feature Graphic with a warning, because it may be the user's", async () => {
+    const featureGraphic = `${IMAGES}/featureGraphic.png`;
+    await plant(featureGraphic);
+
+    await prune();
+
+    expect(await exists(featureGraphic)).toBe(true);
+    expect(messages()).toEqual([
+      `Warning: kept ${join(outDir, featureGraphic)} because the export did not generate it; fastlane would upload it`,
+    ]);
   });
 
   it("covers a store locale the project no longer has", async () => {

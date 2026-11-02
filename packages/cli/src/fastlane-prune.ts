@@ -55,7 +55,6 @@ async function managedFolders(outDir: string, specs: StoreSpecs): Promise<Manage
     listStoreTargets(specs, "apple", device).map(({ id }) => `${device}-${safeStoreSizePathToken(id)}`)
   )));
   const isScreenshotUpload = (name: string) => SCREENSHOT_UPLOAD_NAME.test(name);
-  const isFeatureGraphic = (name: string) => name === FEATURE_GRAPHIC_NAME;
 
   const appStore = await localeFolders(outDir, "fastlane/screenshots", "App Store Connect");
   const googlePlay = await localeFolders(outDir, "fastlane/metadata/android", "Google Play");
@@ -68,8 +67,9 @@ async function managedFolders(outDir: string, specs: StoreSpecs): Promise<Manage
     ...googlePlay.flatMap((locale) => {
       const images = `fastlane/metadata/android/${locale}/images`;
       return [
-        // Other images here (icon.png, tvBanner.png) are the user's own listing inputs.
-        { path: images, isGenerated: isFeatureGraphic, isUploaded: isFeatureGraphic },
+        // `supply init` downloads featureGraphic.png, so an unpublished one may be the user's. Other
+        // images here (icon.png, tvBanner.png) are the user's own listing inputs.
+        { path: images, isGenerated: () => false, isUploaded: (name: string) => name === FEATURE_GRAPHIC_NAME },
         ...Object.values(GOOGLE_PLAY_SCREENSHOT_TYPES).map((imageType) => ({
           path: `${images}/${imageType}`,
           isGenerated: (name: string) => PLAY_SCREENSHOT_NAME.test(name),
