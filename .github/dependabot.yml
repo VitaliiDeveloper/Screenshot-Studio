@@ -1,0 +1,12 @@
+version: 2
+updates:
+  # The root directory covers .github/workflows and the composite action.yml.
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: dev
+    schedule:
+      interval: weekly
+    groups:
+      github-actions:
+        patterns:
+          - "*"

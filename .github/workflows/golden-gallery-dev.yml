@@ -14,6 +14,9 @@ on:
       # Paths filters are per file, so any package.json change runs it, not only the golden scripts.
       - "package.json"
 
+permissions:
+  contents: read
+
 jobs:
   golden-gallery:
     uses: ./.github/workflows/golden-gallery.yml

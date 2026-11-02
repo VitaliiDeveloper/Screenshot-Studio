@@ -261,7 +261,7 @@ importers:
         specifier: ^1.26.0
         version: 1.26.0(react@19.2.8)
       next:
-        specifier: ^16.2.11
+        specifier: 16.2.11
         version: 16.2.11(patch_hash=0b58ac84357913baf05479b774bdbb3060be435883d36098107f85a4fe06e722)(@babel/core@7.29.7)(@types/node@22.20.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       proper-lockfile:
         specifier: 4.1.2
