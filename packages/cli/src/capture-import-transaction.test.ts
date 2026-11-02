@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from "node:crypto";
-import { lstat, mkdir, mkdtemp, readFile, readdir, realpath, rm, writeFile } from "node:fs/promises";
+import { lstat, mkdir, mkdtemp, readFile, readdir, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -161,6 +161,22 @@ describe("capture import transaction", () => {
 
     await expect(readFile(join(input.root, relativePath), "utf8")).resolves.toBe("later occupant");
     expect(await readFile(input.projectPath, "utf8")).toBe(serializeProject(project()));
+    await expect(readFile(captureImportIntentPath(input.projectPath))).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("surfaces an unsafe destination ancestor instead of reporting different bytes", async () => {
+    const input = await setup();
+    const outside = await mkdtemp(join(tmpdir(), "capture-import-outside-"));
+    roots.push(outside);
+    await symlink(outside, join(input.root, "assets"));
+
+    await expect(applyCaptureImportToProject({
+      projectPath: input.projectPath,
+      discovery: input.discovery,
+      layoutId: "default",
+    })).rejects.toThrow(/symbolic link/i);
+
+    await expect(readdir(outside)).resolves.toEqual([]);
     await expect(readFile(captureImportIntentPath(input.projectPath))).rejects.toMatchObject({ code: "ENOENT" });
   });
 
