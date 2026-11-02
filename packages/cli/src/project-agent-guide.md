@@ -256,8 +256,8 @@ issue with the commands above, then run `check` again.
 Even with `--render`, `textMeasured` is `false` while a font blocker remains: text is never measured
 on fallback fonts, so fix the fonts and run `check --render` again before trusting a pass. A failure
 that is not a report (missing project, unknown `--layout`, bad `--store-specs`, or a render-host
-error) also exits 1 but prints no JSON, only an error on stderr; treat stdout that does not parse
-as a tool error, not as a list of issues.
+error) exits 2 and prints no JSON, only an error on stderr; treat it as a tool error, not as a list
+of issues.
 
 ## Recipe: generate or refresh copy
 
