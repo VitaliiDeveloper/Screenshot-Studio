@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { assertProjectFontsResolved } from "@screenshot-studio/core/model";
 import { COMMAND_FLAG_SPECS, parseCommandFlags } from "./command-flags.js";
 import {
@@ -7,9 +7,46 @@ import {
   resolveDevOptions,
   resolveExportMode,
   resolveImportOptions,
+  runCli,
   singleExportFilename,
   singleExportTargetId,
 } from "./index.js";
+import { startUpdateCheck } from "./update-check.js";
+
+vi.mock("./update-check.js", async (importOriginal) => ({
+  ...await importOriginal<typeof import("./update-check.js")>(),
+  startUpdateCheck: vi.fn(async () => undefined),
+}));
+
+describe("runCli", () => {
+  const argv = process.argv;
+  afterEach(() => {
+    process.argv = argv;
+    vi.restoreAllMocks();
+    vi.mocked(startUpdateCheck).mockClear();
+  });
+
+  it.each(["--help", "-h", "--version", "-v"])("prints %s without the network update check", async (flag) => {
+    process.argv = [argv[0]!, "screenshots", flag];
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+
+    runCli();
+
+    await vi.waitFor(() => expect(log).toHaveBeenCalledOnce());
+    expect(startUpdateCheck).not.toHaveBeenCalled();
+  });
+
+  it("starts the update check for a command", async () => {
+    process.argv = [argv[0]!, "screenshots", "wat"];
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const exit = vi.spyOn(process, "exit").mockImplementation((() => undefined) as never);
+
+    runCli();
+
+    await vi.waitFor(() => expect(exit).toHaveBeenCalledWith(1));
+    expect(startUpdateCheck).toHaveBeenCalledOnce();
+  });
+});
 
 describe("parseCommandFlags", () => {
   it("parses positional arguments plus declared value and boolean options", () => {
