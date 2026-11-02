@@ -3,6 +3,7 @@ import { spawn as nodeSpawn, type ChildProcess } from "node:child_process";
 import { createServer } from "node:net";
 import { finished } from "node:stream/promises";
 import { prepareRenderHost, type PreparedRenderHost } from "./packaged-render-host.js";
+import { withoutStoreCredentials } from "./store-credential-env.js";
 import { errorText } from "@screenshot-studio/core/storage";
 
 export {
@@ -156,8 +157,9 @@ export async function createServerController({
   const child: ChildProcess = spawn(host.command, host.args, {
     cwd: host.cwd,
     stdio: ["ignore", "ignore", "pipe"],
+    // The host's /api/upload reads its own environment, so store keys from the shell never reach it.
     env: {
-      ...process.env,
+      ...withoutStoreCredentials(process.env),
       ...host.env,
       ...(projectPath ? { PROJECT_PATH: projectPath } : {}),
       ...(storeSpecsPath ? { STORE_SPECS_PATH: storeSpecsPath } : {}),
