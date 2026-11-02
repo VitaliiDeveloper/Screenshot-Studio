@@ -48,10 +48,7 @@ async function exists(path) {
 
 async function run(command, args) {
   await new Promise((resolveRun, rejectRun) => {
-    const child = spawn(command, args, {
-      stdio: "inherit",
-      shell: process.platform === "win32",
-    });
+    const child = spawn(command, args, { stdio: "inherit" });
 
     child.once("error", (error) => rejectRun(error));
     child.once("exit", (code, signal) => {
@@ -87,11 +84,13 @@ async function main() {
   if (options.name) args.push("--name", options.name);
 
   try {
-    await run(cli, args);
+    // No shell, so the project name and folder are never parsed as shell syntax. Windows cannot
+    // start npm's .cmd shims without one, so it needs the CLI's JavaScript entry.
+    await run(...(/\.[cm]?js$/i.test(cli) ? [process.execPath, [cli, ...args]] : [cli, args]));
   } catch (error) {
-    if (error && typeof error === "object" && error.code === "ENOENT") {
+    if (error && typeof error === "object" && (error.code === "ENOENT" || error.code === "EINVAL")) {
       throw new Error(
-        `Screenshot Studio CLI not found: ${cli}. Make the built @screenshot-studio/cli artifact available on PATH, pass --cli, or set SCREENSHOT_STUDIO_CLI.`,
+        `Screenshot Studio CLI not found: ${cli}. Make the built @screenshot-studio/cli artifact available on PATH, pass --cli, or set SCREENSHOT_STUDIO_CLI (on Windows, to its dist/index.js).`,
         { cause: error },
       );
     }
