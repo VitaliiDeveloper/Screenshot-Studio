@@ -9,10 +9,7 @@ import {
   assertCaptureImportHandoff,
   useCaptureImportController,
 } from "@web/components/project-launcher/useCaptureImportController";
-import {
-  discardActiveProjectPersistence,
-  withFlushedProject,
-} from "@web/lib/editor/debounced-save";
+import { switchActiveProject, withFlushedProject } from "@web/lib/editor/debounced-save";
 import { editorProjectUrl } from "@web/lib/editor/editor-route";
 import { fetchActiveProject } from "@web/lib/clients/project-session";
 import { getProjectPersistenceIdentity } from "@web/lib/clients/save-project";
@@ -44,7 +41,6 @@ export function useEditorCaptureImport(
       const activeProject = await fetchActiveProject();
       if (signal.aborted) throw new DOMException("Capture import handoff cancelled", "AbortError");
       assertCaptureImportHandoff(result, activeProject?.projectId);
-      discardActiveProjectPersistence();
       router.replace(editorProjectUrl(result.projectId));
       return;
     }
@@ -63,6 +59,7 @@ export function useEditorCaptureImport(
   return useCaptureImportController({
     currentTarget,
     ...(specs ? { specs } : {}),
+    activateNewProject: switchActiveProject,
     applyToCurrentProject: withFlushedProject,
     onCompleted: complete,
     onRecoverStale: recover,
