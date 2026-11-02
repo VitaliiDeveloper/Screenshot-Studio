@@ -6,21 +6,18 @@ import { useStore } from "zustand";
 import {
   Box,
   Circle,
-  Copy,
   Eye,
   EyeOff,
   Image as ImageIcon,
   Lock,
   LockOpen,
   MoreHorizontal,
-  Pencil,
   Plus,
   Smartphone,
   Square,
   Sparkles,
   Trash2,
   Type,
-  Ungroup,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -37,7 +34,8 @@ import { applyElementPatchToScope } from "@web/lib/editor/editor-apply-to";
 import { mutateAndSave } from "@web/lib/editor/mutate-and-save";
 import { elementLabel, elementTextDescription, viewToArrayIndex } from "@web/lib/panel-helpers";
 import { rowHoverControl, SortableRow, treeRowButton } from "./SortableRow";
-import { handleMenuKeyboardNavigation, shouldOpenMenuUpward } from "./editor-ui/menu-behavior.js";
+import { LayerActionsMenu } from "./LayerActionsMenu";
+import { shouldOpenMenuUpward } from "./editor-ui/menu-behavior.js";
 import { cx, editorUi } from "./editor-ui";
 import { useFocusRescue } from "./editor-ui/use-focus-rescue";
 
@@ -117,9 +115,6 @@ const nameFocusTone: Record<LayerTone, string> = {
  */
 const overlayNearLock = "absolute right-[30px] top-1/2 -translate-y-1/2 bg-inherit";
 const overlayBeforeThat = "absolute right-[56px] top-1/2 -translate-y-1/2 bg-inherit";
-const menuItemBase = "flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-[11px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)]";
-const menuItem = `${menuItemBase} text-[color:var(--editor-color-text-muted)] hover:bg-[var(--editor-color-surface-muted)] hover:text-[color:var(--editor-color-text-strong)]`;
-const menuItemDanger = `${menuItemBase} text-[color:var(--editor-color-danger-text)] hover:bg-[var(--editor-color-danger-surface)]`;
 
 function layerNameClass(element: Element, tone: LayerTone): string {
   return cx(
@@ -364,101 +359,15 @@ export function LayersSection({ onOpenAdd, screenId }: { onOpenAdd: () => void; 
                   <MoreHorizontal size={14} strokeWidth={1.9} />
                 </button>}
                 {menuOpen ? (
-                  <div
-                    ref={menuRef}
-                    role="menu"
-                    aria-label={`${elementLabel(el)} actions`}
-                    className={cx(
-                      "absolute right-1 z-30 w-36 rounded-lg border border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] p-1 shadow-[var(--editor-shadow-menu)]",
-                      openActionsUpward ? "bottom-8" : "top-8",
-                    )}
-                    onKeyDown={(event) => {
-                      handleMenuKeyboardNavigation(event, "[role='menuitem']");
-                    }}
-                  >
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        setRenaming({ id: el.id, value: el.name ?? "" });
-                        setOpenActionsId(null);
-                      }}
-                      aria-label="Rename layer"
-                      className={menuItem}
-                    >
-                      <Pencil size={13} strokeWidth={1.8} />
-                      Rename
-                    </button>
-                    {el.type === "group" ? (
-                      <>
-                        <button
-                          type="button"
-                          role="menuitem"
-                          onClick={() => {
-                            editorStore.getState().select(el.id, activeScreenId);
-                            mutateAndSave(() => editorStore.getState().duplicateSelected());
-                            setOpenActionsId(null);
-                          }}
-                          aria-label="Duplicate group"
-                          className={menuItem}
-                        >
-                          <Copy size={13} strokeWidth={1.8} /> Duplicate
-                        </button>
-                        <button
-                          type="button"
-                          role="menuitem"
-                          onClick={() => {
-                            editorStore.getState().select(el.id, activeScreenId);
-                            mutateAndSave(() => editorStore.getState().ungroupSelected());
-                            setOpenActionsId(null);
-                          }}
-                          aria-label="Ungroup layer"
-                          className={menuItem}
-                        >
-                          <Ungroup size={13} strokeWidth={1.8} /> Ungroup
-                        </button>
-                      </>
-                    ) : null}
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        patch(el, { visible: !el.visible });
-                        setOpenActionsId(null);
-                      }}
-                      aria-label={el.visible ? "Hide layer" : "Show layer"}
-                      className={menuItem}
-                    >
-                      {el.visible ? <Eye size={13} strokeWidth={1.8} /> : <EyeOff size={13} strokeWidth={1.8} />}
-                      {el.visible ? "Hide" : "Show"}
-                    </button>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        patch(el, { locked: !el.locked });
-                        setOpenActionsId(null);
-                      }}
-                      aria-label={el.locked ? "Unlock layer" : "Lock layer"}
-                      className={menuItem}
-                    >
-                      {el.locked ? <Lock size={13} strokeWidth={1.8} /> : <LockOpen size={13} strokeWidth={1.8} />}
-                      {el.locked ? "Unlock" : "Lock"}
-                    </button>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        mutateAndSave(() => editorStore.getState().removeElement(el.id, activeScreenId));
-                        setOpenActionsId(null);
-                      }}
-                      aria-label="Delete layer"
-                      className={menuItemDanger}
-                    >
-                      <Trash2 size={13} strokeWidth={1.8} />
-                      Delete
-                    </button>
-                  </div>
+                  <LayerActionsMenu
+                    menuRef={menuRef}
+                    el={el}
+                    activeScreenId={activeScreenId}
+                    openActionsUpward={openActionsUpward}
+                    patch={patch}
+                    setRenaming={setRenaming}
+                    setOpenActionsId={setOpenActionsId}
+                  />
                 ) : null}
               </SortableRow>
               {el.type === "group" ? el.children.map((child) => {
