@@ -689,6 +689,40 @@ describe("planCaptureImport refresh mode", () => {
     expect(plan.project).toEqual(project);
   });
 
+  it.each([
+    ["apple/iphone/uk/Головна.png", "apple/iphone/uk/Налаштування.png"],
+    ["apple/iphone/en/Hero_1.png", "apple/iphone/en/hero-1.png"],
+  ])("refuses to add %s and %s under one capture key", (first, second) => {
+    const plan = planCaptureImport({
+      project: sampleProject(),
+      layoutId: "default",
+      destinationKind: "current-project",
+      discovery: discoverCaptureImport({ files: [file(first, shot(10)), file(second, shot(20))] }),
+    });
+
+    expect(plan.invalidEntries.map(({ code }) => code)).toEqual(["duplicate-capture-key"]);
+    expect(plan.canApply).toBe(false);
+  });
+
+  it("refuses to add a capture whose key the layout already uses, so refresh keeps one owner", () => {
+    const project = imported([file("apple/iphone/uk/Головна.png", shot(10))]);
+
+    const added = planCaptureImport({
+      project,
+      layoutId: "default",
+      destinationKind: "current-project",
+      discovery: discoverCaptureImport({ files: [file("apple/iphone/uk/Налаштування.png", shot(20))] }),
+    });
+
+    expect(added.invalidEntries).toMatchObject([{
+      code: "duplicate-capture-key",
+      path: "apple/iphone/uk/Налаштування.png",
+    }]);
+    expect(added.canApply).toBe(false);
+    expect(refresh(project, [file("apple/iphone/uk/Головна.png", shot(30))]).refreshes[0]!.references)
+      .toEqual([{ screenId: "apple-iphone-uk", elementId: "apple-iphone-uk-screenshot" }]);
+  });
+
   it("matches capture keys exactly, never a legacy suffixed resource", () => {
     const legacy = importPath("apple-iphone-en-home-2", shot(10));
     const base = imported([file("apple/iphone/en/home.png", shot(10))]);
