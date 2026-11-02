@@ -19,13 +19,21 @@ import {
   getLayout,
   isProjectRelativePath,
   parseScreenPlacement,
-  slugify,
   uniqueId,
   type Project as ProjectModel,
   type ScreenPlacement,
 } from "@screenshot-studio/core/model";
+import {
+  captureImportKey,
+  captureResourcePath,
+  isCaptureResourceOf,
+  layoutCaptureKeys,
+  repeatedCaptureKeys,
+} from "./capture-key.js";
+import { jsonIgnoringGeneratedIds } from "./generated-ids.js";
 
-const IMPORT_DIGEST_LENGTH = 12;
+export { captureImportKey };
+
 const PRIVATE_ASSET_BASENAME = /(?:^|[-_.])(?:credentials?|secrets?|service-account|id_rsa|id_ed25519)(?:[-_.]|$)/iu;
 const PRIVATE_ASSET_EXTENSION = /\.(?:key|pem|p12|pfx|jks|keystore|mobileprovision)$/iu;
 const TRANSIENT_ASSET_BASENAME = /(?:^|\.)(?:lock|tmp|temp|stage)(?:\.|$)/iu;
@@ -455,28 +463,6 @@ function baseProjectFingerprint(project: ProjectModel): string {
   return jsonDigest(Project.parse(project));
 }
 
-/**
- * Persisted refresh identity: add-mode names every capture resource
- * `assets/imports/<captureKey>-<digest12>.png`, and refresh matches references by that name.
- * Changing this derivation or the resource naming breaks refresh for existing projects.
- */
-export function captureImportKey(
-  capture: Pick<DiscoveredCapture, "platform" | "device" | "locale" | "filename">,
-): string {
-  const stem = posix.parse(capture.filename).name;
-  return slugify(`${capture.platform}-${capture.device}-${capture.locale}-${stem}`);
-}
-
-function captureResourcePath(key: string, captureDigest: string): string {
-  return posix.join("assets", "imports", `${key}-${captureDigest.slice(0, IMPORT_DIGEST_LENGTH)}.png`);
-}
-
-function isCaptureResourceOf(assetUrl: string, key: string): boolean {
-  const prefix = `assets/imports/${key}-`;
-  return assetUrl.startsWith(prefix)
-    && new RegExp(`^[0-9a-f]{${IMPORT_DIGEST_LENGTH}}\\.png$`, "u").test(assetUrl.slice(prefix.length));
-}
-
 interface CaptureImportPlanParts {
   project: ProjectModel;
   screens: CaptureImportPlannedScreen[];
@@ -496,8 +482,11 @@ function planAddedScreens(
   let project = base;
   const screens: CaptureImportPlannedScreen[] = [];
   const captureResources: CaptureImportPlannedResource[] = [];
+  const invalidEntries = [...repeatedCaptureKeys(captures), ...layoutCaptureKeys(base, layoutId, captures)];
+  const rejected = new Set(invalidEntries.map(({ path }) => path));
 
   for (const capture of captures) {
+    if (rejected.has(capture.sourcePath)) continue;
     const currentLayout = getLayout(project, layoutId);
     const stem = posix.parse(capture.filename).name;
     const captureKey = captureImportKey(capture);
@@ -541,7 +530,7 @@ function planAddedScreens(
       });
     }
   }
-  return { project, screens, refreshes: [], unchanged: [], captureResources, warnings: [], invalidEntries: [] };
+  return { project, screens, refreshes: [], unchanged: [], captureResources, warnings: [], invalidEntries };
 }
 
 function planRefreshedReferences(
@@ -556,21 +545,12 @@ function planRefreshedReferences(
   const unchanged: string[] = [];
   const captureResources: CaptureImportPlannedResource[] = [];
   const warnings: CaptureImportWarning[] = [];
-  const invalidEntries: CaptureImportIssue[] = [];
-  const sourceByKey = new Map<string, string>();
+  const invalidEntries = repeatedCaptureKeys(captures);
+  const rejected = new Set(invalidEntries.map(({ path }) => path));
 
   for (const capture of captures) {
+    if (rejected.has(capture.sourcePath)) continue;
     const captureKey = captureImportKey(capture);
-    const sameKey = sourceByKey.get(captureKey);
-    if (sameKey) {
-      invalidEntries.push(issue(
-        "duplicate-capture-key",
-        capture.sourcePath,
-        `Captures ${sameKey} and ${capture.sourcePath} refresh the same capture key "${captureKey}"`,
-      ));
-      continue;
-    }
-    sourceByKey.set(captureKey, capture.sourcePath);
     const matches = references.filter(({ assetUrl }) => isCaptureResourceOf(assetUrl, captureKey));
     if (matches.length === 0) {
       warnings.push(warning(
@@ -687,15 +667,18 @@ export function planCaptureImport(input: {
   };
 }
 
+// The planned project embeds the base, so the raw base digest (which changes with a starter
+// scaffold's fresh ids) stays out; applyCaptureImportPlan still checks it exactly.
 function planFingerprint(plan: Omit<CaptureImportPlan, "confirmationFingerprint">): string {
-  return jsonDigest({
-    ...plan,
+  const { baseProjectFingerprint: _base, ...confirmed } = plan;
+  return digest(new TextEncoder().encode(jsonIgnoringGeneratedIds({
+    ...confirmed,
     project: Project.parse(plan.project),
     resources: plan.resources.map(({ bytes, ...resource }) => ({
       ...resource,
       bytesDigest: digest(bytes),
     })),
-  });
+  })));
 }
 
 export function withCaptureImportInvalidEntries(
