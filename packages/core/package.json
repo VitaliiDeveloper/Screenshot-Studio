@@ -16,7 +16,8 @@
     "./storage": "./src/storage/index.ts",
     "./scaffold": "./src/scaffold/index.ts",
     "./capture-import": "./src/capture-import/index.ts",
-    "./validation": "./src/validation/index.ts"
+    "./validation": "./src/validation/index.ts",
+    "./agent-render": "./src/agent-render/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
