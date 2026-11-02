@@ -8,7 +8,8 @@ import { dirname, resolve } from "node:path";
 import { PNG } from "pngjs";
 import pixelmatch from "pixelmatch";
 import { startWebServer } from "@screenshot-studio/cli/server";
-import { inspectPng, parseStoreSpecs, stripAlpha } from "@screenshot-studio/core/export";
+import { inspectPng, parseStoreSpecs } from "@screenshot-studio/core/export";
+import { stripAlpha } from "./support/strip-alpha.js";
 import { mapElementLeaves, parseProject, type Project, type TextElement } from "@screenshot-studio/core/model";
 import { createScreensFromTemplatePack, listBuiltInTemplatePacks } from "@screenshot-studio/core/templates";
 import {

@@ -7,7 +7,7 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PNG } from "pngjs";
 import pixelmatch from "pixelmatch";
-import { stripAlpha } from "@screenshot-studio/core/export";
+import { stripAlpha } from "./support/strip-alpha.js";
 import { SCHEMA_VERSION } from "@screenshot-studio/core/model";
 import { startWebServer } from "@screenshot-studio/cli/server";
 import {

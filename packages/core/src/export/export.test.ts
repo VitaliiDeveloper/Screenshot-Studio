@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { PNG } from "pngjs";
 import { parseStoreSpecs, findStoreSize, findStoreTarget } from "./specs.js";
-import { stripAlpha, inspectPng, assertDimensions, base64PngToBuffer } from "./png.js";
+import { inspectPng, base64PngToBuffer } from "./png.js";
 
 const storeSpecsRaw = JSON.parse(
   readFileSync(fileURLToPath(new URL("../../../../store-specs.json", import.meta.url)), "utf8"),
@@ -100,32 +100,11 @@ describe("store-specs.json", () => {
   });
 });
 
-describe("stripAlpha", () => {
-  it("flattens transparency onto the background and forces opacity", () => {
-    const semi = makePng(4, 4, 0); // fully transparent → becomes pure background
-    const flattened = stripAlpha(semi, { r: 255, g: 255, b: 255 });
-    const info = inspectPng(flattened);
-    expect(info.hasAlpha).toBe(false);
-
-    const decoded = PNG.sync.read(flattened);
-    expect(decoded.data[0]).toBe(255); // r == background
-    expect(decoded.data[3]).toBe(255); // alpha forced opaque
-  });
-
+describe("inspectPng", () => {
   it("reports the alpha channel by format presence, not opacity", () => {
     // makePng always writes RGBA (color type 6), so the channel is present even when opaque.
     expect(inspectPng(makePng(2, 2, 128)).hasAlpha).toBe(true);
     expect(inspectPng(makePng(2, 2, 255)).hasAlpha).toBe(true);
-    // Only stripping removes the channel entirely.
-    expect(inspectPng(stripAlpha(makePng(2, 2, 128))).hasAlpha).toBe(false);
-  });
-});
-
-describe("assertDimensions", () => {
-  it("passes on an exact match and throws otherwise", () => {
-    const png = makePng(10, 20, 255);
-    expect(() => assertDimensions(png, { width: 10, height: 20 })).not.toThrow();
-    expect(() => assertDimensions(png, { width: 10, height: 21 })).toThrow(/mismatch/);
   });
 });
 
