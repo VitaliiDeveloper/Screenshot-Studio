@@ -206,8 +206,8 @@ export function MenuSelect<T extends string>({
                   "focus-visible:outline-none focus-visible:ring-[length:var(--editor-focus-width)] focus-visible:ring-inset focus-visible:ring-[var(--editor-color-focus)]",
                   selected
                     ? breadcrumb
-                      ? "bg-[var(--editor-color-accent-subtle)] text-[color:var(--editor-color-accent)]"
-                      : "bg-[var(--editor-color-accent-subtle)] text-[color:var(--editor-color-accent-hover)]"
+                      ? "bg-[var(--editor-color-accent-subtle)] text-[color:var(--editor-color-accent-text)]"
+                      : "bg-[var(--editor-color-accent-subtle)] text-[color:var(--editor-color-accent-text-strong)]"
                     : breadcrumb
                       ? "text-[color:var(--editor-color-text-secondary)] hover:bg-[var(--editor-color-surface-subtle)] hover:text-[color:var(--editor-color-text-default)]"
                       : "text-[color:var(--editor-color-text-muted)] hover:bg-[var(--editor-color-surface-subtle)] hover:text-[color:var(--editor-color-text-strong)]",
@@ -222,7 +222,7 @@ export function MenuSelect<T extends string>({
                   <span className={cx(
                     "inline-flex size-6 shrink-0 items-center justify-center rounded-md",
                     selected
-                      ? "bg-[var(--editor-color-surface)] text-[color:var(--editor-color-accent)] shadow-[var(--editor-shadow-control)] ring-1 ring-[var(--editor-color-accent-muted)]"
+                      ? "bg-[var(--editor-color-surface-raised)] text-[color:var(--editor-color-accent-text)] shadow-[var(--editor-shadow-control)] ring-1 ring-[var(--editor-color-accent-muted)]"
                       : "text-[color:var(--editor-color-text-subtle)]",
                   )}>
                     <OptionIcon size={14} strokeWidth={1.8} />
@@ -235,7 +235,7 @@ export function MenuSelect<T extends string>({
                 )}>
                   {wrapLabels ? <WrapAtSeparators text={option.label} /> : option.label}
                 </span>
-                <Check size={14} strokeWidth={2.2} className={cx("text-[color:var(--editor-color-accent)]", selected ? "opacity-100" : "opacity-0")} aria-hidden="true" />
+                <Check size={14} strokeWidth={2.2} className={cx("text-[color:var(--editor-color-accent-text)]", selected ? "opacity-100" : "opacity-0")} aria-hidden="true" />
               </button>
             );
           })}

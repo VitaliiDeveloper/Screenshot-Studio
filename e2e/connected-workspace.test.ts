@@ -260,8 +260,6 @@ describe("connected workspace", () => {
 
     const structure = page.getByRole("button", { name: "Layers panel", exact: true });
     const inspectorPanel = page.locator('[data-editor-side-panel="right"]');
-    // At this width the top bar moves Inspect into its overflow menu (docs/editor.md §3).
-    await page.getByRole("button", { name: "More toolbar actions" }).waitFor({ state: "visible" });
     expect(await structure.getAttribute("aria-pressed")).toBe("false");
     expect(await inspectorPanel.getAttribute("data-state")).toBe("closed");
 

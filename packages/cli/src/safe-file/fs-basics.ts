@@ -4,10 +4,14 @@ import { constants, type BigIntStats, type Stats } from "node:fs";
 import { lstat } from "node:fs/promises";
 import { errorText, noFollowFlags } from "@screenshot-studio/core/storage";
 
-export function errorWithCleanup(primary: unknown, cleanup: unknown): AggregateError {
+export function errorWithCleanup(
+  primary: unknown,
+  cleanup: unknown,
+  action = "stage cleanup failed",
+): AggregateError {
   return new AggregateError(
     [primary, cleanup],
-    `${errorText(primary)}; stage cleanup failed: ${errorText(cleanup)}`,
+    `${errorText(primary)}; ${action}: ${errorText(cleanup)}`,
     { cause: primary },
   );
 }
@@ -30,7 +34,7 @@ export async function lstatBigIntIfExists(path: string): Promise<BigIntStats | n
     throw error;
   }
 }
-export function publicationDestinationError(path: string, stats: Stats): Error {
+export function publicationDestinationError(path: string, stats: Pick<Stats, "isSymbolicLink">): Error {
   if (stats.isSymbolicLink()) {
     return new Error(`Unsafe symbolic link at publication destination: ${path}`);
   }

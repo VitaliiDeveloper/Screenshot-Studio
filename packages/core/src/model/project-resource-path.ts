@@ -28,6 +28,36 @@ export function isProjectRelativePath(value: string): boolean {
   return value.split("/").every(isPortablePathSegment);
 }
 
+const CREDENTIAL_BASENAME =
+  /(?:^|[-_.])(?:credentials?|secrets?|service-account|id_rsa|id_ed25519)(?:[-_.]|$)/iu;
+const PRIVATE_EXTENSION = /\.(?:key|pem|p12|pfx|jks|keystore|mobileprovision)$/iu;
+const TRANSIENT_BASENAME = /(?:^|\.)(?:lock|tmp|temp|stage)(?:\.|$)/iu;
+
+/** Hidden, credential-like, and key-like paths never leave or enter a project archive. */
+export function isSensitiveProjectArchivePath(relativePath: string): boolean {
+  const segments = relativePath.split("/");
+  if (segments.some((segment) => segment.startsWith("."))) return true;
+  const basename = segments.at(-1)!;
+  return CREDENTIAL_BASENAME.test(basename) || PRIVATE_EXTENSION.test(basename);
+}
+
+/** Lock, temp, and staging names that project archives skip as transient. */
+export function isTransientResourceBasename(basename: string): boolean {
+  return TRANSIENT_BASENAME.test(basename);
+}
+
+/**
+ * A generated resource stem that project archives keep. Both policies match keywords between
+ * separators, so no affix can rescue a dropped stem; it is replaced by `fallback` instead.
+ */
+export function archivableResourceStem(stem: string, fallback: string): string {
+  return isSensitiveProjectArchivePath(stem) || isTransientResourceBasename(stem) ? fallback : stem;
+}
+
+/** The only file types the editor and render host load from a project folder. */
+export const PROJECT_ASSET_EXTENSIONS = [".png", ".jpg", ".jpeg", ".webp", ".ttf", ".otf", ".woff", ".woff2"] as const;
+export type ProjectAssetExtension = (typeof PROJECT_ASSET_EXTENSIONS)[number];
+
 export const ProjectRelativePath = z.string().refine(
   isProjectRelativePath,
   "expected a portable project-relative path",

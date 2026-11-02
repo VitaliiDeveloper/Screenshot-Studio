@@ -50,8 +50,10 @@ const testSourceFiles = ["e2e", "packages", "apps", "scripts"].flatMap((director
   discoverTestFiles(resolve(root, directory), directory)
 ));
 
+// Owns its file but runs in its own workflow with per-platform references, outside the test:e2e root.
+const STANDALONE_GATES = new Set(["golden:check"]);
 const leafGroups = Object.entries(manifest.scripts)
-  .filter(([name, command]) => name.startsWith("test:e2e:") && command.startsWith("vitest run"));
+  .filter(([name, command]) => (name.startsWith("test:e2e:") || STANDALONE_GATES.has(name)) && command.startsWith("vitest run"));
 
 function listedFiles(command: string): string[] {
   return [...command.matchAll(/e2e\/([^ ]+\.test\.ts)/g)].map((match) => match[1]!);
@@ -124,7 +126,7 @@ describe("E2E group ownership", () => {
   it("keeps every E2E leaf group reachable from the full root", () => {
     const reachable = reachableE2eScripts(manifest.scripts, "test:e2e");
     expect(
-      leafGroups.map(([name]) => name).filter((name) => !reachable.has(name)),
+      leafGroups.map(([name]) => name).filter((name) => !STANDALONE_GATES.has(name) && !reachable.has(name)),
       "every E2E leaf group must be reachable from test:e2e",
     ).toEqual([]);
   });

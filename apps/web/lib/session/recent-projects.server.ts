@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { constants } from "node:fs";
 import { open, rename, type FileHandle } from "node:fs/promises";
 import { isAbsolute, join } from "node:path";
-import type { ActiveManagedProjectCatalogEntry } from "@web/lib/managed-projects/managed-project-catalog.server.js";
+import type { ActiveManagedProjectCatalogEntry } from "@web/lib/managed-projects/managed-project-catalog-document.server.js";
 import { ManagedProjectCatalogStore } from "@web/lib/managed-projects/managed-project-catalog.server.js";
 import type { ManagedProjectStorageConfig } from "@web/lib/managed-projects/managed-project-config.server.js";
 import { resolveManagedProjectStorageConfig } from "@web/lib/managed-projects/managed-project-config.server.js";
@@ -255,10 +255,20 @@ export class RecentProjectsStore {
   }
 
   async record(session: ProjectSession): Promise<void> {
+    await this.#record(session);
+  }
+
+  async openLocal(projectPath: string, registry: ProjectSessionRegistry): Promise<string> {
+    const recentId = await this.#record(await registry.openLocal(projectPath));
+    if (!recentId) throw new Error("Local project could not be added to recent projects");
+    return recentId;
+  }
+
+  async #record(session: ProjectSession): Promise<string | undefined> {
     const sourceKind = session.descriptor.sourceKind;
-    if (sourceKind !== "managed-project" && sourceKind !== "local-file") return;
+    if (sourceKind !== "managed-project" && sourceKind !== "local-file") return undefined;
     const catalogEntries = await this.#catalog.listActive();
-    await this.#withLock(async () => {
+    return this.#withLock(async () => {
       const document = await this.#readOrRecover(catalogEntries);
       const generation = nextGeneration(document.generation);
       const locator = sourceKind === "managed-project"
@@ -283,6 +293,7 @@ export class RecentProjectsStore {
           ...document.entries.filter((candidate) => sourceKey(candidate) !== key),
         ]).slice(0, MAX_RECENT_PROJECTS),
       });
+      return entry.recentId;
     });
   }
 
@@ -405,7 +416,8 @@ export class RecentProjectsStore {
     const release = await acquireStorageLock(join(this.config.root, ".recent-projects.lock"), {
       stale: 30_000,
       update: 10_000,
-      retries: { retries: 600, factor: 1, minTimeout: 50, maxTimeout: 50, randomize: false },
+      timeoutMs: 30_000,
+      retryDelayMs: 50,
     });
     let result: T | undefined;
     let operationError: unknown;

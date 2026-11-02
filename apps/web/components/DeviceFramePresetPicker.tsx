@@ -10,7 +10,7 @@ import {
   type DeviceFramePreset,
   type Screen,
 } from "@screenshot-studio/core/model";
-import { deviceFrameContextForScreen } from "@web/lib/editor/editor-workspace";
+import { deviceFrameContextForScreen } from "@web/lib/editor/device-frame-context";
 import { DialogShell, editorUi } from "./editor-ui";
 import { DeviceFramePresetThumbnail } from "./DeviceFramePresetThumbnail";
 
@@ -188,10 +188,10 @@ export function DeviceFramePresetCatalog({
                       {preset.label}
                     </span>
                     {recommended ? (
-                      <span className="mt-1 block text-[10px] font-medium text-[color:var(--editor-color-accent)]">Recommended</span>
+                      <span className="mt-1 block text-[10px] font-medium text-[color:var(--editor-color-accent-text)]">Recommended</span>
                     ) : null}
                     {unsuitable ? (
-                      <span className="mt-1 block text-[10px] leading-4 text-amber-700">
+                      <span className="mt-1 block text-[10px] leading-4 text-[color:var(--editor-color-warning-text)]">
                         Not suitable for Google Play submission
                       </span>
                     ) : null}

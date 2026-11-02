@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import JSZip from "jszip";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { ProjectZipError, readProjectZipFiles } from "./project-zip.server.js";
 
 async function zipBytes(files: Record<string, string>): Promise<Uint8Array> {
@@ -17,6 +17,22 @@ function eocdOffset(bytes: Uint8Array): number {
   }
   throw new Error("EOCD missing");
 }
+
+async function readAll(file: { open(): AsyncIterable<Uint8Array> }): Promise<string> {
+  const chunks: Uint8Array[] = [];
+  for await (const chunk of file.open()) chunks.push(chunk);
+  return Buffer.concat(chunks).toString();
+}
+
+/** Sets the first deflate byte to a reserved block type, which fails inflation deterministically. */
+function corruptFirstDeflateBlock(bytes: Uint8Array): void {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  bytes[30 + view.getUint16(26, true) + view.getUint16(28, true)] = 0xff;
+}
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe("readProjectZipFiles", () => {
   it("returns lazy file streams after validating central-directory bounds", async () => {
@@ -108,5 +124,48 @@ describe("readProjectZipFiles", () => {
 
     await expect(readProjectZipFiles(bytes, { maxFiles: 10, maxBytes: 100 }))
       .rejects.toMatchObject({ code: "invalid" });
+  });
+
+  it("enumerates the decoded entries once however many entries the ZIP holds", async () => {
+    const files = Object.fromEntries(Array.from({ length: 50 }, (_, index) => [`assets/${index}.png`, "x"]));
+    const bytes = await zipBytes(files);
+    const loadAsync = JSZip.loadAsync.bind(JSZip);
+    let enumerations = 0;
+    vi.spyOn(JSZip, "loadAsync").mockImplementation(async (...args) => {
+      const zip = await loadAsync(...args);
+      zip.files = new Proxy(zip.files, {
+        ownKeys(target) {
+          enumerations += 1;
+          return Reflect.ownKeys(target);
+        },
+      });
+      return zip;
+    });
+
+    await expect(readProjectZipFiles(bytes, { maxFiles: 100, maxBytes: 1_000 })).resolves.toHaveLength(50);
+
+    expect(enumerations).toBe(1);
+  });
+
+  it("still finds an entry whose name JSZip rewrites by its original name", async () => {
+    const bytes = await zipBytes({ "a/./b.png": "image" });
+    const zip = await JSZip.loadAsync(bytes);
+    expect(Object.keys(zip.files)).not.toContain("a/./b.png");
+
+    const [file] = await readProjectZipFiles(bytes, { maxFiles: 10, maxBytes: 100 });
+
+    expect(file!.relativePath).toBe("a/./b.png");
+    await expect(readAll(file!)).resolves.toBe("image");
+  });
+
+  it("reports a corrupted deflate entry as an invalid ZIP and keeps the cause", async () => {
+    const bytes = await zipBytes({ "app-store-screenshots.json": "x".repeat(200) });
+    corruptFirstDeflateBlock(bytes);
+    const [file] = await readProjectZipFiles(bytes, { maxFiles: 10, maxBytes: 1_000 });
+
+    const failure = await readAll(file!).catch((error: unknown) => error);
+
+    expect(failure).toBeInstanceOf(ProjectZipError);
+    expect(failure).toMatchObject({ code: "invalid", cause: expect.any(Error) });
   });
 });

@@ -115,7 +115,7 @@ describe("system font scanner with real fixtures", () => {
     const file = await scanner.read(listed!.id);
 
     expect(file.fileName).toBe("Pacifico-Regular.ttf");
-    expect(file.bytes).toEqual(await readFile(pacifico));
+    expect(Buffer.from(file.bytes).equals(await readFile(pacifico))).toBe(true);
   });
 });
 

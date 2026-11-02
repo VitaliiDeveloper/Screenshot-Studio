@@ -79,7 +79,8 @@ Select a device frame to adjust its transform, screenshot content, and frame pre
 
 ![Screenshot Studio device frame inspector](docs/images/readme/device-frame-inspector.png)
 
-Select a screen to manage destinations, synchronized structure, exact output sizes, and background.
+Add exact store sizes from the sizes bar, then select a screen to manage its synchronized structure
+and background.
 
 ![Screenshot Studio screen and output variants](docs/images/readme/screen-variants.png)
 
@@ -91,8 +92,32 @@ Export the checked destinations, sizes, and locales as one store bundle, with a 
 
 ## Quick start
 
-Requirements: Node.js 22.13+ and pnpm 12.10.1, the version pinned in `package.json`. Install pnpm
-once with `npm install -g pnpm@12.10.1`; an existing Corepack setup also works.
+Requirements: Node.js 22.13+.
+
+```bash
+npm install --global @screenshot-studio/cli
+screenshots setup
+ss-studio
+```
+
+On macOS with Homebrew, which installs Node.js 24 for the CLI, replace the first line with:
+
+```bash
+brew install vitaliideveloper/tap/screenshot-studio
+```
+
+`screenshots setup` downloads the Chromium build that exact exports use (about 550 MB, once).
+`ss-studio` opens the project library at `http://localhost:4747`: choose **New project** and a
+built-in starter, or use **Import** to create a managed copy of an existing Folder, project ZIP, or
+complete `app-store-screenshots.json` project. `ss-studio .` opens the project in the current
+folder, or offers to create one. [Installed CLI](#installed-cli) covers the flags, updates, and
+where data is kept.
+
+### From source
+
+To work on Screenshot Studio itself, you need Node.js 22.13+ and pnpm 12.10.1, the version pinned in
+`package.json`. Install pnpm once with `npm install -g pnpm@12.10.1`; an existing Corepack setup
+also works.
 
 ```bash
 git clone https://github.com/VitaliiDeveloper/Screenshot-Studio.git && cd Screenshot-Studio
@@ -189,6 +214,9 @@ pnpm screenshots init --dir ./my-app-screenshots
 # Open its visual editor
 pnpm screenshots dev --project ./my-app-screenshots/app-store-screenshots.json
 
+# Check the preferred layout for Issues without exporting; exits 1 on any blocker
+pnpm screenshots check --render --project ./my-app-screenshots/app-store-screenshots.json
+
 # Export the preferred layout
 pnpm screenshots export --project ./my-app-screenshots/app-store-screenshots.json
 
@@ -197,24 +225,134 @@ pnpm screenshots import ./my-app-screenshots/screenshots \
   --layout "Feature campaign" \
   --project ./my-app-screenshots/app-store-screenshots.json
 
-# Add a starter screen, then change its copy and screenshot without editing JSON
+# After re-capturing, swap the new pixels into the screens that already use those captures
+pnpm screenshots import ./my-app-screenshots/screenshots --refresh \
+  --layout "Feature campaign" \
+  --project ./my-app-screenshots/app-store-screenshots.json
+
+# Add a starter screen, then change its copy, screenshot, and placement without editing JSON
 pnpm screenshots template add iphone-starter --built-in --locale en --project ./my-app-screenshots/app-store-screenshots.json
 pnpm screenshots element list --locale en --project ./my-app-screenshots/app-store-screenshots.json
 pnpm screenshots element text <screen-id> <element-id> "Track every run" --project ./my-app-screenshots/app-store-screenshots.json
 pnpm screenshots element media <screen-id> <element-id> assets/captures/01.png --project ./my-app-screenshots/app-store-screenshots.json
+pnpm screenshots element set <screen-id> <element-id> --json '{"rotation":-6,"x":76,"y":524}' --project ./my-app-screenshots/app-store-screenshots.json
+
+# Hand every headline to a translator as one flat file, then import the translated cells
+pnpm screenshots copy export --locale de,ar --out ./copy.csv --project ./my-app-screenshots/app-store-screenshots.json
+pnpm screenshots copy import ./copy.csv --project ./my-app-screenshots/app-store-screenshots.json
 ```
 
+`copy export` writes one row per text layer of the base locale (the first locale in screen order):
+`screen`, `element`, `source`, then one column per target locale. `--locale` takes a comma list
+(`de,ar`); a repeated `--locale` keeps only the last value. `.csv` (written with a byte-order mark
+for spreadsheets) or `.json` is picked by the file extension, a relative `--out` resolves against
+the current directory, and an existing file is replaced only with `--force`. The file cannot be the
+project document, its lock file, or anything under `assets/`.
+
+`copy import` changes only text content, so geometry and RTL direction stay as they are. Every
+non-empty cell overwrites the target text, so export only the locales being translated and do not
+edit them in the editor meanwhile. Empty cells are left alone. A row whose `source` no longer
+matches the project is skipped with a warning (`--force` writes it anyway), locked layers and
+layers in locked groups are skipped, and an unknown row key aborts without writing anything. Target
+cells are matched by name and position, never guessed: a locale is skipped when its screens were
+reordered, renamed, added or removed, or when its layer structure differs. Both commands accept
+`--layout` and `--json`.
+
 Layout-aware mutations require `--layout <id-or-full-name>` when a project has multiple layouts.
-`dev`, `screen`, and `export` accept `--store-specs <path>` for an explicit store specification.
+`dev`, `screen`, `check`, and `export` accept `--store-specs <path>` for an explicit store specification.
 Bundle export writes locale roots at their device lead target and all explicit persisted variants at
 their own targets. A single-screen export resolves explicit `--size`, then its persisted `storeTargetId`,
-then its device lead target. `screen rm <id> --cascade` explicitly removes a primary
-screen together with paired variants. After a device lead change, `screen migrate-lead --platform
+then its device lead target. `export --profile fastlane` writes the bundle in the folder layout
+`fastlane deliver` and `supply` upload from, then removes generated images in that tree that the
+export no longer produces; a filtered export (`--platform`, `--device`, `--locale`) removes nothing,
+and a PNG it did not generate stays with a warning. `upload --store google` replaces the Google Play
+screenshots directly from a service-account key named by `GOOGLE_PLAY_SERVICE_ACCOUNT_PATH`, and
+`upload --store apple` replaces the App Store Connect screenshot sets of the app's editable version
+from an API key named by `APP_STORE_CONNECT_KEY_ID`, `APP_STORE_CONNECT_ISSUER_ID`, and
+`APP_STORE_CONNECT_KEY_PATH`; both are human-only commands. `screen rm <id> --cascade` explicitly removes a primary screen together with
+paired variants. After a device lead change, `screen migrate-lead --platform
 <platform> --device <device> --from <previous-size>` moves primary screens onto the current lead and
 keeps each original as a `<previous-size>` variant.
 
+`check` reports the editor's Issues plus export preflight (unregistered or missing fonts, unknown
+sizes, artboards that cannot scale) for the layout `export` would ship, or `--layout`. Without
+`--render` it needs no browser and skips text overflow; `--render` measures text in the export's
+render host. It exits 1 on any blocker, and `--strict` also fails on warnings, so CI can gate on it;
+it exits 2 when the check itself cannot run. `--json` prints a stable report for scripts and agents.
+
 The full command and export reference lives in
 [`packages/cli/README.md`](packages/cli/README.md).
+
+### Upload to a store from the editor
+
+The editor runs the same upload. Open **Stores** in the tool rail, set the Google Play package name
+and choose the service-account `.json` key, or set the Apple ID and the App Store Connect key id,
+issuer id, and `.p8` key. The key is saved in the editor's data folder
+(`<data root>/store-credentials/`, mode `0600`), never in the project, and the dialog only shows
+whether a key is configured. If you start the editor from inside your project folder, set
+`SCREENSHOT_STUDIO_DATA_ROOT` to a folder outside it; the editor refuses to save keys inside the
+project. After an export, **Upload to store** shows what will be uploaded and replaced per language
+and image slot or display type; nothing changes in the store until you confirm, and a project edited
+after the review must be reviewed again. For App Store Connect the review also shows the editable
+version of each platform and asks you to pick one where there are several. Agents started from the
+editor cannot upload.
+
+## In CI
+
+The repository root is a composite GitHub Action. It runs `screenshots check --render`, so a pull
+request fails with the readable issue list in the job log, and only when the check passes runs
+`screenshots export` and uploads the export folder as a workflow artifact. Copy
+[`examples/ci/screenshot-studio.yml`](examples/ci/screenshot-studio.yml):
+
+```yaml
+jobs:
+  screenshots:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: VitaliiDeveloper/Screenshot-Studio@<commit-sha>
+        with:
+          project: screenshots/app-store-screenshots.json
+```
+
+Inputs: `project` (the JSON file or its folder), `layout` (default: the layout `export` ships),
+`profile` (`default` or `fastlane`), `fail-on-warning` (`check --strict`), `out` (default
+`screenshots-export`) and `artifact-name` (default `screenshots-<job id>`; artifact names must be
+unique in a run, so a matrix or a job that runs the action twice sets one per entry). Outputs:
+`out`, `check-log` and `cache-hit`.
+
+The action builds the CLI from its own source at the ref you pin (`pnpm install --frozen-lockfile`
+and `pnpm build:cli-package`, a few minutes per run), so that ref selects both the action and the
+CLI. To build from a checkout instead, for example a fork, check it out with `actions/checkout`
+(`repository: VitaliiDeveloper/Screenshot-Studio`, `ref: <commit-sha>`, `path: .screenshot-studio`)
+and use `uses: ./.screenshot-studio`.
+
+The action lives at the root rather than in `action/` so the short `owner/repo@ref` form works and
+the action's own folder is the CLI source it builds. It supports Linux runners only. The Playwright
+Chromium is cached under a key that includes the Playwright version the CLI depends on; the
+download happens only on a cache miss. On every run the action installs Playwright's system
+packages and fonts, as this repository's E2E job does. While it installs them, it moves apt sources
+from `packages.microsoft.com` aside and puts them back afterwards. The action sets up Node 22, which
+stays active for the job's later steps; its pnpm stays private to the action.
+
+## Use an agent in the editor
+
+The **Agent** item in the editor's tool rail (⌘J) and the **Start with agent** starting point in New
+project run an official agent CLI that you installed and signed in to with your own subscription.
+
+<img src="docs/images/readme/agent-new-project.png" alt="Screenshot Studio New project dialog with the Start with agent starting point" width="640">
+
+Describe the app, attach app screenshots or a logo, and pick the agent, model, and effort. The agent
+creates the first screens on a blank project. Attached images are sent to the agent's provider with
+your request.
+
+![Screenshot Studio Agent panel after a run](docs/images/readme/agent-panel.png)
+
+After a run the panel shows the agent's result, the screens it changed with **Go to**, and the
+validation checks. **Undo run** restores the project file from the snapshot taken before the run;
+**Keep changes** accepts it.
+
+To drive a project from your own terminal instead, see the next section.
 
 ## Work with your own agent
 
@@ -260,6 +398,7 @@ copy the editor shows, so open the project in place as in step 2.
 | Sunrise | Design pack | `sunrise` | A warm peach gradient with a generated sun and light editorial type. |
 | `<style>` · iPhone, `<style>` · Android phone | Screen packs (6 screens each) | `<style>-iphone`, `<style>-android-phone` | For each style above: hero, three features, social proof, and a call to action, laid out for iPhone 6.3″ or Android phone portrait. |
 | `<style>` panorama · iPhone, `<style>` panorama · Android phone | Panorama screen packs (6 connected screens each) | `<style>-panorama-iphone`, `<style>-panorama-android-phone` | The same six screens over art that crosses every screen edge: Clean (one stage and a timeline), Midnight (orbit rings on each seam), Poster (a bold stripe and split discs), and Sunrise (one horizon, rolling hills, and a sun between the first two screens). Panorama layouts only. |
+| `<style>` showcase · iPhone, `<style>` showcase · Android phone | Screen packs (6 screens each) | `midnight-showcase-iphone`, `midnight-showcase-android-phone`, `poster-showcase-iphone`, `poster-showcase-android-phone` | The same six screens with a different composition on each: a large tilted hero device, two overlapping devices, copy under the device, a big-number rating proof, and tilted devices on the rest. Midnight and Poster only. |
 
 Styled packs set type in the built-in Studio Display family, which covers Latin, Cyrillic, and Greek.
 Arabic, Hebrew, and CJK copy needs a font registered in the project.
@@ -291,6 +430,40 @@ pnpm screenshots template add neutral-iphone-basics --pack --locale en --project
 pnpm screenshots element list --locale en --project ./my-app-screenshots/app-store-screenshots.json
 ```
 
+### Your own packs
+
+A project can carry its own packs in a `packs/` folder next to `app-store-screenshots.json`. Copy a
+pack folder into another project to reuse a house style there. Each pack is `packs/<id>/` with one
+manifest: `screen-pack.json` for a screen pack or `design-pack.json` for a Design pack, in the same
+shape as the built-in packs. Screen pack images live inside the pack folder and are referenced by
+paths relative to it. Paths that leave the folder, including through a symbolic link, are rejected.
+
+Create a screen pack from a layout you already designed. It writes the manifest and copies every
+image the screens use:
+
+```bash
+pnpm screenshots template export-pack default --out packs/house --project ./my-app-screenshots/app-store-screenshots.json
+```
+
+It exports the layout's main screens for one locale (`--locale`, default the first screen's) and one
+output family. `--out` is relative to the project folder and must be `packs/<name>`. An existing pack
+is overwritten only with `--force`, file by file: files the new export does not write are kept.
+Pack images must be PNG, JPEG, or WebP files of 25 MB or less, like uploaded images.
+
+Project packs appear next to the built-ins with a **Project** badge in the **Design packs** dialog,
+and as `project-pack` lines in `template list` (screen packs) and `theme list` (Design packs). A pack
+that fails validation is listed as an `invalid-pack` line, or a warning in the dialog, with the file
+and the reason. Apply one the same way as a built-in pack:
+
+```bash
+pnpm screenshots template add house --pack --locale en --project ./my-app-screenshots/app-store-screenshots.json
+pnpm screenshots theme set house-style --pack --project ./my-app-screenshots/app-store-screenshots.json
+```
+
+Applying a screen pack copies its images into `assets/packs/<id>/`, so the project keeps working
+without the `packs/` folder. Packs do not carry fonts: register any custom font a pack uses before
+you apply it.
+
 ## Project format and resources
 
 A portable screenshot project commonly has this shape:
@@ -315,35 +488,64 @@ Four living starter workflows cover isolated, connected, RTL/multi-locale, and c
 The self-contained projects under [`examples/`](examples/README.md) are also validated and exported
 as part of the repository's release surfaces.
 
-## Installable CLI candidate
-
-To build the local installable artifact without publishing it:
+## Installed CLI
 
 ```bash
-pnpm build:cli-package
-pnpm --dir packages/cli/package pack
-pnpm add --global ./packages/cli/package/screenshot-studio-cli-0.1.0.tgz
+npm install --global @screenshot-studio/cli
 screenshots setup
-screenshots init --dir ./my-app-screenshots
+ss-studio
 ```
+
+`ss-studio`, another name for `screenshots`, with no command starts the packaged production editor
+at `http://localhost:4747` and opens the project library in your browser; running it again reopens
+the editor that is already running. `ss-studio .` opens the project in the current folder in that
+editor, starting it first when needed, and offers to create one (in `./screenshot-studio` inside a
+non-empty folder) when there is none. `--port <port>` and `--no-open` change that, `--app` opens a
+Chrome or Edge window without tabs or an address bar instead of a tab (that browser keeps its own
+editor settings), and Ctrl+C in its terminal stops it (closing the tab does not). The installed CLI
+keeps managed projects, recent projects, and store keys in the per-user data folder
+(`~/Library/Application Support/screenshot-studio` on macOS) unless `SCREENSHOT_STUDIO_DATA_ROOT` is
+set. `screenshots dev --project` still starts an editor pinned to one project.
 
 `screenshots setup` downloads the Chromium builds (about 550 MB, in Playwright's shared per-user
 cache) using the Playwright version the CLI depends on; it is safe to re-run. Without it,
 `screenshots export` asks before downloading on first use and, in CI or other non-interactive
-runs, exits with the install command instead of downloading. On Linux, Chromium may also need
-Playwright's [system packages](https://playwright.dev/docs/browsers#install-system-dependencies).
+runs, exits with the install command instead of downloading. Exporting from the editor without it
+shows the `screenshots setup` command. On Linux, Chromium may also need Playwright's
+[system packages](https://playwright.dev/docs/browsers#install-system-dependencies).
+
+To skip the download, `screenshots export` can use a Chrome or Edge you already have installed:
+`--browser chrome`, `--browser msedge`, or `--browser auto` (the downloaded Chromium if present,
+otherwise installed Chrome, then Edge). `SCREENSHOTS_BROWSER` takes the same values and `--browser`
+wins. The default, `chromium`, is the pinned Playwright build that `screenshots setup` installs.
+System browsers are opt-in because exports are only reproducible against that build: they run full
+headless Chrome rather than Playwright's headless shell, so output can differ from the default even
+at the same Chromium version, and Chrome and Edge update themselves, so an update can change text
+rendering between two exports of the same project.
 
 Interactive runs of the installed package (not a source checkout, which updates with `git pull`)
 also make one optional request per day to the public npm registry
 (`registry.npmjs.org/@screenshot-studio/cli/latest`) and print a one-line notice when a newer
 version exists. Nothing is sent but the request itself, and failures are ignored. Disable it with
 `SCREENSHOTS_NO_UPDATE_CHECK=1` or `NO_UPDATE_NOTIFIER=1`; it is also skipped when `CI` is set or
-output is not a terminal.
+output is not a terminal. Homebrew installs never check: `brew outdated` lists a new version once
+the tap has it.
+
+Upgrade with `npm install --global @screenshot-studio/cli@latest` and remove the CLI with
+`npm uninstall --global @screenshot-studio/cli`, or use `brew upgrade screenshot-studio` and
+`brew uninstall screenshot-studio`; projects, exports, and the Chromium cache stay.
 
 The package contains the built `screenshots` binary, shared store specifications, and prebuilt Next
-render host. Version `0.1.0` is an unpublished dry-run candidate; it is not a registry release.
-Building or verifying it does not create an npm publication, Git tag, GitHub release, or
-announcement. Publication requires explicit owner authorization under
+render host. To build and install a local package from a checkout instead:
+
+```bash
+pnpm build:cli-package
+pnpm --dir packages/cli/package pack
+pnpm add --global ./packages/cli/package/screenshot-studio-cli-0.1.0.tgz
+```
+
+Building or verifying a local package does not create an npm publication, Git tag, GitHub release,
+or announcement. Publication requires explicit owner authorization under
 [`docs/releasing.md`](docs/releasing.md).
 
 ## Repository structure

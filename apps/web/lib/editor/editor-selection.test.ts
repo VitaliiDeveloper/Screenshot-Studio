@@ -114,4 +114,13 @@ describe("editor selection", () => {
       { minX: 10, minY: 5, maxX: 20, maxY: 15 },
     )).toBe(true);
   });
+
+  it("measures selections on an RTL connected strip from its right-to-left origins", () => {
+    const layout = fixture();
+    const rtl: DesignLayout = {
+      ...layout,
+      screens: layout.screens.map((screen) => ({ ...screen, direction: "rtl" })),
+    };
+    expect(selectionBounds(rtl, "a", [first])).toEqual({ minX: 130, minY: 10, maxX: 150, maxY: 20 });
+  });
 });

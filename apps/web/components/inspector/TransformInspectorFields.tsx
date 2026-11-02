@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import { useState, type KeyboardEvent, type PointerEvent } from "react";
+import { useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { Lock, LockOpen } from "lucide-react";
-import type { Element, Screen } from "@screenshot-studio/core/model";
-import type { CommonElementPatch } from "@web/lib/editor/editor-element-patch";
+import type {
+  CommonElementPatch,
+  Element,
+  Screen,
+} from "@screenshot-studio/core/model";
 import { editorUi } from "@web/components/editor-ui";
 import {
   NumberField,
@@ -55,8 +58,10 @@ export function TransformInspectorFields({
   const rotation = normalizeRotation(element.rotation);
   const [ratioLocked, setRatioLocked] = useState(() => defaultAspectRatioLocked(element.type));
 
+  const artboardPreviewRef = useRef<HTMLSpanElement>(null);
+
   const updatePosition = (event: PointerEvent<HTMLButtonElement>) => {
-    const bounds = event.currentTarget.getBoundingClientRect();
+    const bounds = artboardPreviewRef.current!.getBoundingClientRect();
     const patch = directTransformPatch(effectiveLocked, positionFromMiniPointer({
       pointer: { x: event.clientX - bounds.left, y: event.clientY - bounds.top },
       preview: { width: bounds.width, height: bounds.height },
@@ -128,6 +133,7 @@ export function TransformInspectorFields({
           onBlur={onInteractionEnd}
         >
           <span
+            ref={artboardPreviewRef}
             className="pointer-events-none relative h-full w-auto max-w-full overflow-hidden rounded-[var(--editor-radius-compact)] border border-[var(--editor-color-border)] bg-[var(--editor-color-surface)]"
             style={{ aspectRatio: `${artboard.width} / ${artboard.height}` }}
           >
@@ -138,7 +144,7 @@ export function TransformInspectorFields({
               className="absolute min-h-2 min-w-2 border-2 border-[var(--editor-color-accent)] bg-[var(--editor-color-accent-subtle)]"
               style={miniRect}
             >
-              <span className="absolute left-1/2 top-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--editor-color-accent)] ring-2 ring-[var(--editor-color-on-media)]" />
+              <span className="absolute left-1/2 top-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--editor-color-accent)] ring-2 ring-[var(--editor-color-surface)]" />
             </span>
           </span>
         </button>
@@ -216,7 +222,7 @@ export function TransformInspectorFields({
                 className="pointer-events-none absolute inset-1"
                 style={{ transform: `rotate(${rotation}deg)` }}
               >
-                <span className="absolute left-1/2 top-0 size-3 -translate-x-1/2 -translate-y-0.5 rounded-full bg-[var(--editor-color-accent)] ring-2 ring-[var(--editor-color-on-media)]" />
+                <span className="absolute left-1/2 top-0 size-3 -translate-x-1/2 -translate-y-0.5 rounded-full bg-[var(--editor-color-accent)] ring-2 ring-[var(--editor-color-surface)]" />
               </span>
               <span className="pointer-events-none absolute inset-0 grid place-items-center text-xs tabular-nums text-[color:var(--editor-color-text-default)]">
                 {Math.round(rotation)}°

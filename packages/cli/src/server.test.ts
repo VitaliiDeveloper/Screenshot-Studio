@@ -17,6 +17,7 @@ import {
 import {
   extractWebArchive,
   materializeSharpRuntime,
+  packagedDataRoot,
   preparePackagedRenderHost,
 } from "./packaged-render-host.js";
 
@@ -156,9 +157,28 @@ describe("preparePackagedRenderHost", () => {
     expect(host.command).toBe(process.execPath);
     expect(host.args[0]).toMatch(/apps\/web\/server\.js$/);
     expect(host.env).toMatchObject({ NODE_ENV: "production", PORT: "4789", HOSTNAME: "127.0.0.1" });
+    const extracted = join(host.cwd, "..", "..");
+    expect(host.env.SCREENSHOT_STUDIO_DATA_ROOT).toBeDefined();
+    expect(host.env.SCREENSHOT_STUDIO_DATA_ROOT!.startsWith(extracted)).toBe(false);
     expect(materialize).toHaveBeenCalledTimes(1);
     await host.cleanup();
     await rm(directory, { recursive: true, force: true });
+  });
+});
+
+describe("packagedDataRoot", () => {
+  it("uses the per-user data folder of each platform", () => {
+    expect(packagedDataRoot({}, "darwin", "/Users/ada"))
+      .toBe("/Users/ada/Library/Application Support/screenshot-studio");
+    expect(packagedDataRoot({}, "linux", "/home/ada")).toBe("/home/ada/.local/share/screenshot-studio");
+    expect(packagedDataRoot({ XDG_DATA_HOME: "/data" }, "linux", "/home/ada")).toBe("/data/screenshot-studio");
+    expect(packagedDataRoot({ LOCALAPPDATA: "C:\\Users\\ada\\AppData\\Local" }, "win32", "C:\\Users\\ada"))
+      .toBe("C:\\Users\\ada\\AppData\\Local\\screenshot-studio");
+  });
+
+  it("resolves an explicit SCREENSHOT_STUDIO_DATA_ROOT against the launch directory", () => {
+    expect(packagedDataRoot({ SCREENSHOT_STUDIO_DATA_ROOT: "studio-data" }, "darwin", "/Users/ada"))
+      .toBe(join(process.cwd(), "studio-data"));
   });
 });
 
@@ -297,6 +317,31 @@ describe("createServerController", () => {
     const spawnOptions = spawn.mock.calls[0]?.[2] as { env?: Record<string, string> };
     expect(spawnOptions.env?.PROJECT_PATH).toBe("/tmp/app-store-screenshots.json");
     expect(spawnOptions.env?.STORE_SPECS_PATH).toBe("/opt/screenshot-studio/store-specs.json");
+  });
+
+  it("keeps store credentials out of the render host environment", async () => {
+    vi.stubEnv("APP_STORE_CONNECT_KEY_ID", "key-id");
+    vi.stubEnv("APP_STORE_CONNECT_ISSUER_ID", "issuer-id");
+    vi.stubEnv("app_store_connect_key_path", "/keys/AuthKey.p8");
+    vi.stubEnv("GOOGLE_PLAY_SERVICE_ACCOUNT_PATH", "/keys/play.json");
+    vi.stubEnv("SCREENSHOT_STUDIO_DATA_ROOT", "/data");
+    const child = new FakeChild();
+    const spawn = vi.fn((_cmd: string, _args: string[], _options: unknown) => child as never);
+    try {
+      await createServerController({
+        port: 4570,
+        spawn,
+        waitForHttp: vi.fn(async () => undefined),
+        timeoutMs: 100,
+      });
+    } finally {
+      vi.unstubAllEnvs();
+    }
+
+    const env = (spawn.mock.calls[0]?.[2] as { env: Record<string, string> }).env;
+    expect(Object.keys(env).filter((name) => /store_connect|google_play/i.test(name))).toEqual([]);
+    expect(env.SCREENSHOT_STUDIO_DATA_ROOT).toBe("/data");
+    expect(env.PATH).toBe(process.env.PATH);
   });
 
   it("kills the child when readiness fails", async () => {

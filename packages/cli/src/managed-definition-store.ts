@@ -41,6 +41,16 @@ export interface DefinitionStore<T> {
   ) => Promise<T>;
   /** Lists every definition, sorted by id; a missing directory is an empty list. */
   list: (projectPath: string, dependencies?: DefinitionStoreDependencies) => Promise<T[]>;
+  /** Like `list`, but a malformed or misnamed file becomes an error entry instead of failing the list. */
+  listWithErrors: (
+    projectPath: string,
+    dependencies?: DefinitionStoreDependencies,
+  ) => Promise<DefinitionListing<T>>;
+}
+
+export interface DefinitionListing<T> {
+  definitions: T[];
+  errors: Array<{ file: string; error: Error }>;
 }
 
 interface DefinitionDirectoryBoundary {
@@ -330,18 +340,19 @@ export function createDefinitionStore<T extends { id: string }>({
     return loaded;
   }
 
-  async function list(
+  async function listWithErrors(
     projectPath: string,
     dependencies: DefinitionStoreDependencies = {},
-  ): Promise<T[]> {
+  ): Promise<DefinitionListing<T>> {
+    const listing: DefinitionListing<T> = { definitions: [], errors: [] };
     const canonicalProjectPath = await resolveExistingProjectPath(projectPath);
     const directory = await validateDirectory(canonicalProjectPath, dependencies);
-    if (isMissingResult(directory)) return [];
+    if (isMissingResult(directory)) return listing;
     let entries;
     try {
       entries = await readdir(directory.path, { withFileTypes: true });
     } catch (error) {
-      if (isMissingPath(error)) return [];
+      if (isMissingPath(error)) return listing;
       throw error;
     }
     await revalidateDirectory(canonicalProjectPath, directory, dependencies);
@@ -356,7 +367,7 @@ export function createDefinitionStore<T extends { id: string }>({
       .filter((entry) => entry.isFile() && entry.name.endsWith(".json"))
       .map((entry) => entry.name)
       .sort();
-    const definitions = await Promise.all(files.map(async (file) => {
+    await Promise.all(files.map(async (file) => {
       const definition = await readCanonicalDefinition(
         canonicalProjectPath,
         file,
@@ -369,14 +380,29 @@ export function createDefinitionStore<T extends { id: string }>({
           { cause: definition.error },
         );
       }
-      const parsed = parseDefinition(definition.json, definition.path);
-      if (`${parsed.id}.json` !== file) {
-        throw new ValidationError(`${noun} file ${file} must match its id "${parsed.id}"`);
+      try {
+        const parsed = parseDefinition(definition.json, definition.path);
+        if (`${parsed.id}.json` !== file) {
+          throw new ValidationError(`${noun} file ${file} must match its id "${parsed.id}"`);
+        }
+        listing.definitions.push(parsed);
+      } catch (error) {
+        listing.errors.push({ file: `${directoryName}/${file}`, error: error as Error });
       }
-      return parsed;
     }));
-    return definitions.sort((a, b) => a.id.localeCompare(b.id));
+    listing.definitions.sort((a, b) => a.id.localeCompare(b.id));
+    listing.errors.sort((a, b) => a.file.localeCompare(b.file));
+    return listing;
   }
 
-  return { load, list };
+  async function list(
+    projectPath: string,
+    dependencies: DefinitionStoreDependencies = {},
+  ): Promise<T[]> {
+    const { definitions, errors } = await listWithErrors(projectPath, dependencies);
+    if (errors[0]) throw errors[0].error;
+    return definitions;
+  }
+
+  return { load, list, listWithErrors };
 }

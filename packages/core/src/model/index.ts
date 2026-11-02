@@ -4,6 +4,7 @@ import { getLayout } from "./project-layout.js";
 
 export * from "./schema.js";
 export * from "./project-resource-path.js";
+export * from "./device-frame-types.js";
 export * from "./device-frames.js";
 export * from "./font-identity.js";
 export * from "./built-in-fonts.js";
@@ -14,6 +15,7 @@ export * from "./project-ops.js";
 export * from "./connected-canvas.js";
 export * from "./element-tree.js";
 export * from "./group-ops.js";
+export * from "./element-patch.js";
 export * from "./icons.js";
 export * from "./badge-primitives.js";
 export * from "./assert-never.js";

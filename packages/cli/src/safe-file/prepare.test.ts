@@ -5,6 +5,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   inspectFilePublicationDestination,
   prepareFilePublication,
+  preparedFileStagePaths,
+  removeFileWithDeterministicQuarantine,
   SafeFileConflictError,
 } from "../safe-file-publisher.js";
 import { cleanupTemporaryRoots, workspace, utf8 } from "./test-support.js";
@@ -286,5 +288,92 @@ describe("prepared safe publication", () => {
     await expect(prepared.commit()).resolves.toMatchObject({ created: true });
     await expect(readFile(prepared.path, "utf8")).resolves.toBe("capture");
     await expect(readFile(prepared.stagePath!)).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("reports a stage that vanished while a create-only collision was reconciled", async () => {
+    const root = await workspace("safe-file-prepared-collision-stage-");
+    const prepared = await prepareFilePublication({
+      root,
+      relativePath: "assets/imports/capture.png",
+      bytes: utf8("capture"),
+      stageToken: "d".repeat(32),
+    }, {
+      async linkFile(source, destination) {
+        await writeFile(destination, "capture");
+        await unlink(source);
+        const error = new Error("destination exists") as NodeJS.ErrnoException;
+        error.code = "EEXIST";
+        throw error;
+      },
+    });
+
+    await expect(prepared.commit()).rejects.toThrow(/stage disappeared/i);
+  });
+});
+
+describe("deterministic quarantine removal", () => {
+  it("leaves a target replaced before quarantine in place and reconcilable", async () => {
+    const root = await workspace("safe-file-deterministic-replaced-");
+    const relativePath = "assets/imports/capture.png";
+    const { stageRelativePath, stageCleanupRelativePath } = preparedFileStagePaths(relativePath, "e".repeat(32));
+    const prepared = await prepareFilePublication({
+      root,
+      relativePath,
+      bytes: utf8("capture"),
+      stageToken: "e".repeat(32),
+    });
+    const stagePath = prepared.stagePath!;
+
+    await expect(removeFileWithDeterministicQuarantine(
+      root,
+      stageRelativePath,
+      stageCleanupRelativePath,
+      prepared.ownership,
+      {
+        async linkFile(source, destination) {
+          await unlink(source);
+          await writeFile(source, "competitor");
+          await link(source, destination);
+        },
+      },
+    )).resolves.toBe(false);
+
+    await expect(readFile(stagePath, "utf8")).resolves.toBe("competitor");
+    await expect(lstat(join(root, stageCleanupRelativePath))).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(removeFileWithDeterministicQuarantine(
+      root,
+      stageRelativePath,
+      stageCleanupRelativePath,
+      prepared.ownership,
+    )).resolves.toBe(false);
+  });
+
+  it("never replaces an occupant of the deterministic quarantine path", async () => {
+    const root = await workspace("safe-file-deterministic-occupied-");
+    const relativePath = "assets/imports/capture.png";
+    const { stageRelativePath, stageCleanupRelativePath } = preparedFileStagePaths(relativePath, "f".repeat(32));
+    const prepared = await prepareFilePublication({
+      root,
+      relativePath,
+      bytes: utf8("capture"),
+      stageToken: "f".repeat(32),
+    });
+    const cleanupPath = join(root, stageCleanupRelativePath);
+
+    await expect(removeFileWithDeterministicQuarantine(
+      root,
+      stageRelativePath,
+      stageCleanupRelativePath,
+      prepared.ownership,
+      {
+        async linkFile(source, destination) {
+          await writeFile(destination, "occupant");
+          await link(source, destination);
+        },
+      },
+    )).rejects.toThrow(/quarantine is occupied/i);
+
+    await expect(readFile(cleanupPath, "utf8")).resolves.toBe("occupant");
+    await expect(readFile(prepared.stagePath!, "utf8")).resolves.toBe("capture");
   });
 });

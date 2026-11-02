@@ -1,12 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, it, expect, beforeEach } from "vitest";
 import { editorStore } from "./editor-store.js";
-import { applyElementPatch, type ElementPatchFor } from "./editor-element-patch.js";
+import {
+  applyElementPatch,
+  type ElementPatchFor,
+  parseProject,
+  type TextElement,
+} from "@screenshot-studio/core/model";
 import {
   createSelectedElementIndex,
   forEachSelectedElement,
 } from "./editor-selection-mutations.js";
-import { parseProject, type TextElement } from "@screenshot-studio/core/model";
 import {
   patchGroup,
   patchIcon,

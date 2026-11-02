@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import Konva from "konva";
-import type { NodeFilter } from "./node-config.js";
+import type { NodeFilter } from "./node-types.js";
 
 /** Apply one shared cached Konva filter contract in both the editor and export renderers. */
 export function applyNodeFilter(node: Konva.Node, filter?: NodeFilter): void {

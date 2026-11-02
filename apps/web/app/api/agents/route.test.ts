@@ -84,7 +84,7 @@ esac`);
 }
 
 function fakeCodex({
-  version = "echo 'codex-cli 0.162.1'",
+  version = "echo 'codex-cli 0.166.0'",
   auth = "echo 'Logged in using ChatGPT' >&2",
 } = {}): Promise<void> {
   return writeFake("codex", `case "$1" in
@@ -147,7 +147,7 @@ describe.skipIf(process.platform === "win32")("/api/agents", () => {
       setupUrl: "https://code.claude.com/docs/en/setup", signInCommand: "claude",
     });
     expect(agents.codex).toMatchObject({
-      installed: true, version: "0.162.1", minVersion: "0.162.1", state: "ready", authMode: "subscription",
+      installed: true, version: "0.166.0", minVersion: "0.166.0", state: "ready", authMode: "subscription",
       policy: { level: "supported", checkedAt: "2026-10-15" }, models: [], efforts: [], defaultEffort: null,
     });
     expect(agents.agy).toMatchObject({
@@ -198,7 +198,7 @@ describe.skipIf(process.platform === "win32")("/api/agents", () => {
     expect(agents["claude-code"]).toMatchObject({
       installed: true, version: "2.1.267", minVersion: "2.1.268", state: "unsupported-version",
     });
-    expect(agents.codex).toMatchObject({ installed: true, version: null, minVersion: "0.162.1", state: "unsupported-version" });
+    expect(agents.codex).toMatchObject({ installed: true, version: null, minVersion: "0.166.0", state: "unsupported-version" });
   });
 
   it("fails closed once a release makes --bare the default, whatever its version", async () => {
@@ -256,7 +256,7 @@ describe.skipIf(process.platform === "win32")("/api/agents", () => {
 
     expect(Date.now() - started).toBeLessThan(10_000);
     expect(agents["claude-code"]).toMatchObject({ installed: true, version: null, state: "unsupported-version" });
-    expect(agents.codex).toMatchObject({ installed: true, version: "0.162.1", state: "not-signed-in" });
+    expect(agents.codex).toMatchObject({ installed: true, version: "0.166.0", state: "not-signed-in" });
     expect(await processGone(claudePid)).toBe(true);
     expect(await processGone(codexPid)).toBe(true);
   }, 15_000);

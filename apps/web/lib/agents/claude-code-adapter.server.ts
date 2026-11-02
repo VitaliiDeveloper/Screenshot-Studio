@@ -63,6 +63,8 @@ export const claudeCodeAdapter: AgentAdapter = {
     return [
       "-p",
       "--output-format", "stream-json",
+      // Print mode refuses stream-json without it, unless the user's own config sets `verbose`.
+      "--verbose",
       // Never `--bare`: it ignores the subscription login. `--restricted` drops user/project
       // settings, hooks and MCP, and keeps shell and web tools off unless named in `--tools`.
       "--restricted",
@@ -71,7 +73,23 @@ export const claudeCodeAdapter: AgentAdapter = {
       "--disallowedTools", "Bash(screenshots dev *)", "WebSearch", "WebFetch", "mcp__*",
       "--permission-mode", "dontAsk",
       "--permission-prompts", "none",
-      "--settings", JSON.stringify({ sandbox: { enabled: true, failIfUnavailable: true } }),
+      "--settings", JSON.stringify({
+        sandbox: {
+          enabled: true,
+          failIfUnavailable: true,
+          // Off: the `dangerouslyDisableSandbox` escape would let a stub `screenshots` read a key. The
+          // editor renders on the agent's behalf, so no command needs to leave the sandbox.
+          allowUnsandboxedCommands: false,
+          filesystem: {
+            denyRead: [request.context.storeCredentialsDir],
+            denyWrite: [request.context.storeCredentialsDir],
+          },
+        },
+        // The sandbox covers Bash only; `//` marks an absolute path in a permission rule.
+        // shortcut: glob characters in the data root are not escaped, so this rule would miss and only
+        // `--restricted`'s working-directory limit remains; escape them once the CLI documents how.
+        permissions: { deny: [`Read(/${request.context.storeCredentialsDir}/**)`] },
+      }),
       "--append-system-prompt", [
         projectInstructions(
           request,
@@ -80,8 +98,9 @@ export const claudeCodeAdapter: AgentAdapter = {
         // Codex sees the same images through `--image`.
         ...(request.attachments.length > 0 ? ["View the attached images with the Read tool."] : []),
       ].join("\n"),
-      // The skill and the images live outside the project; restricted file tools only read added directories.
+      // The skill, the bundled guide and the images live outside the project; restricted file tools only read added directories.
       ...(request.context.skillPath ? ["--add-dir", dirname(request.context.skillPath)] : []),
+      ...(request.context.bundledGuidePath ? ["--add-dir", dirname(request.context.bundledGuidePath)] : []),
       ...(request.attachments[0] ? ["--add-dir", dirname(request.attachments[0])] : []),
       ...(request.model ? ["--model", request.model] : []),
       ...(request.effort ? ["--effort", request.effort] : []),

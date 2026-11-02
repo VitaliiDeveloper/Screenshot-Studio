@@ -4,7 +4,7 @@ import {
   type RenderBrowserSession,
 } from "@screenshot-studio/cli/render-driver";
 import type { RunningServer } from "@screenshot-studio/cli/server";
-import type { Browser } from "playwright";
+import { chromium, type Browser, type LaunchOptions } from "playwright";
 
 export interface ParityRenderHarness {
   server: RunningServer;
@@ -23,6 +23,16 @@ async function closeResources(resources: Array<(() => Promise<void>) | undefined
   if (errors.length > 1) throw new AggregateError(errors, "Parity harness cleanup failed");
 }
 
+// macOS clamps a headed window onto the screen and activates it, whatever its launch flags or CDP bounds say.
+// Full Chrome in new headless mode is the same browser build without a window, so local runs leave the desktop alone.
+export const headedRunsWindowless = process.platform === "darwin" && !process.env.SCREENSHOTS_E2E_HEADED;
+
+export function launchHeadedChromium(options: LaunchOptions = {}): Promise<Browser> {
+  return chromium.launch(headedRunsWindowless
+    ? { channel: "chromium", ...options, headless: true }
+    : { ...options, headless: false });
+}
+
 export async function startParityRenderHarness(
   startServer: () => Promise<RunningServer>,
   launchInteractiveBrowser?: () => Promise<Browser>,
@@ -32,7 +42,7 @@ export async function startParityRenderHarness(
   let headless: RenderBrowserSession | undefined;
   let interactive: Browser | undefined;
   try {
-    headed = await createRenderBrowserSession({ headless: false });
+    headed = await createRenderBrowserSession({ headless: false, launch: launchHeadedChromium });
     headless = await createRenderBrowserSession();
     interactive = await launchInteractiveBrowser?.();
     return { server, headed, headless, interactive };

@@ -9,6 +9,7 @@ import {
   withCaptureImportInvalidEntries,
   type CaptureImportDiscovery,
   type CaptureImportIssue,
+  type CaptureImportMode,
   type CaptureImportPlan,
 } from "@screenshot-studio/core/capture-import";
 import type { Project } from "@screenshot-studio/core/model";
@@ -104,7 +105,8 @@ export async function preflightCaptureImportPlanResources(
         relativePath: resource.destinationPath,
         bytes: resource.bytes,
       });
-    } catch {
+    } catch (error) {
+      if (!(error instanceof SafeFileConflictError)) throw error;
       state = "conflicting";
     }
     if (state === "conflicting") {
@@ -123,6 +125,7 @@ export async function applyCaptureImportToProject(input: {
   expectedRevision?: string;
   discovery: CaptureImportDiscovery;
   layoutId: string;
+  mode?: CaptureImportMode;
   confirmationFingerprint?: string;
   signal?: AbortSignal;
   specs?: StoreSpecs;
@@ -148,6 +151,7 @@ export async function applyCaptureImportToProject(input: {
       layoutId: input.layoutId,
       destinationKind: "current-project",
       discovery: input.discovery,
+      mode: input.mode,
       specs: input.specs,
     }));
     if (input.confirmationFingerprint !== undefined) {

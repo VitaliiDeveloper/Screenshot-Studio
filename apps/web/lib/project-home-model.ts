@@ -7,7 +7,7 @@ import {
 } from "@screenshot-studio/core/export";
 import { type Project, type Screen } from "@screenshot-studio/core/model";
 import type { ActiveProjectSelection } from "@web/lib/clients/project-session.js";
-import { storeOutputLabel } from "@web/lib/editor/editor-workspace.js";
+import { storeOutputLabel } from "@web/lib/editor/store-target-labels.js";
 import {
   canonicalEditorUrlForSelection,
   editorProjectUrl,

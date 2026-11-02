@@ -4,12 +4,13 @@ import {
   mkdir,
   readFile,
   readdir,
+  realpath,
   rm,
   symlink,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { leadStoreSizeId } from "@screenshot-studio/core/export";
@@ -18,7 +19,7 @@ import {
   singleExportFilename,
   type ExportCommandDependencies,
 } from "./export-command.js";
-import { resolveTarget } from "./export.js";
+import { resolveTarget, writeBundleOutputs } from "./export.js";
 
 const storeSpecsPath = fileURLToPath(new URL("../../../store-specs.json", import.meta.url));
 const temporaryRoots: string[] = [];
@@ -117,6 +118,53 @@ describe("runExportCommand stable single export", () => {
     expect(runtime.log).toHaveBeenCalledWith(expect.stringMatching(/^Exported .* \(\d+x\d+\)$/));
   });
 
+  it("forwards the browser choice, with --browser winning over SCREENSHOTS_BROWSER", async () => {
+    const fixture = await projectFixture();
+    const render = vi.fn<NonNullable<ExportCommandDependencies["exportScreenToPng"]>>(
+      async () => Buffer.from("rendered png"),
+    );
+    const run = (flags: Record<string, string>) => runExportCommand({
+      project: fixture.path,
+      screen: "hero",
+      out: join(fixture.root, "output"),
+      ...flags,
+    }, storeSpecsPath, commandDependencies(render).dependencies);
+
+    vi.stubEnv("SCREENSHOTS_BROWSER", "");
+    try {
+      await run({});
+      vi.stubEnv("SCREENSHOTS_BROWSER", "msedge");
+      await run({});
+      await run({ browser: "chromium" });
+    } finally {
+      vi.unstubAllEnvs();
+    }
+
+    expect(render.mock.calls.map(([options]) => options.browser)).toEqual(["chromium", "msedge", "chromium"]);
+  });
+
+  it("opens the bundle render session with the chosen browser", async () => {
+    const fixture = await projectFixture();
+    const runtime = commandDependencies(vi.fn());
+    const session = { renderScreenToPng: vi.fn(), close: vi.fn(async () => undefined) };
+    const createRenderBrowserSession = vi.fn(async (_options?: unknown) => session);
+
+    await runExportCommand({
+      project: fixture.path,
+      out: join(fixture.root, "output"),
+      layout: "feature",
+      platform: "android",
+      browser: "msedge",
+    }, storeSpecsPath, {
+      ...runtime.dependencies,
+      exportBundle: vi.fn(async () => join(fixture.root, "output", "bundle.zip")),
+      createRenderBrowserSession,
+    });
+
+    expect(createRenderBrowserSession).toHaveBeenCalledWith({ browser: "msedge" });
+    expect(session.close).toHaveBeenCalledOnce();
+  });
+
   it("resolves an explicit layout name before selecting a same-id screen", async () => {
     const fixture = await projectFixture();
     const render = vi.fn<NonNullable<ExportCommandDependencies["exportScreenToPng"]>>(
@@ -179,5 +227,227 @@ describe("runExportCommand stable single export", () => {
 
     expect(await readFile(sentinel, "utf8")).toBe("sentinel");
     expect(runtime.stop).toHaveBeenCalledOnce();
+  });
+
+  it("follows a symbolic link given explicitly as --out", async () => {
+    const fixture = await projectFixture();
+    const target = join(fixture.root, "target");
+    const linkedOut = join(fixture.root, "linked-out");
+    await mkdir(target);
+    await symlink(target, linkedOut);
+    const runtime = commandDependencies(vi.fn(async () => Buffer.from("rendered png")));
+
+    await runExportCommand({
+      project: fixture.path,
+      screen: "hero",
+      out: linkedOut,
+    }, storeSpecsPath, runtime.dependencies);
+
+    expect(await readdir(target)).toHaveLength(1);
+  });
+
+  it("refuses a symbolic-link default export directory", async () => {
+    const fixture = await projectFixture();
+    const outside = await workspace("export-command-outside-");
+    await symlink(outside, join(fixture.root, "export"));
+    const runtime = commandDependencies(vi.fn(async () => Buffer.from("rendered png")));
+
+    await expect(runExportCommand({
+      project: fixture.path,
+      screen: "hero",
+    }, storeSpecsPath, runtime.dependencies)).rejects.toThrow(/symbolic link.*root/i);
+
+    expect(await readdir(outside)).toEqual([]);
+  });
+});
+
+describe("runExportCommand fastlane profile", () => {
+  it("renders only fastlane upload slots at fastlane paths and reports skipped families", async () => {
+    const fixture = await projectFixture();
+    const project = JSON.parse(fixture.bytes);
+    project.layouts[0].screens[0].artboard = { width: 1206, height: 2622 };
+    project.layouts[0].screens.push({
+      ...project.layouts[0].screens[0],
+      id: "web",
+      name: "Web",
+      platform: "web",
+      device: "mobile",
+      artboard: { width: 390, height: 844 },
+    });
+    await writeFile(fixture.path, `${JSON.stringify(project)}\n`, "utf8");
+    const runtime = commandDependencies(vi.fn(async () => Buffer.from("unused")));
+    const exportBundle = vi.fn<NonNullable<ExportCommandDependencies["exportBundle"]>>(
+      async () => join(fixture.root, "export", "app-store-screenshots-bundle.zip"),
+    );
+    const close = vi.fn(async () => undefined);
+
+    await runExportCommand({ project: fixture.path, profile: "fastlane" }, storeSpecsPath, {
+      ...runtime.dependencies,
+      exportBundle,
+      createRenderBrowserSession: vi.fn(async () => ({ close })) as never,
+    });
+
+    const call = exportBundle.mock.calls[0]![0];
+    expect(call.profile).toBe("store-bundle");
+    expect(call.entries.map(({ relativePath }) => relativePath)).toEqual([
+      "fastlane/screenshots/en-US/01_hero_iphone-6.3.png",
+    ]);
+    expect(runtime.log).toHaveBeenCalledWith("Skipped 1 screenshot fastlane does not upload: web/mobile (1)");
+    expect(runtime.log).toHaveBeenCalledWith(expect.stringMatching(/^Exported 1 screenshots/));
+  });
+
+  it("rejects an ambiguous locale before rendering", async () => {
+    const fixture = await projectFixture();
+    await writeFile(fixture.path, fixture.bytes.replace('"locale":"en"', '"locale":"pt"'), "utf8");
+    const runtime = commandDependencies(vi.fn(async () => Buffer.from("unused")));
+    const exportBundle = vi.fn<NonNullable<ExportCommandDependencies["exportBundle"]>>();
+
+    await expect(runExportCommand({ project: fixture.path, profile: "fastlane" }, storeSpecsPath, {
+      ...runtime.dependencies,
+      exportBundle,
+      createRenderBrowserSession: vi.fn(async () => ({ close: vi.fn(async () => undefined) })) as never,
+    })).rejects.toThrow(/Locale "pt" matches several App Store Connect locales/);
+    expect(exportBundle).not.toHaveBeenCalled();
+  });
+
+  it("fails when no selected screen has a fastlane upload slot", async () => {
+    const fixture = await projectFixture();
+    const project = JSON.parse(fixture.bytes);
+    Object.assign(project.layouts[0].screens[0], {
+      platform: "web", device: "mobile", artboard: { width: 390, height: 844 },
+    });
+    await writeFile(fixture.path, `${JSON.stringify(project)}\n`, "utf8");
+    const runtime = commandDependencies(vi.fn(async () => Buffer.from("unused")));
+    const exportBundle = vi.fn<NonNullable<ExportCommandDependencies["exportBundle"]>>();
+
+    await expect(runExportCommand({ project: fixture.path, profile: "fastlane" }, storeSpecsPath, {
+      ...runtime.dependencies,
+      exportBundle,
+      createRenderBrowserSession: vi.fn(async () => ({ close: vi.fn(async () => undefined) })) as never,
+    })).rejects.toThrow("No selected screen has a fastlane upload slot");
+    expect(exportBundle).not.toHaveBeenCalled();
+    expect(runtime.log).toHaveBeenCalledWith("Skipped 1 screenshot fastlane does not upload: web/mobile (1)");
+  });
+
+  it("requires a bundle export", async () => {
+    const fixture = await projectFixture();
+    const runtime = commandDependencies(vi.fn(async () => Buffer.from("unused")));
+    await expect(runExportCommand({ project: fixture.path, profile: "fastlane", screen: "hero" }, storeSpecsPath, runtime.dependencies))
+      .rejects.toThrow("--profile fastlane requires a bundle export, not --screen");
+  });
+});
+
+describe("runExportCommand fastlane stale files", () => {
+  const CURRENT = "fastlane/screenshots/en-US/01_hero_iphone-6.3.png";
+  const STALE = "fastlane/screenshots/en-US/06_settings_iphone-6.3.png";
+  const FILTER_WARNING = "Warning: a filtered fastlane export removes nothing, so stale files may remain";
+
+  async function fastlaneFixture() {
+    const fixture = await projectFixture();
+    const project = JSON.parse(fixture.bytes);
+    project.layouts[0].screens[0].artboard = { width: 1206, height: 2622 };
+    await writeFile(fixture.path, `${JSON.stringify(project)}\n`, "utf8");
+    const outDir = join(fixture.root, "output");
+    await mkdir(join(outDir, "fastlane/screenshots/en-US"), { recursive: true });
+    await writeFile(join(outDir, STALE), "stale");
+    return { ...fixture, outDir };
+  }
+
+  /** Stands in for rendering and keeps the real publisher behind the real publication guard. */
+  const publishRendered: NonNullable<ExportCommandDependencies["exportBundle"]> = async ({
+    outDir,
+    entries,
+    publicationGuard,
+  }) => publicationGuard(() => writeBundleOutputs({
+    outDir,
+    entries: entries.map((entry) => ({ entry, png: Buffer.from("rendered png") })),
+  }));
+
+  function run(
+    project: string,
+    flags: Record<string, string>,
+    exportBundle: NonNullable<ExportCommandDependencies["exportBundle"]> = publishRendered,
+  ) {
+    const runtime = commandDependencies(vi.fn(async () => Buffer.from("unused")));
+    return {
+      log: runtime.log,
+      done: runExportCommand({ project, profile: "fastlane", ...flags }, storeSpecsPath, {
+        ...runtime.dependencies,
+        exportBundle,
+        createRenderBrowserSession: vi.fn(async () => ({ close: vi.fn(async () => undefined) })) as never,
+      }),
+    };
+  }
+
+  it("removes stale generated files after publishing a complete export", async () => {
+    const fixture = await fastlaneFixture();
+
+    const { done, log } = run(fixture.path, { out: fixture.outDir });
+    await done;
+
+    expect(await readFile(join(fixture.outDir, CURRENT), "utf8")).toBe("rendered png");
+    expect(await readdir(join(fixture.outDir, "fastlane/screenshots/en-US"))).toEqual([basename(CURRENT)]);
+    expect(log).toHaveBeenCalledWith(`Removed stale ${join(await realpath(fixture.outDir), STALE)}`);
+    expect(log).not.toHaveBeenCalledWith(FILTER_WARNING);
+  });
+
+  it.each<Record<string, string>>([
+    { platform: "apple" },
+    { device: "iphone" },
+    { locale: "en" },
+  ])("removes nothing and warns once for the filtered export %o", async (filter) => {
+    const fixture = await fastlaneFixture();
+
+    const { done, log } = run(fixture.path, { out: fixture.outDir, ...filter });
+    await done;
+
+    expect(await readFile(join(fixture.outDir, CURRENT), "utf8")).toBe("rendered png");
+    expect(await readFile(join(fixture.outDir, STALE), "utf8")).toBe("stale");
+    expect(log.mock.calls.filter(([message]) => message === FILTER_WARNING)).toHaveLength(1);
+    expect(log).not.toHaveBeenCalledWith(expect.stringMatching(/^Removed stale/));
+  });
+
+  it("holds the export lease until the prune finishes", async () => {
+    const fixture = await fastlaneFixture();
+
+    // Returning mid-publication is what a render-host exit race does to the caller.
+    const { done } = run(fixture.path, { out: fixture.outDir }, async (options) => {
+      await new Promise<void>((crossedGuard) => {
+        void publishRendered({
+          ...options,
+          publicationGuard: (publish) => options.publicationGuard(() => {
+            crossedGuard();
+            return publish();
+          }),
+        });
+      });
+      return join(fixture.outDir, "app-store-screenshots-bundle.zip");
+    });
+    await done;
+
+    expect(await readdir(join(fixture.outDir, "fastlane/screenshots/en-US"))).toEqual([basename(CURRENT)]);
+  });
+
+  it("removes nothing when publishing the new set fails", async () => {
+    const fixture = await fastlaneFixture();
+    await symlink(join(fixture.root, "elsewhere.png"), join(fixture.outDir, CURRENT));
+
+    const { done, log } = run(fixture.path, { out: fixture.outDir });
+    await expect(done).rejects.toThrow(/symbolic link/i);
+
+    expect(await readFile(join(fixture.outDir, STALE), "utf8")).toBe("stale");
+    expect(log).not.toHaveBeenCalledWith(expect.stringMatching(/^Removed stale/));
+  });
+
+  it("removes nothing when the project changes before publication", async () => {
+    const fixture = await fastlaneFixture();
+
+    const { done } = run(fixture.path, { out: fixture.outDir }, async (options) => {
+      await writeFile(fixture.path, `${await readFile(fixture.path, "utf8")}\n`, "utf8");
+      return publishRendered(options);
+    });
+    await expect(done).rejects.toThrow("Project revision changed before export publication");
+
+    expect(await readFile(join(fixture.outDir, STALE), "utf8")).toBe("stale");
   });
 });

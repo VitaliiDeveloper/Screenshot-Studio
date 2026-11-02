@@ -28,6 +28,12 @@ describe("artboardTargetStatus", () => {
     });
   });
 
+  it("reports invalid when a proportional artboard would truncate below the target", () => {
+    const status = artboardTargetStatus({ width: 444, height: 592 }, { width: 2064, height: 2752 });
+    expect(status.kind).toBe("invalid");
+    if (status.kind === "invalid") expect(status.message).toMatch(/2064×2751/);
+  });
+
   it("reports invalid with a message when the aspect ratio does not match", () => {
     const status = artboardTargetStatus({ width: 1320, height: 2000 }, { width: 1320, height: 2868 });
     expect(status.kind).toBe("invalid");

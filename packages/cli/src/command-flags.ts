@@ -10,26 +10,33 @@ export interface ParsedCommandFlags {
   flags: Record<string, string>;
 }
 
+/** Flags of `screenshots` with no command, which starts or reopens the editor. */
+export const LAUNCH_FLAG_SPEC: CommandFlagSpec = { value: ["port"], boolean: ["no-open", "app"] };
+
 export const COMMAND_FLAG_SPECS = {
   init: { value: ["dir", "name"], boolean: [] },
   export: {
-    value: ["project", "store-specs", "out", "screen", "size", "platform", "device", "locale", "layout", "profile"],
+    value: ["project", "store-specs", "out", "screen", "size", "platform", "device", "locale", "layout", "profile", "browser"],
     boolean: [],
   },
+  check: { value: ["project", "store-specs", "layout"], boolean: ["json", "strict", "render"] },
   screen: {
-    value: ["project", "store-specs", "platform", "device", "locale", "id", "name", "direction", "size", "to", "layout", "from"],
-    boolean: ["cascade"],
+    value: ["project", "store-specs", "platform", "device", "locale", "id", "name", "direction", "size", "to", "layout", "from", "background"],
+    boolean: ["cascade", "json"],
   },
   dev: { value: ["project", "store-specs", "port"], boolean: [] },
-  import: { value: ["project", "store-specs", "layout"], boolean: [] },
+  import: { value: ["project", "store-specs", "layout"], boolean: ["refresh"] },
   font: { value: ["project", "weight", "google", "family"], boolean: [] },
-  theme: { value: ["project", "layout"], boolean: ["built-in"] },
+  theme: { value: ["project", "layout"], boolean: ["built-in", "pack"] },
   locale: { value: ["project", "from", "direction", "to", "layout"], boolean: [] },
   asset: { value: ["project", "threshold", "background", "tolerance"], boolean: [] },
   layout: { value: ["project", "name", "mode"], boolean: [] },
   setup: { value: [], boolean: [] },
-  template: { value: ["project", "store-specs", "locale", "layout"], boolean: ["built-in", "pack"] },
-  element: { value: ["project", "layout", "screen", "locale"], boolean: ["all-sizes"] },
+  template: { value: ["project", "store-specs", "locale", "layout", "out"], boolean: ["built-in", "pack", "force", "json"] },
+  element: { value: ["project", "layout", "screen", "locale", "json", "type"], boolean: ["all-sizes"] },
+  copy: { value: ["project", "layout", "locale", "out"], boolean: ["force", "json"] },
+  upload: { value: ["project", "store-specs", "store", "layout", "service-account", "version", "key-path"], boolean: ["dry-run", "json", "changes-not-sent-for-review"] },
+  publishing: { value: ["project", "google-package", "apple-app-id"], boolean: ["json"] },
 } as const satisfies Record<string, CommandFlagSpec>;
 
 export type CliCommand = keyof typeof COMMAND_FLAG_SPECS;
@@ -73,4 +80,21 @@ export function parseCommandFlags(argv: string[], spec: CommandFlagSpec): Parsed
   }
 
   return { args, flags };
+}
+
+/**
+ * Rejects a flag given to a subcommand that would silently ignore it, because flags are declared
+ * per command. `scopes` maps each subcommand-specific flag to the subcommands that read it.
+ */
+export function rejectFlagsOutsideSubcommand(
+  command: string,
+  subcommand: string | undefined,
+  flags: Record<string, string>,
+  scopes: Record<string, readonly string[]>,
+): void {
+  for (const [flag, subcommands] of Object.entries(scopes)) {
+    if (flags[flag] === undefined || subcommands.includes(subcommand ?? "")) continue;
+    const owners = new Intl.ListFormat("en").format(subcommands.map((name) => `${command} ${name}`));
+    throw new Error(`--${flag} applies only to ${owners}`);
+  }
 }

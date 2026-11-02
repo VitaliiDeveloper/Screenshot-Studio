@@ -242,10 +242,10 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
         <section className={`${editorUi.formPanel} mb-4 sm:flex-row sm:items-center sm:justify-between`}>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <Monitor size={15} className="text-slate-500" strokeWidth={1.8} />
+              <Monitor size={15} className="text-[color:var(--editor-color-text-secondary)]" strokeWidth={1.8} />
               <h3 className={editorUi.sectionLabel}>Installed fonts</h3>
             </div>
-            <p className="mt-1 text-xs leading-5 text-slate-500">Copy a font that is already installed on this computer into the project.</p>
+            <p className="mt-1 text-xs leading-5 text-[color:var(--editor-color-text-secondary)]">Copy a font that is already installed on this computer into the project.</p>
           </div>
           <button ref={systemButton} type="button" className={`${editorUi.buttonSecondary} shrink-0`} disabled={pending !== null} onClick={() => setView("system")}>
             Import from system
@@ -254,7 +254,7 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <section className={editorUi.formPanel}>
             <div className="flex items-center gap-2">
-              <Upload size={15} className="text-slate-500" strokeWidth={1.8} />
+              <Upload size={15} className="text-[color:var(--editor-color-text-secondary)]" strokeWidth={1.8} />
               <h3 className={editorUi.sectionLabel}>Upload file</h3>
             </div>
             <label className="block">
@@ -280,10 +280,10 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
 
           <section className={editorUi.formPanel}>
             <div className="flex items-center gap-2">
-              <CloudDownload size={15} className="text-slate-500" strokeWidth={1.8} />
+              <CloudDownload size={15} className="text-[color:var(--editor-color-text-secondary)]" strokeWidth={1.8} />
               <h3 className={editorUi.sectionLabel}>Google Fonts</h3>
             </div>
-            <p className="text-xs leading-5 text-slate-500">Downloaded once and stored in the project. Rendering stays offline.</p>
+            <p className="text-xs leading-5 text-[color:var(--editor-color-text-secondary)]">Downloaded once and stored in the project. Rendering stays offline.</p>
             <input aria-label="Google font family" placeholder="Family, e.g. Inter" value={googleFamily} onChange={(event) => setGoogleFamily(event.target.value)} className={editorUi.field} />
             <input aria-label="Google font weight" type="number" min={FONT_WEIGHT_MIN} max={FONT_WEIGHT_MAX} step={FONT_WEIGHT_STEP} value={googleWeight} onChange={(event) => setGoogleWeight(Number(event.target.value))} className={editorUi.field} />
             <button className={editorUi.buttonPrimary} disabled={pending !== null || !googleFamily.trim()} onClick={addGoogle}>
@@ -296,9 +296,9 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
         {warning && <StatusMessage tone="warning" className="mt-4 whitespace-pre-wrap">{warning}</StatusMessage>}
 
         <section className="mt-5 flex flex-col gap-3">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+          <div className="flex items-center justify-between border-b border-[var(--editor-color-border-subtle)] pb-2">
             <h3 className={editorUi.sectionLabel}>Registered</h3>
-            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">{project.fonts.length} identities</span>
+            <span className="rounded-full bg-[var(--editor-color-surface-muted)] px-2 py-0.5 text-[10px] font-medium text-[color:var(--editor-color-text-secondary)]">{project.fonts.length} identities</span>
           </div>
           {project.fonts.length === 0 ? (
             <EmptyResourceState
@@ -312,13 +312,13 @@ export function FontManagerDialog({ open, onClose }: { open: boolean; onClose: (
             return (
               <div key={fontIdentityKey(font)} data-testid={`font-row-${font.family}-${font.weight}`} className={`${editorUi.resourceCard} flex flex-col items-stretch gap-3 sm:flex-row sm:items-center`}>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 text-xs text-slate-600">
-                    <strong className="text-slate-900">{font.family}</strong>
+                  <div className="flex items-center gap-2 text-xs text-[color:var(--editor-color-text-muted)]">
+                    <strong className="text-[color:var(--editor-color-text-strong)]">{font.family}</strong>
                     <span className="font-medium tabular-nums">{font.weight}</span>
-                    <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">{font.source}</span>
-                    {usage > 0 && <span className="text-slate-400">used {usage}×</span>}
+                    <span className="rounded-md bg-[var(--editor-color-surface-muted)] px-1.5 py-0.5 text-[10px] font-medium text-[color:var(--editor-color-text-secondary)]">{font.source}</span>
+                    {usage > 0 && <span className="text-[color:var(--editor-color-text-subtle)]">used {usage}×</span>}
                   </div>
-                  <p data-testid={`font-preview-${font.family}-${font.weight}`} style={{ fontFamily: `"${font.family}"`, fontWeight: font.weight }} className="mt-2 truncate text-xl text-slate-900">
+                  <p data-testid={`font-preview-${font.family}-${font.weight}`} style={{ fontFamily: `"${font.family}"`, fontWeight: font.weight }} className="mt-2 truncate text-xl text-[color:var(--editor-color-text-strong)]">
                     The quick brown fox 0123
                   </p>
                 </div>

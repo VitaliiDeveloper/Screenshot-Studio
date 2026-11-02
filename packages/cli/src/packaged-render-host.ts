@@ -2,8 +2,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { copyFile, cp, lstat, mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
-import { tmpdir } from "node:os";
-import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { homedir, tmpdir } from "node:os";
+import { dirname, isAbsolute, join, posix, relative, resolve, sep, win32 } from "node:path";
 import { fileURLToPath } from "node:url";
 import JSZip from "jszip";
 
@@ -18,7 +18,8 @@ export interface PreparedRenderHost {
 type ResolvePackageManifest = (name: string, from: string) => string;
 type MaterializeSharpRuntime = (destination: string) => Promise<string[]>;
 
-const packageRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
+// Not `new URL("..", import.meta.url)`: webpack resolves that as a module when the editor bundles the CLI.
+const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const sourceWebDir = resolve(packageRoot, "../../apps/web");
 const packagedWebArchive = join(packageRoot, "runtime", "web.zip");
 const packagedServerEntry = join("apps", "web", "server.js");
@@ -158,6 +159,22 @@ export async function extractWebArchive(archivePath: string, destination: string
   }
 }
 
+/**
+ * The packaged host runs from a temporary copy that `cleanup()` deletes, and a global install sets no
+ * INIT_CWD, so the editor's default `.screenshot-studio` would land inside that copy. Managed projects,
+ * recent projects, and store keys go to a per-user folder instead.
+ */
+export function packagedDataRoot(env: NodeJS.ProcessEnv, platform: NodeJS.Platform, home: string): string {
+  if (env.SCREENSHOT_STUDIO_DATA_ROOT) return resolve(env.SCREENSHOT_STUDIO_DATA_ROOT);
+  const path = platform === "win32" ? win32 : posix;
+  const base = platform === "win32"
+    ? env.LOCALAPPDATA ?? path.join(home, "AppData", "Local")
+    : platform === "darwin"
+      ? path.join(home, "Library", "Application Support")
+      : env.XDG_DATA_HOME ?? path.join(home, ".local", "share");
+  return path.join(base, "screenshot-studio");
+}
+
 export async function preparePackagedRenderHost(
   port: number,
   archivePath = packagedWebArchive,
@@ -173,7 +190,12 @@ export async function preparePackagedRenderHost(
       command: process.execPath,
       args: [entry],
       cwd: dirname(entry),
-      env: { NODE_ENV: "production", PORT: String(port), HOSTNAME: "127.0.0.1" },
+      env: {
+        NODE_ENV: "production",
+        PORT: String(port),
+        HOSTNAME: "127.0.0.1",
+        SCREENSHOT_STUDIO_DATA_ROOT: packagedDataRoot(process.env, process.platform, homedir()),
+      },
       cleanup: () => rm(directory, { recursive: true, force: true }),
     };
   } catch (error) {
@@ -188,7 +210,9 @@ export async function prepareRenderHost(port: number): Promise<PreparedRenderHos
   }
   // Run Next directly: a pnpm wrapper can exit on SIGTERM without forwarding it, orphaning the dev
   // server (which holds Next's per-app dev lock) and the stderr pipe that stop() waits to drain.
-  const nextCli = createRequire(join(sourceWebDir, "package.json")).resolve("next/dist/bin/next");
+  // A literal would make webpack bundle Next's own CLI into the editor server.
+  const nextBin = ["next", "dist", "bin", "next"].join("/");
+  const nextCli = createRequire(join(sourceWebDir, "package.json")).resolve(nextBin);
   return {
     command: process.execPath,
     args: [nextCli, "dev", "--webpack", "--hostname", "127.0.0.1", "--port", String(port)],

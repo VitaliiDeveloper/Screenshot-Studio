@@ -56,7 +56,8 @@ platform/device pair is presented as an **output family** (for example, Google P
 These catalog values are runtime configuration and are not persisted project fields.
 
 The enforced schema is the authority for exact members and bounds. At a high level, a Project owns
-metadata, file-backed fonts, a preferred export layout, and ordered layouts. A layout owns ordered
+metadata, file-backed fonts, a preferred export layout, ordered layouts, and optional publishing
+identifiers. A layout owns ordered
 screens; each screen owns its artboard, background, locale/direction, optional explicit store-target
 variant identity, and ordered elements. Array order is meaningful for layout, screen, and z-order.
 
@@ -64,6 +65,20 @@ Layouts are independent authoring alternatives with an explicit `isolated` or `c
 Elements stay owned by one screen even when connected rendering lets decoration cross a crop boundary.
 Only strict v1 element types and literals are valid. Workspace selections, viewport state, open panels,
 history, source locators, recents, credentials, and server lifecycle metadata never enter Project JSON.
+
+The optional `publishing` block holds store app identifiers and nothing else:
+`publishing: { apple?: { appId }, google?: { packageName } }`. `appId` is the numeric App Store
+Connect Apple ID; `packageName` is a dotted Android application id, validated by the schema because it
+becomes a store API path segment. The renderer and export never read it, so it cannot change pixels.
+`screenshots publishing set|clear` edits it through the ordinary validated project write, and an empty
+block is dropped so a project without identifiers keeps its bytes.
+
+Store credentials never enter the project document, git, logs, CI artifacts, or the environment of
+agents. The CLI reads them only from environment variables that name key files
+(`GOOGLE_PLAY_SERVICE_ACCOUNT_PATH`; `APP_STORE_CONNECT_KEY_ID`, `APP_STORE_CONNECT_ISSUER_ID`, and
+`APP_STORE_CONNECT_KEY_PATH`) or from a `--service-account <path>` or `--key-path <path>` flag; key
+material itself is never a command-line argument. The repository GitHub Action does not
+upload.
 Text elements persist horizontal alignment and an optional vertical alignment; the shared renderer
 treats an omitted vertical value as `top` so existing strict documents keep their pixels unchanged.
 Screenshot and decorative-image elements may persist a bounded Gaussian blur radius. Device-frame
@@ -146,15 +161,92 @@ compression may differ, but dimensions and visual output are verified by targete
 New render-affecting fields must extend the shared mapping and parity tests together.
 Validation that depends on rendered geometry, such as text overflow, measures the same
 `elementToNodeConfig` text config with Konva's own layout in the browser; it never estimates metrics
-on a separate path.
+on a separate path. `screenshots check --render` reads the core Issues engine from the `/render` host
+(`window.__collectIssues`, set with the stage's fonts and images), so the CLI reports the same issues
+as the editor; without `--render` it runs the same engine in Node and skips text measurement.
+
+Parity coverage runs against the pinned Playwright Chromium; `screenshots export --browser
+chrome|msedge|auto` can launch an installed system browser, which is outside that coverage.
 
 Connected mode is still one project model: each exact platform/device/locale/store-target group is
 rendered as a gapless strip while elements retain owner-local coordinates. Export always takes one
-requested artboard crop; it never stitches a separate image or slices a finished PNG.
+requested artboard crop; it never stitches a separate image or slices a finished PNG. An RTL group
+runs right to left in project order, so a direction change, which mirrors each screen in its own
+artboard, mirrors the whole strip and keeps seams continuous without reordering exported or uploaded
+screens: the first screen sits at the strip's right end.
 
 Export profiles are separate from platforms. The default store bundle and optional `web-share`
 profile consume PNGs produced by the shared browser renderer; Web Share only packages those outputs
-with local HTML, CSS, metadata, and an Open Graph image, and is not another pixel renderer.
+with local HTML, CSS, metadata, and an Open Graph image, and is not another pixel renderer. The
+CLI-only `fastlane` profile renames the same store-bundle PNGs into the `fastlane deliver`/`supply`
+tree and skips sizes fastlane cannot upload. An unfiltered fastlane export then removes generated
+images the new set no longer contains, inside the same publication guard
+(`packages/cli/src/fastlane-prune.ts`).
+
+`screenshots upload --store google` renders through the same bundle export into a temporary folder,
+laid out by the shared store upload plan (`packages/cli/src/store-upload-plan.ts`), which also owns
+the store locale and Android slot mapping the fastlane profile uses. The plan replaces each touched
+Play slot as a whole in project screen order, leaves other slots and locales alone, and enforces the
+8-screenshot and single-Feature-Graphic limits before anything is rendered. The Google Play client
+uses `fetch` and `node:crypto` only: a service-account RS256 JWT is exchanged for an OAuth token, and
+one androidpublisher v3 edit is opened, every planned locale is checked against the existing listings,
+the touched slots are listed, deleted, and refilled, and the edit is committed once. Any failure
+before the commit abandons the edit; requests time out after 60 seconds and are never retried. Production endpoints are constants in code;
+tests inject a loopback mock through the command's dependencies, never through the environment.
+`--dry-run` is offline and opens no edit.
+
+`screenshots upload --store apple` uses the same plan module and render path. Which App Store Connect
+screenshot set a target fills is catalog data: every App Store target in `store-specs.json` carries
+`appStoreConnect: { displayType }` (an API `ScreenshotDisplayType` value, validated against the enum)
+or `appStoreConnect: { unsupported: "<reason>" }`, which the plan reports as skipped. Landscape
+targets share their portrait twin's display type; iPhone Duo targets are unsupported because the API
+has no display type for them. The data is optional so custom catalogs stay valid; an unmapped App
+Store target is skipped. The plan groups sets by App Store platform (Mac, Apple TV, and Vision Pro
+display types belong to their own platform's version, everything else to iOS), locale, and display
+type in export order, and enforces 10 screenshots and one size per set: where two sizes share a
+display type, the family lead's size (then a root screen's) is kept and the rest are skipped. The client signs an ES256
+JWT over the `.p8` key with `node:crypto` (15-minute lifetime, reissued a minute before expiry) and
+calls the v1 API with `fetch`. Version selection and localization lookup run before rendering. App
+Store Connect has no atomic commit, so execution is set by set: delete, then reserve, upload the
+parts (sent to Apple's presigned URLs with only the headers Apple returns, never the token), commit
+with the MD5 checksum, and poll `assetDeliveryState` with a bounded wait. The first failure stops
+the run and the report records each set as replaced, partial, failed, or untouched; the exit code is
+non-zero unless all are replaced. The API root is a constant overridable only through the command's
+dependencies.
+
+The editor uploads through the same command, not a second implementation. `POST /api/upload/plan`
+reads one project snapshot and builds the plan with the CLI plan module (the whole layout's Android
+screens; the export dialog's size and locale checks do not narrow it). Its `planHash` is the SHA-256
+of `{ store, projectId, revision, layoutId, identifier, plan }`, where `plan` is the projection the
+CLI's `--json` report prints, and the server keeps the last 8 issued hashes per project, so two tabs
+reviewing different layouts can each confirm. `POST /api/upload` takes `{ store, layout, planHash }`
+under the project mutation guard and `If-Match`: it consumes that issued hash (one confirmation
+allows one attempt), recomputes the plan, and answers `409` when the hash is missing, not the one
+issued (`plan-not-confirmed`), or no longer matches the project or store (`plan-stale`). For Google
+it then calls `runUploadCommand` with `--service-account` set to the key store's file, a
+`startWebServer` stub that renders through the running Next host like `/api/export`, the same pinned
+Chromium session `/api/export` opens (not `SCREENSHOTS_BROWSER`), and an `exportBundle` wrapper that
+refuses a revision other than the reviewed one and reports rendering and then an indeterminate
+`uploading` phase through the export progress registry. The response is the CLI's JSON report plus
+its preflight warnings; CLI errors are already sanitized and are returned as `502`.
+
+For `store: "apple"` the plan route builds the plan with `appStoreUploadPlan(entries, catalog)` from
+the same snapshot and the active store catalog, and, when the key store has an App Store Connect
+key, reads each touched platform's editable versions with the CLI's App Store Connect client (the
+key is read from its `.p8` file on the server; nothing about it reaches the response). The plan
+request takes an optional `version`: a platform with one editable version uses it, platforms with
+several use `version`, which must be a string all of them list (`422` `unknown-version` otherwise),
+and a platform with none sets `blocked`. The hash input adds `versions` (platform, editable version
+strings and states, selected version) and `version`, so a picked version is confirmed like the rest
+of the plan and a changed remote version state makes the recomputed plan `plan-stale`. The plan
+route holds the agent-run fence (`423`) because it uses the key, and App Store Connect failures are
+`502`. `/api/upload` for Apple refuses a plan without a key (`not-configured`), with `blocked`
+(`version-unavailable`), or without a picked version (`version-required`), then calls
+`runAppStoreUploadCommand` with `--key-path` set to the key store's `.p8`, `--version` when a
+version was picked, the key id and issuer id in the command's `env` dependency (never `process.env`,
+which editor-started agents inherit), and the same render, Chromium, progress, and error seams as
+Google. A run that stops part-way returns `201` with the per-set report, and the operation's
+progress ends as failed.
 
 The UI export route renders into a unique request-owned staging directory, copies the finished ZIP
 into the one-shot artifact store, and removes the unpacked staging tree before responding. Its `201`
@@ -188,6 +280,18 @@ must never render a different cookie-selected project as a fallback. A local ses
 `projectId` remains a request fence and is not interchangeable with its `recent_*` entry identity.
 The legacy `/editor` route remains a session-based compatibility entry and may canonicalize only
 when the active selection already exposes an exact managed entry identity.
+
+Every `/api/*` request first passes `apps/web/proxy.ts`: it answers `403` to a non-loopback `Host`
+(DNS rebinding) and to any non-GET/HEAD request whose `Origin` host differs from `Host` or whose
+`Sec-Fetch-Site` is `cross-site` or `same-site`. Requests without `Origin` (CLI, Playwright) pass.
+Route-level loopback checks stay as defense in depth.
+
+The installed CLI opens a project folder (`ss-studio .`) through `POST /api/instance/open`, the one
+route that takes a filesystem path from a client. It refuses with `403` a request that carries an
+`Origin` header (every browser POST does), lacks `X-Screenshot-Studio-CLI: 1`, or has a non-loopback
+`Host`. The host opens the absolute project path as a local session, records it in recent projects,
+and returns its `recent_*` entry id; the CLI opens `/editor/<entryId>`, so the path never appears in
+a URL.
 
 Every project-bound operation resolves one active context and sends its `X-Project-Id`; a missing
 identity returns `428` and an inactive identity returns `409`. Versioned operations such as save,
@@ -234,6 +338,18 @@ the content, and publishes a collision-safe file under project-local `assets/imp
 the project mutation lease. Import itself does not rewrite the Project document; the ordinary editor
 mutation assigns the resulting project-relative path to a screen element or background.
 
+Capture import names every capture resource `assets/imports/<capture-key>-<digest12>.png`, where the
+capture key is `slugify(platform-device-locale-stem)` (`captureImportKey`) and the digest prefix is
+the SHA-256 of the bytes. That filename is the persisted refresh identity, so its derivation must not
+change: `import --refresh` repoints every raster reference in the selected layout (image backgrounds,
+screenshot, image, and device-frame leaves, including group children) whose `assetUrl` is exactly
+that key with any digest to the new bytes. Refresh never adds, removes, reorders, or resizes screens
+or elements; a capture nothing references is reported, not added. Because a key has one owner, add
+mode refuses (`duplicate-capture-key`) a capture whose key repeats in the input or is already
+referenced in the layout. Replaced files stay on disk,
+unreferenced. Captures imported before the key naming (resources named after a suffixed screen id)
+are not matched.
+
 Custom fonts are registered project assets under `assets/fonts/`. The shared renderer also ships a
 small versioned built-in font catalog so text authoring works before a project adds font resources.
 Built-in identities resolve to local renderer-owned bytes in both editor and CLI export. Operating
@@ -251,7 +367,8 @@ so it does not make the operating system a dependency of the project.
 
 Themes and project templates are project-local inputs that produce ordinary strict Project literals.
 The application also ships global read-only built-in template, screen pack, and Design Packs
-catalogs, defined in code and never read from disk. Selecting a built-in template materializes an
+catalogs, defined in code and never read from disk; a project may add its own packs in the same
+shapes (see Project packs below). Selecting a built-in template materializes an
 ordinary editable root or root/target-variant pair. A built-in screen pack (`TemplatePack`: id, name,
 platform, device, style tag, and an ordered list of `ScreenTemplate`s) appends each of its screens the
 same way, in one project update; the style tag names the Design pack its literals were baked from and
@@ -272,14 +389,59 @@ reuse those six screens for the four styles whose background has no horizontal c
 shape art drawn once across the pack's strip. Each shape belongs to the screen holding its left edge
 and leads that screen's elements, so connected rendering draws it behind every later screen's copy
 and device. A panorama pack is added only whole and only to a connected layout; its screens are not
-single templates, because each carries just its share of the art. Applying a Design pack writes its solid or linear-gradient background to every
+single templates, because each carries just its share of the art. Showcase packs (Midnight and Poster on both phones)
+reuse the same six-screen stack but stage each slot differently through `SHOWCASE_SLOTS`: text above
+or below, a device tilted about its centre (stored as a literal `rotation` with the top-left `x`/`y`
+Konva needs), a second smaller `device-frame` behind the first on Feature 1, and a stat headline on
+Social proof. Every device's rotated bounds stay inside the artboard width and clear of every text box. Applying a Design pack writes its solid or linear-gradient background to every
 screen of the target layout, including exact-target variants, and bakes palette and typography into
-role-tagged element literals. Typography sizes are fractions of each screen's artboard short side,
+role-tagged element literals, replacing a role-tagged shape's gradient with its solid palette color. Typography sizes are fractions of each screen's artboard short side,
 and letter spacing is a fraction of the baked size, so one pack fits artboards from 384 to 3840 px.
 Applying a pack does not move or resize elements; the pack id is not persisted. No global template,
 screen pack, or Design pack definition is copied into a project, and no catalog becomes hidden
 renderer state. Asset preprocessing is explicit and non-destructive;
 results are new local files that a user may deliberately assign to an element.
+
+### Project packs
+
+A project may carry its own packs in `packs/<id>/` next to `app-store-screenshots.json`, so a team
+can copy a house pack between projects. Each folder holds exactly one manifest:
+`screen-pack.json` is a `TemplatePack` and `design-pack.json` a `DesignPack`, validated by the same
+strict schemas as the built-in catalogs (`packages/core/src/templates`, `packages/core/src/themes`),
+so there is no second format or validator and no project field. The folder name must equal the pack
+id, and an id that repeats a built-in pack of the same kind is rejected, so lookup by id is never
+ambiguous.
+
+The trust boundary matches other project resources. `@screenshot-studio/core/packs` reads packs on
+the server or in the CLI only; the browser receives parsed packs from the fenced `GET /api/themes`
+route. Screen pack asset URLs are `ProjectRelativePath`s, which rejects `..`, absolute paths, and
+schemes, and they resolve against the pack folder. Every manifest and asset must be a regular file
+whose canonical path equals its lexical path, so a symbolic link anywhere below the project folder
+(the `packs/` folder, a pack folder, or an asset ancestor) is refused, and files open with no-follow
+flags and an identity check. A manifest is capped at 1 MB and an asset at the 25 MB upload cap,
+checked before reading. Asset names that project archives drop (hidden, credential-like, or
+temporary) are refused, so a pack survives an archive round trip. Design packs carry no assets: their
+background is solid or gradient. Discovery (`listProjectPacks`) never throws for a broken pack. It
+returns the valid packs plus one `{ file, message }` per broken entry, with errno failures reduced to
+their code so no absolute path reaches the browser, and the picker and `template list`/`theme list`
+show both. Listing reads only each asset's leading bytes to recognize PNG, JPEG, or WebP; applying
+reads the whole file and runs the same decode and pixel-limit checks as an uploaded image.
+
+Applying a screen pack runs inside the project mutation lease. Each referenced asset is published
+through the managed-resource path as `assets/packs/<id>/<sha256-12>-<stem>.<ext>`, with the stem
+sanitized and bounded like an upload's and the extension of the decoded format (create-only, so a
+re-apply converges and an edited pack gets a new file), the pack is rewritten to those paths, and
+the result goes through `createScreensFromTemplatePack`, the path built-in packs use. Files created
+by an update that rolls back are removed. The project document therefore references only ordinary
+project assets and stays portable without its `packs/` folder; `packs/` is still a supported
+project archive root. `template export-pack <layout-id> --out packs/<id>` snapshots one layout's
+root screens (one locale, one output family, left-to-right) with literal artboards and copies each
+referenced asset to the same relative path inside the pack folder. A relative `--out` resolves
+against the project folder and must be exactly `packs/<slug>` there; a symbolic link is refused.
+Under the project mutation lease it refuses an existing folder unless `--force` is given, and then
+overwrites that screen pack's files one by one: files the new pack does not write stay in place,
+and nothing is deleted. Packs
+carry no font files, so text in a non-built-in font applies only where that font is registered.
 
 ## 6. Interfaces for people and tools
 
@@ -295,6 +457,9 @@ otherwise uses `preferredExportLayoutId`.
 That guide teaches literal layout, copy, localization, local asset processing, a list-pick-edit
 "choose a style" flow over built-in packs, and schema guardrails without adding provider state or an
 AI dependency. The optional repository skill only discovers or initializes such a project, then defers to its generated guide.
+Its `references/` hold the art-direction guide (slide story, copy rules, and a pattern catalog limited
+to existing schema fields, with an export-and-look loop) and the read-only critic rubric; both are
+instructions, never project state.
 
 The editor may run an official agent CLI that the user installed and signed in to with their own
 subscription. The static server registry in `apps/web/lib/agents` defines each agent's binary,
@@ -305,7 +470,14 @@ the CLI's own `--version`, `--help`, and auth-status commands under a timeout th
 tree, shares one probe round between reads for a few seconds, and answers loopback Hosts only. It
 never reads credential files and returns states, never account identity. Every agent process receives
 an allowlisted environment, so API keys and provider switches in the server environment cannot move a
-CLI off the subscription. A future Claude Code release may default `-p` to `--bare`, which ignores the
+CLI off the subscription. The same allowlist keeps store credential variables away from agents, and
+`agentEnv()` adds `SCREENSHOT_STUDIO_AGENT=1`; `screenshots upload` refuses to run when that variable
+is set, even with `--dry-run`. The marker is an accident guard, not a security boundary: an agent can
+unset it, and `--service-account <path>` or `--key-path <path>` accepts any key file the agent process
+can read. An external
+agent the user starts in a terminal inherits the user's environment and carries no marker, so for
+external agents the protection is instruction-only: the project guide and skill describe `upload` as
+human-only. A future Claude Code release may default `-p` to `--bare`, which ignores the
 subscription, so any release whose `--help` no longer lists `--bare` as opt-in reports
 `unsupported-version`; a flip the help check misses still cannot bill an API key, because the
 environment carries none. `models` lists exact model IDs with display labels, the default first, so the
@@ -321,23 +493,52 @@ without the user's consent (`403 consent-required`). Consent is app-level local 
 `POST /api/agents/consent` grants or revokes it for `at-own-risk` agents only, behind the project
 session's `X-Project-Id` header so a cross-site page cannot grant it, and `/api/agents` reports each
 agent's `consented` outside its probe cache; a grant for an agent without an adapter is refused. Consent
-is checked again after the readiness probe, right before launch. Antigravity `agy` is listed with its
+is checked again after the readiness probe, right before launch. Store upload keys are app-level too: one
+`0600` file per store in `<data root>/store-credentials/` (`0700`, with a `*` `.gitignore`, since the
+default data root `.screenshot-studio` sits under the launch directory; the installed CLI instead
+passes its packaged host a per-user data folder, because that host runs from a temporary copy it
+deletes on stop): `google-play-service-account.json`
+is the service-account key as downloaded, and `app-store-connect.json` holds `{ keyId, issuerId }`
+next to `app-store-connect.p8`, the key the Apple upload CLI reads by path. Saving is refused when that
+folder, with symlinks resolved, is inside the active project folder, or when the folder itself is a
+symlink; the project archive never includes it. `/api/store-credentials` (loopback Host,
+`X-Project-Id`, bodies over 64 KiB refused before reading) sets, clears, and reports
+`{ configured, updatedAt }` per store and never returns key material; setting and clearing wait for an
+editor-started agent run (`423`) like edits do; only the upload routes use a key: the plan route
+reads the App Store versions with it and the upload route hands the file path to the CLI.
+The trust boundary is the
+user account: any process of the same user can read the data root and call the local API, so the plan
+hash stops an unconfirmed or stale upload from the editor, not a hostile local process. Agent routes
+have no path to the plan, upload, or key store, `/api/upload/plan` and `/api/upload` are refused
+(`423`) while an editor-started agent runs, and the CLI's agent marker still refuses the command
+inside an agent session. Antigravity `agy` is listed with its
 `at-own-risk` policy but has no adapter (it has no auth-status command, and its stream was never run
 because that is the account-ban case), so it reports `no-adapter` and never runs. An agent whose CLI
 has no auth-status command (GitHub Copilot CLI, OpenCode) reports `ready` from its version alone, with no
 auth mode; a lost sign-in then surfaces as the run's `not-authorized` error. A run in the project folder,
 at most one per project, receives the user message on stdin (prefixed with the project instructions for a
 CLI without a system-prompt flag) plus any variables its adapter sets over the allowlisted environment,
-and streams normalized events. Completion, cancel, timeout, or server exit kills its
-whole process tree.
+and streams normalized events. Completion, cancel, timeout, a SIGTERM or SIGINT to
+the server, or server exit kills its whole process tree. Permanently deleting a managed project stops
+its run and waits for the verdict before the folder moves, and a run whose folder is gone never writes
+it back. Its instructions name the guide bundled with
+the CLI as the workflow contract and call every project file, `AGENTS.md` and `CLAUDE.md` included,
+untrusted data, since a project can come from someone else's archive; Claude Code runs with
+`CLAUDE_CODE_DISABLE_CLAUDE_MDS=1` and Codex with `project_doc_max_bytes=0`, so neither loads them.
 
-Codex runs as `codex exec --json` in the `workspace-write` sandbox (writes only to the project folder
-and temp directories, no network) with approvals set to `never`. It ignores `$CODEX_HOME/config.toml`
+Codex runs as `codex exec --json` in a permission profile that extends the built-in `:workspace` one
+(writes only to the project folder and temp directories, no network) with approvals set to `never`.
+`--sandbox` would override the profile, so the adapter does not pass it, and Codex below the version
+floor reports `unsupported-version`, because the profile was only verified from that version on. It ignores `$CODEX_HOME/config.toml`
 and the execpolicy rules, whose `allow` decisions bypass the sandbox. Web search and the connector,
 plugin, browser, computer-use, memory, hook, and sub-agent features are off. The server reads only
 `cli_auth_credentials_store` from that file (`file` when absent) and passes it to both the readiness
 probe and the run; an `ephemeral` store reports not signed in. Unlike Claude Code's restricted tools,
-Codex has no command allowlist and can read the whole disk. It may also edit project files directly;
+Codex has no command allowlist and can read the whole disk except `<data root>/store-credentials/`, the
+one folder its profile closes. Claude Code gets the same folder as a `Read` deny rule, which also binds
+Glob and Grep, and as `sandbox.filesystem` entries for Bash. `allowUnsandboxedCommands` is off, so no
+Bash command can leave Claude Code's sandbox; the editor renders for the run instead. `font add --google`
+needs network, so it fails inside both sandboxes and the user adds that font in the Fonts dialog. Codex may also edit project files directly;
 only `app-store-screenshots.json` is covered by the run's schema verdict and Undo run, and the run's
 result lists the other files it changed.
 
@@ -345,13 +546,16 @@ GitHub Copilot CLI (1.0.93 or later) and OpenCode 2 (2.1.0 or later, on OpenCode
 provisional adapters: their stream fixtures come from documentation, source, and user reports, not
 from local runs, until runs on test accounts replace them. Copilot runs in prompt mode with
 `--output-format json`, only the `bash`, `view`, `glob`, and `grep` tools, `shell(screenshots:*)`
-allowed and `screenshots dev` denied, its sandbox on, built-in MCP servers, remote access, the temp
-directory, and custom instructions off, and `COPILOT_SKILLS_DIRS` pointing at the bundled skill.
-User hooks and saved approvals still apply, and its sandbox only warns on a host it cannot sandbox,
-so such a warning fails the run. OpenCode runs `run --format json --pure` with an explicit Go model and
-an `OPENCODE_PERMISSION` that denies edits, web tools, other folders, and sub-agents and allows only
-`screenshots` (not `screenshots dev`) in the shell; `OPENCODE_DISABLE_CLAUDE_CODE` keeps the user's
-`~/.claude/CLAUDE.md` out. Its prompt goes on stdin, keeping the user's text out of the process list.
+allowed and `screenshots dev` denied, reads of the store key folder denied, its sandbox on, built-in MCP
+servers, remote access, the temp directory, and custom instructions off, and `COPILOT_SKILLS_DIRS` pointing
+at the bundled skill. User hooks and saved approvals still apply, its sandbox only warns on a host it cannot
+sandbox, so such a warning fails the run, and the read denial is not known to cover the read-only shell
+commands Copilot approves on its own, so the store keys are not yet closed as they are for Claude Code and Codex. OpenCode runs `run --format json --pure` with an explicit Go model and
+an `OPENCODE_PERMISSION` that denies edits, web tools, sub-agents, and every other folder except the bundled
+guide, the skill, and the run's images, with the store key folder denied last, and allows only `screenshots`
+(not `screenshots dev`) in the shell; `OPENCODE_DISABLE_CLAUDE_CODE` keeps the user's `~/.claude/CLAUDE.md` out,
+and `OPENCODE_DISABLE_PROJECT_CONFIG` is meant to keep a project's own `AGENTS.md` and `opencode.json` out, which
+no local run has confirmed. Its prompt goes on stdin, keeping the user's text out of the process list.
 OpenCode has no sandbox, and a managed OpenCode config can override the permission rules.
 
 A request may carry up to 5 PNG, JPEG, or WebP images of at most 10 MB each as context for that run.
@@ -395,7 +599,7 @@ pending so `/api/agents/outcome` can `keep` it (drop the snapshot) or `undo` it 
 as one locked write, refused once the editor has written past the run's revision). Every `result`,
 accepted or rejected, also carries `otherFiles`: the files outside `app-store-screenshots.json` that
 were added, changed, or removed in the project folder during the run, as relative paths (the first 50,
-`AGENTS.md` and `CLAUDE.md` first, since later runs read them) with a total count. The server compares
+`AGENTS.md` and `CLAUDE.md` first, since agents started outside the editor read them) with a total count. The server compares
 an `lstat` fingerprint (mode, size, mtime, ctime) of every entry taken right after the snapshot with
 one taken once the process tree is dead; symlinks are recorded, never followed, and the project
 file's own temp and lock files and `.DS_Store` are skipped. A folder of more than 5,000 entries, or
@@ -404,6 +608,72 @@ commands (imported images, fonts, themes, templates, exports) are listed the sam
 rejected verdict, Undo run, nor Stop restores these files; the pending outcome keeps the list for the
 review. A run cancelled before launch never touched the project and ends with `done: cancelled` alone. Undo is per run, not
 per change; snapshots live in server memory, so a restart drops a pending undo.
+
+A session request may set `mode: "critic"` (default `edit`; any other value is `400`). The critic
+gets the same agent, sandbox, and tool restrictions, but its instructions point at the skill's
+read-only `references/critic.md` instead of `references/art-direction.md`, and the run is refused
+with `409 critic-unavailable` when that file is missing. The server looks for the skill beside the
+store specs, so the packed CLI ships `SKILL.md` and both references under `runtime/skills/` (a
+custom `--store-specs` path leaves them out). Read-only is enforced by the verdict, not by
+the sandbox, because the critic must export to see the set: a critic run that changed or broke
+`app-store-screenshots.json` is restored from its snapshot as `result: rejected`. A critic run never
+drops or replaces the pending outcome of the run it reviews; after such a restore that outcome's
+revision follows the rewritten file, so Undo run still works. Its exports are listed in `otherFiles`.
+
+Agent sandboxes cannot render: `listen` is denied, and with local binding allowed Chromium still dies on a
+denied Mach port. So the editor renders for its run, outside the sandbox, through one inbox folder per
+run, whose path reaches only that run's process as `SCREENSHOT_STUDIO_RENDER_INBOX` (never `agentEnv`, so
+neither the probes nor the server's own environment can set it). With that variable set, `screenshots
+export` and `check --render` write a request file and print the answer; every other command, and every
+command without the variable, behaves as in a terminal. The protocol is `@screenshot-studio/core/agent-render`,
+the broker `apps/web/lib/agents/agent-render-*.server.ts`. The inbox lives under `/tmp/claude-<uid>/`
+because that is the one temp folder both sandboxes can already write: Claude Code's sandbox cannot write
+the operating-system temp folder or other `/tmp` paths, and Codex's workspace profile covers `/tmp`. It
+is outside the project, so `folderManifest` never lists it.
+
+The agent is untrusted and the broker runs with the user's rights, so:
+
+- A request names only what the agent chooses: `screen`, `size`, `layout`, `locale`, `platform`, `device`,
+  `profile` for export; `render`, `json`, `strict`, `layout` for check. The strict schema refuses anything
+  else, and the CLI refuses `--project`, `--out`, `--browser`, and `--store-specs` first with a clear
+  message. The editor passes its own project path and no `out`, because an explicit `--out` follows links
+  and the default `<project>/export` never does. `upload` is not routable.
+- The agent can write the inbox's parent, so the folder's identity (no link, same device and inode, same
+  real path) is checked on every poll and before each read and write; a mismatch or more than 1,024
+  entries stops the broker. Request names match a strict pattern, and a request is read no-follow,
+  non-blocking, as one regular file with one link and at most 4 KiB. An invalid one gets one fixed answer
+  that quotes nothing, since a request can be a link to a key. Markers are exclusive no-follow creates
+  touched through their held handle, and responses are `publishFileSafely` create-only publications, so a
+  planted file costs the agent only its own answer.
+- One job runs at a time, with up to 4 queued and 128 requests per run; a response is at most 1 MiB. The
+  editor marks a request as picked up when it sees it, queued or not, and heartbeats the marker every
+  2 s. The CLI fails after 10 s without a marker or 20 s without a beat, so a long bundle stays alive and
+  a dead editor still ends the wait.
+- A job calls `runExportCommand` or `runCheckCommand` with `startWebServer` returning this Next host, as
+  `/api/upload` does, so there is no second render path. It holds what `/api/export` holds (the managed
+  lifecycle read guard, the stable-export publish guard, pinned Chromium with `SCREENSHOTS_BROWSER`
+  ignored), but skips the agent-run write fence, which would answer 423 for its own run. The project file
+  must be a regular file with one link at its exact real path, before the job and again before it
+  publishes, and publication must target the pinned `export` folder; otherwise an export would write beside
+  a link's target. These checks narrow but cannot close a race, the limit
+  [Safe file publication](safe-file-publication.md) states. An agent that swaps the project file right
+  after the check makes the editor read the swapped file and briefly create its lock directory beside it,
+  but the fixed messages below keep the content from it and the pinned root refuses the output. One that
+  swaps `export` or an ancestor during publication can at most put a PNG or ZIP with a generated name in
+  another folder.
+- Only messages a command raises on purpose reach the agent. A project parse error can quote the file it
+  read, which a swapped-in link could make a key, so every other error class, the render host's error
+  text, and `check`'s `invalid-project` message are fixed text pointing at a plain `screenshots check`,
+  which runs inside the sandbox and can only read what the agent can.
+- A run owns its broker. Before the verdict the broker stops listening, cancels, waits for any job that
+  holds the guard, and removes the inbox. Undo run and project deletion wait for the same verdict, so
+  nothing publishes after the snapshot is judged or the folder moves. A job still waiting for the guard
+  is not awaited, because deletion holds that lock while it stops the run; it sees the cancel when it
+  gets the lock. A cancelled job finishes its current render at most, and publishes nothing.
+
+Broker output goes to `<project>/export`, like an export a run made itself: `otherFiles` lists it,
+Undo run and a rejected verdict leave it in place, and a critic run stays accepted because the project
+file did not change. A CLI older than this protocol ignores the variable and fails to render as before.
 
 The agent resolves `screenshots` from the server's `PATH`. In a source checkout `pnpm dev` puts
 `apps/web/node_modules/.bin` first, and its `screenshots` runs `packages/cli/bin/screenshots.mjs`. That

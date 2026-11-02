@@ -3,8 +3,10 @@
 
 import { useRef, type RefObject } from "react";
 import type Konva from "konva";
-import type { Element } from "@screenshot-studio/core/model";
-import type { CommonElementPatch } from "@web/lib/editor/editor-element-patch.js";
+import type {
+  CommonElementPatch,
+  Element,
+} from "@screenshot-studio/core/model";
 import { isSelected, type SelectionRef } from "@web/lib/editor/editor-selection.js";
 import { snapElementDrag, type SnapGuide } from "@web/lib/editor/editor-snapping.js";
 import type { StageProjection } from "./stage-model.js";

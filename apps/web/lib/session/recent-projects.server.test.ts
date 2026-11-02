@@ -221,6 +221,26 @@ describe("RecentProjectsStore", () => {
     expect((await store.list()).entries).toHaveLength(1);
   });
 
+  it("opens a local project path into history and returns the same entry id when it is opened again", async () => {
+    const storage = await config();
+    const store = new RecentProjectsStore(storage, {
+      createRecentId: () => "recent_00000000000000000000000000000001",
+      catalog: { listActive: vi.fn(async () => []) },
+      validateLocal: vi.fn(async () => ({ name: "Local 1" })),
+    });
+    const openLocal = vi.fn(async () => localSession(1));
+    const registry = { openLocal } as unknown as ProjectSessionRegistry;
+
+    const first = await store.openLocal("/Users/alex/private-1/app-store-screenshots.json", registry);
+    const second = await store.openLocal("/Users/alex/private-1/app-store-screenshots.json", registry);
+
+    expect(openLocal).toHaveBeenCalledWith("/Users/alex/private-1/app-store-screenshots.json");
+    expect(first).toBe("recent_00000000000000000000000000000001");
+    expect(second).toBe(first);
+    expect((await store.list()).entries.map(({ recentId, sourceKind }) => ({ recentId, sourceKind })))
+      .toEqual([{ recentId: first, sourceKind: "local-file" }]);
+  });
+
   it("keeps unavailable local sources browser-safe and never records or replaces state after failed activation", async () => {
     const storage = await config();
     const localPath = "/Users/alex/Secret Project/app-store-screenshots.json";

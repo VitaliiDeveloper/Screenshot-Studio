@@ -15,6 +15,7 @@ import {
   setOutputFamilyScreenSetMode,
 } from "./project-ops.js";
 import { sampleProject } from "./project-ops-test-fixtures.js";
+import type { Element, Project } from "./schema.js";
 
 describe("project-ops", () => {
   it("creates an independent exact store-target variant without mutating the root", () => {
@@ -631,5 +632,154 @@ describe("project-ops", () => {
       .toThrow('Cannot remove the last root screen for locale "uk"');
     expect(removeScreenFromProject(withUkrainian, "default", "details").layouts[0]!.screens.map((screen) => screen.id))
       .toContain("uk-root");
+  });
+});
+
+describe("synchronizing keeps exact-size pairs", () => {
+  const exactRow = (project: Project, targetId = "6.5") =>
+    project.layouts[0]!.screens.filter((screen) => screen.storeTargetId === targetId);
+  const primaryRow = (project: Project) =>
+    project.layouts[0]!.screens.filter((screen) => screen.storeTargetId === undefined);
+  const synchronize = (project: Project) =>
+    setOutputFamilyScreenSetMode(project, "default", "hero", "synchronized");
+
+  function addExact(project: Project, id: string, variantOf?: string, storeTargetId = "6.5"): void {
+    project.layouts[0]!.screens.push({
+      ...structuredClone(project.layouts[0]!.screens[0]!),
+      id,
+      name: id,
+      storeTargetId,
+      artboard: { width: 1284, height: 2778 },
+      elements: [],
+      ...(variantOf ? { variantOf } : {}),
+    });
+  }
+
+  const textElement = (id: string, content: string): Element => ({
+    id, type: "text", x: 100, y: 200, width: 500, height: 100,
+    rotation: 0, opacity: 1, locked: false, visible: true,
+    content, fontFamily: "Inter", size: 60, weight: 400,
+    lineHeight: 1.2, letterSpacing: 0, align: "left", color: "#FFFFFF",
+  });
+
+  it("keeps a variant of the second screen on that screen", () => {
+    const source = sampleProject();
+    source.layouts[0]!.screens[0]!.elements = [textElement("hero-copy", "Hero copy")];
+    source.layouts[0]!.screens[1]!.elements = [textElement("details-copy", "Details copy")];
+    const { project, variant } = ensureStoreTargetVariant(source, "default", "details", {
+      id: "6.5", width: 1284, height: 2778,
+    });
+
+    const [heroSlot, detailsSlot] = exactRow(synchronize(project));
+
+    expect(detailsSlot).toEqual(variant);
+    expect(heroSlot).toMatchObject({
+      name: "Hero",
+      variantOf: "hero",
+      artboard: { width: 1284, height: 2778 },
+      elements: [{ content: "Hero copy" }],
+    });
+    expect(heroSlot!.id).not.toBe(variant.id);
+    expect(heroSlot!.elements[0]!.width).toBeLessThan(500);
+  });
+
+  it("keeps pairs and aligns them to the primary order when the row is out of order", () => {
+    const source = sampleProject();
+    addExact(source, "small-details", "details");
+    addExact(source, "small-hero", "hero");
+
+    const row = exactRow(synchronize(source));
+
+    expect(row.map(({ id, variantOf }) => [id, variantOf])).toEqual([
+      ["small-hero", "hero"],
+      ["small-details", "details"],
+    ]);
+  });
+
+  it("gives a standalone screen the free slot instead of a paired screen's slot", () => {
+    const source = sampleProject();
+    addExact(source, "standalone");
+    addExact(source, "small-hero", "hero");
+
+    const row = exactRow(synchronize(source));
+
+    expect(row.map(({ id, variantOf }) => [id, variantOf])).toEqual([
+      ["small-hero", "hero"],
+      ["standalone", "details"],
+    ]);
+  });
+
+  it("materializes extra primary slots from unplaced screens when a row is longer", () => {
+    const source = sampleProject();
+    addExact(source, "standalone-1");
+    addExact(source, "standalone-2");
+    addExact(source, "small-hero", "hero");
+    addExact(source, "other-details", "details", "5.5");
+
+    const synchronized = synchronize(source);
+    const primaries = primaryRow(synchronized);
+
+    expect(primaries.map(({ name }) => name)).toEqual(["Hero", "Details", "standalone-2"]);
+    expect(exactRow(synchronized).map(({ id, variantOf }) => [id, variantOf])).toEqual([
+      ["small-hero", "hero"],
+      ["standalone-1", "details"],
+      ["standalone-2", primaries[2]!.id],
+    ]);
+    const otherRow = exactRow(synchronized, "5.5");
+    expect(otherRow.map(({ variantOf }) => variantOf)).toEqual(primaries.map(({ id }) => id));
+    expect(otherRow[1]!.id).toBe("other-details");
+  });
+
+  it("lets the first of two screens paired to one primary keep the pair", () => {
+    const withFreeSlot = sampleProject();
+    addExact(withFreeSlot, "first", "hero");
+    addExact(withFreeSlot, "second", "hero");
+
+    expect(exactRow(synchronize(withFreeSlot)).map(({ id, variantOf }) => [id, variantOf])).toEqual([
+      ["first", "hero"],
+      ["second", "details"],
+    ]);
+
+    const withoutFreeSlot = sampleProject();
+    addExact(withoutFreeSlot, "first", "hero");
+    addExact(withoutFreeSlot, "second", "hero");
+    addExact(withoutFreeSlot, "small-details", "details");
+
+    const synchronized = synchronize(withoutFreeSlot);
+    const primaries = primaryRow(synchronized);
+    expect(primaries.map(({ name }) => name)).toEqual(["Hero", "Details", "second"]);
+    expect(exactRow(synchronized).map(({ id, variantOf }) => [id, variantOf])).toEqual([
+      ["first", "hero"],
+      ["small-details", "details"],
+      ["second", primaries[2]!.id],
+    ]);
+  });
+
+  it("treats a variantOf that points outside the family as unpaired", () => {
+    const source = sampleProject();
+    source.layouts[0]!.screens.push({
+      ...structuredClone(source.layouts[0]!.screens[0]!),
+      id: "hero-de",
+      locale: "de",
+    });
+    addExact(source, "small-foreign", "hero-de");
+    addExact(source, "small-hero", "hero");
+
+    const row = exactRow(synchronize(source));
+
+    expect(row.map(({ id, variantOf }) => [id, variantOf])).toEqual([
+      ["small-hero", "hero"],
+      ["small-foreign", "details"],
+    ]);
+  });
+
+  it("leaves screens that are already in slot order untouched", () => {
+    const source = sampleProject();
+    addExact(source, "small-hero", "hero");
+    addExact(source, "small-details", "details");
+    addExact(source, "other-hero", "hero", "5.5");
+    addExact(source, "other-details", "details", "5.5");
+
+    expect(synchronize(source).layouts[0]!.screens).toEqual(source.layouts[0]!.screens);
   });
 });

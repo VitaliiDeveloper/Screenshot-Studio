@@ -1,8 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import {
-  flushScheduledSave,
-  saveLatestProject,
-} from "./debounced-save.js";
+import { saveProjectNow } from "./debounced-save.js";
 import {
   MAX_ZOOM,
   MIN_ZOOM,
@@ -95,11 +92,9 @@ export function clearWorkspaceNavigationState(projectId: string, storage?: Stora
 }
 
 export async function navigateToProjects(dependencies: {
-  flushPending?: () => Promise<void>;
-  saveLatest?: () => Promise<void>;
+  save?: () => Promise<void>;
   navigate: () => void;
 }): Promise<void> {
-  await (dependencies.flushPending ?? flushScheduledSave)();
-  await (dependencies.saveLatest ?? saveLatestProject)();
+  await (dependencies.save ?? saveProjectNow)();
   dependencies.navigate();
 }

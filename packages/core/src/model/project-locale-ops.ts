@@ -7,7 +7,7 @@ import {
   type ScreenSetMode,
   type Screen,
 } from "./schema.js";
-import { mirrorElement } from "./element-tree.js";
+import { mirrorBackground, mirrorElement } from "./element-tree.js";
 import { cloneScreenWithFreshIds } from "./project-screen-ops.js";
 import { getLayout, layoutLocales, replaceLayout } from "./project-layout.js";
 import { fitElementsToArtboard } from "./project-artboard-ops.js";
@@ -23,10 +23,11 @@ export function cloneLocaleSet(
   project: ProjectModel,
   layoutId: string,
   sourceLocale: string,
-  targetLocale: string,
+  rawTargetLocale: string,
   targetDirection?: LayoutDirection,
 ): ProjectModel {
-  if (!targetLocale.trim()) throw new Error("Target locale must not be empty");
+  const targetLocale = rawTargetLocale.trim();
+  if (!targetLocale) throw new Error("Target locale must not be empty");
 
   const layout = getLayout(project, layoutId);
   const sourceScreens = layout.screens.filter((screen) => screen.locale === sourceLocale);
@@ -287,8 +288,7 @@ export function setScreenDirection(screen: Screen, direction: LayoutDirection): 
   if (currentDirection === direction) return ScreenSchema.parse(screen);
 
   const elements = screen.elements.map((element) => mirrorElement(element, screen.artboard.width));
-
-  return ScreenSchema.parse({ ...screen, direction, elements });
+  return ScreenSchema.parse({ ...screen, direction, background: mirrorBackground(screen.background), elements });
 }
 
 /** Change every screen in a locale together so the locale set keeps one direction. */

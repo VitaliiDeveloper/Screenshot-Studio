@@ -96,7 +96,8 @@ export const AGENT_DEFINITIONS: readonly AgentDefinition[] = [
     id: "codex",
     name: "Codex",
     binary: "codex",
-    minVersion: "0.162.1",
+    // The first version verified to honour the permission profile that closes the store key folder.
+    minVersion: "0.166.0",
     authStatusArgs: ["login", "status"],
     // Codex has no stable model aliases and no model-list command; models were withdrawn before.
     models: [],
@@ -199,11 +200,17 @@ const PASSTHROUGH_PREFIXES = ["LC_", "XDG_"];
  * the user's subscription, and the server environment may hold unrelated secrets.
  */
 export function agentEnv(source: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
-  return Object.fromEntries(Object.entries(source).filter(([name, value]) => {
+  const env = Object.fromEntries(Object.entries(source).filter(([name, value]) => {
     const key = name.toUpperCase();
     return value !== undefined
       && (PASSTHROUGH_ENV.has(key) || PASSTHROUGH_PREFIXES.some((prefix) => key.startsWith(prefix)));
   })) as NodeJS.ProcessEnv;
+  // `screenshots upload` refuses to run under this marker, so an agent does not run it by accident.
+  env.SCREENSHOT_STUDIO_AGENT = "1";
+  // Claude Code would load a project's CLAUDE.md and AGENTS.md as instructions even under
+  // `--restricted`, and an imported project's guides are untrusted.
+  env.CLAUDE_CODE_DISABLE_CLAUDE_MDS = "1";
+  return env;
 }
 
 export interface AgentSpawnOptions {

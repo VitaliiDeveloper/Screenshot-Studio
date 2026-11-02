@@ -153,9 +153,9 @@ export function ProjectGallery({
       <div className="mb-5 flex items-end justify-between gap-4">
         <div>
           <p className={editorUi.sectionLabel}>Your workspace</p>
-          <h2 id="recent-projects-title" className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">Recent projects</h2>
+          <h2 id="recent-projects-title" className="mt-2 text-2xl font-semibold tracking-tight text-[color:var(--editor-color-text-strong)]">Recent projects</h2>
         </div>
-        <p className="hidden text-sm text-slate-500 sm:block">Select a project to continue editing.</p>
+        <p className="hidden text-sm text-[color:var(--editor-color-text-secondary)] sm:block">Select a project to continue editing.</p>
       </div>
       {actionError ? <p role="alert" className={`mb-5 ${editorUi.statusError}`}>{actionError}</p> : null}
       <ul className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
@@ -175,7 +175,7 @@ export function ProjectGallery({
             <ProjectPreviewStrip entry={entry} />
             {unavailable ? (
               // Pinned over the preview's top edge so the card body matches available cards.
-              <span className="absolute inset-x-0 top-0 flex items-center justify-between gap-3 border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
+              <span className="absolute inset-x-0 top-0 flex items-center justify-between gap-3 border-b border-[var(--editor-color-warning-border)] bg-[var(--editor-color-warning-surface)] px-3 py-2 text-xs text-[color:var(--editor-color-warning-text-strong)]">
                 <span className="line-clamp-2 min-w-0 text-left leading-5"><strong>Source unavailable.</strong> Reopen or import the source to continue.</span>
                 <button
                   type="button"
@@ -193,24 +193,24 @@ export function ProjectGallery({
             ) : null}
             <span className={cx("block p-5", !unavailable && "pr-14")}>
               <span className="flex items-center gap-2">
-                <span className="truncate text-base font-semibold text-slate-950">{entry.name}</span>
-                {index === 0 ? <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700">Most recent</span> : null}
+                <span className="truncate text-base font-semibold text-[color:var(--editor-color-text-strong)]">{entry.name}</span>
+                {index === 0 ? <span className="rounded-full bg-[var(--editor-color-accent-subtle)] px-2 py-0.5 text-[10px] font-semibold text-[color:var(--editor-color-accent-text-strong)]">Most recent</span> : null}
               </span>
-              <span className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
+              <span className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[color:var(--editor-color-text-secondary)]">
                 {[...new Set(entry.platforms.map((value) => projectOutputLabel(value, specs)))].join(" · ") || (unavailable ? "Local project" : "Project")}
                 <span aria-hidden="true">·</span>
                 <span>{plural(entry.screenCount, "screen")}</span>
                 <span aria-hidden="true">·</span>
                 <span>{plural(entry.layoutCount, "layout")}</span>
               </span>
-              <time className="mt-3 block text-xs text-slate-500" dateTime={entry.lastOpenedAt}>Updated {entry.lastOpenedAt.slice(0, 10)}</time>
+              <time className="mt-3 block text-xs text-[color:var(--editor-color-text-secondary)]" dateTime={entry.lastOpenedAt}>Updated {entry.lastOpenedAt.slice(0, 10)}</time>
             </span>
           </>;
           const leaving = leavingEntryId === entry.entryId;
           return (
             <li key={entry.entryId} data-entry-id={entry.entryId} data-motion={leaving ? "leaving" : undefined} inert={leaving || undefined} style={leaving ? { animationDuration: `${projectCardExitMs}ms` } : undefined} aria-busy={pending || undefined} className={cx(
-              "project-card group relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-[border-color,box-shadow,transform] duration-150",
-              !unavailable && "hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-lg motion-reduce:transform-none",
+              "project-card group relative overflow-hidden rounded-2xl border border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] shadow-sm transition-[border-color,box-shadow,transform] duration-150",
+              !unavailable && "hover:-translate-y-0.5 hover:border-[var(--editor-color-accent-border-strong)] hover:shadow-lg motion-reduce:transform-none",
             )}>
               {unavailable ? (
                 <div className="block w-full text-left">{cardContent}</div>
@@ -226,18 +226,18 @@ export function ProjectGallery({
                 </button>
               )}
               {!unavailable ? <details data-project-actions className="absolute bottom-4 right-4">
-                <summary aria-label={`More actions for ${entry.name}`} className={cx(editorUi.iconButton, "list-none cursor-pointer bg-white [&::-webkit-details-marker]:hidden")}><Ellipsis aria-hidden="true" className="size-4" /></summary>
-                <div className="absolute bottom-11 right-0 z-20 min-w-48 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
-                  <button type="button" disabled={Boolean(action)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 disabled:opacity-50" onClick={(event) => { closeProjectActionsMenu(event.currentTarget); onOpenDetails(entry.entryId); }}><Info aria-hidden="true" className="size-4" />Project details</button>
+                <summary aria-label={`More actions for ${entry.name}`} className={cx(editorUi.iconButton, "list-none cursor-pointer bg-[var(--editor-color-surface)] [&::-webkit-details-marker]:hidden")}><Ellipsis aria-hidden="true" className="size-4" /></summary>
+                <div className="absolute bottom-11 right-0 z-20 min-w-48 rounded-xl border border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] p-1.5 shadow-xl">
+                  <button type="button" disabled={Boolean(action)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-[color:var(--editor-color-text-default)] hover:bg-[var(--editor-color-surface-muted)] disabled:opacity-50" onClick={(event) => { closeProjectActionsMenu(event.currentTarget); onOpenDetails(entry.entryId); }}><Info aria-hidden="true" className="size-4" />Project details</button>
                   {entry.sourceKind === "managed-project" ? <>
-                    <button type="button" disabled={Boolean(action)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 disabled:opacity-50" onClick={(event) => { closeProjectActionsMenu(event.currentTarget); onExportArchive(entry.entryId); }}><Download aria-hidden="true" className="size-4" />Export archive</button>
-                    <div role="separator" className="my-1 border-t border-slate-200" />
-                    <button type="button" disabled={Boolean(action)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-red-700 hover:bg-red-50 disabled:opacity-50" onClick={(event) => { closeProjectActionsMenu(event.currentTarget); onDeleteProject(entry.entryId); }}><Trash2 aria-hidden="true" className="size-4" />Delete project…</button>
+                    <button type="button" disabled={Boolean(action)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-[color:var(--editor-color-text-default)] hover:bg-[var(--editor-color-surface-muted)] disabled:opacity-50" onClick={(event) => { closeProjectActionsMenu(event.currentTarget); onExportArchive(entry.entryId); }}><Download aria-hidden="true" className="size-4" />Export archive</button>
+                    <div role="separator" className="my-1 border-t border-[var(--editor-color-border)]" />
+                    <button type="button" disabled={Boolean(action)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-[color:var(--editor-color-danger-text)] hover:bg-[var(--editor-color-danger-surface)] disabled:opacity-50" onClick={(event) => { closeProjectActionsMenu(event.currentTarget); onDeleteProject(entry.entryId); }}><Trash2 aria-hidden="true" className="size-4" />Delete project…</button>
                   </> : null}
-                  {entry.sourceKind === "local-file" ? <button type="button" disabled={Boolean(action)} className="w-full rounded-lg px-3 py-2 text-left text-sm text-red-700 hover:bg-red-50 disabled:opacity-50" title="Removes history only; project files stay untouched." onClick={(event) => { closeProjectActionsMenu(event.currentTarget); onRemoveRecent(entry.entryId); }}>Remove from recents</button> : null}
+                  {entry.sourceKind === "local-file" ? <button type="button" disabled={Boolean(action)} className="w-full rounded-lg px-3 py-2 text-left text-sm text-[color:var(--editor-color-danger-text)] hover:bg-[var(--editor-color-danger-surface)] disabled:opacity-50" title="Removes history only; project files stay untouched." onClick={(event) => { closeProjectActionsMenu(event.currentTarget); onRemoveRecent(entry.entryId); }}>Remove from recents</button> : null}
                 </div>
               </details> : null}
-              {cardStatus ? <span key={cardStatus.key} data-motion={cardStatus.motion} className="project-card-action-status pointer-events-none absolute inset-0 z-10 grid place-items-center rounded-2xl bg-white/80 backdrop-blur-[1px]"><span role="status" className={cx("inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-medium shadow-sm", cardStatus.success ? "text-emerald-700" : "text-blue-700")}>{cardStatus.success ? <CircleCheck aria-hidden="true" className="size-4" /> : <LoaderCircle aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" />}{cardStatus.message}</span></span> : null}
+              {cardStatus ? <span key={cardStatus.key} data-motion={cardStatus.motion} className="project-card-action-status pointer-events-none absolute inset-0 z-10 grid place-items-center rounded-2xl bg-[var(--editor-color-surface-translucent)] backdrop-blur-[1px]"><span role="status" className={cx("inline-flex items-center gap-2 rounded-full border border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] px-3 py-2 text-xs font-medium shadow-sm", cardStatus.success ? "text-[color:var(--editor-color-success-text)]" : "text-[color:var(--editor-color-accent-text-strong)]")}>{cardStatus.success ? <CircleCheck aria-hidden="true" className="size-4" /> : <LoaderCircle aria-hidden="true" className="size-4 animate-spin motion-reduce:animate-none" />}{cardStatus.message}</span></span> : null}
             </li>
           );
         })}

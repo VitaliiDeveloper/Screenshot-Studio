@@ -6,21 +6,18 @@ import { useStore } from "zustand";
 import {
   Box,
   Circle,
-  Copy,
   Eye,
   EyeOff,
   Image as ImageIcon,
   Lock,
   LockOpen,
   MoreHorizontal,
-  Pencil,
   Plus,
   Smartphone,
   Square,
   Sparkles,
   Trash2,
   Type,
-  Ungroup,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -33,11 +30,14 @@ import {
 import { getScreen, type Element } from "@screenshot-studio/core/model";
 import { editorStore, selectEditorLayout, type CommonElementPatch } from "@web/lib/editor/editor-store";
 import { isSelected } from "@web/lib/editor/editor-selection";
+import { applyElementPatchToScope } from "@web/lib/editor/editor-apply-to";
 import { mutateAndSave } from "@web/lib/editor/mutate-and-save";
 import { elementLabel, elementTextDescription, viewToArrayIndex } from "@web/lib/panel-helpers";
 import { rowHoverControl, SortableRow, treeRowButton } from "./SortableRow";
-import { handleMenuKeyboardNavigation, shouldOpenMenuUpward } from "./editor-ui/menu-behavior.js";
+import { LayerActionsMenu } from "./LayerActionsMenu";
+import { shouldOpenMenuUpward } from "./editor-ui/menu-behavior.js";
 import { cx, editorUi } from "./editor-ui";
+import { useFocusRescue } from "./editor-ui/use-focus-rescue";
 
 export function LayersHeading({
   count,
@@ -90,13 +90,13 @@ const layerTextTone: Record<LayerTone, string> = {
 };
 const layerIconTone: Record<LayerTone, string> = {
   idle: "text-[color:var(--editor-color-text-subtle)]",
-  soft: "text-[color:var(--editor-color-accent-hover)]",
+  soft: "text-[color:var(--editor-color-accent-text-strong)]",
   solid: "text-[color:var(--editor-color-on-accent)]",
 };
 /** Icon buttons in a layer row: color plus a focus ring that stays visible on the row fill. */
 const layerButtonTone: Record<LayerTone, string> = {
   idle: "text-[color:var(--editor-color-text-subtle)] hover:text-[color:var(--editor-color-text-strong)] focus-visible:ring-[var(--editor-color-focus)]",
-  soft: "text-[color:var(--editor-color-accent-hover)] hover:text-[color:var(--editor-color-accent-strong)] focus-visible:ring-[var(--editor-color-focus)]",
+  soft: "text-[color:var(--editor-color-accent-text-strong)] hover:text-[color:var(--editor-color-accent-strong)] focus-visible:ring-[var(--editor-color-focus)]",
   solid: "text-[color:var(--editor-color-on-media-muted)] hover:text-[color:var(--editor-color-on-accent)] focus-visible:ring-[var(--editor-color-on-accent)]",
 };
 const lockedButtonTone: Record<LayerTone, string> = {
@@ -115,9 +115,6 @@ const nameFocusTone: Record<LayerTone, string> = {
  */
 const overlayNearLock = "absolute right-[30px] top-1/2 -translate-y-1/2 bg-inherit";
 const overlayBeforeThat = "absolute right-[56px] top-1/2 -translate-y-1/2 bg-inherit";
-const menuItemBase = "flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-[11px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)]";
-const menuItem = `${menuItemBase} text-[color:var(--editor-color-text-muted)] hover:bg-[var(--editor-color-surface-muted)] hover:text-[color:var(--editor-color-text-strong)]`;
-const menuItemDanger = `${menuItemBase} text-[color:var(--editor-color-danger)] hover:bg-[var(--editor-color-danger-surface)]`;
 
 function layerNameClass(element: Element, tone: LayerTone): string {
   return cx(
@@ -178,6 +175,10 @@ export function LayersSection({ onOpenAdd, screenId }: { onOpenAdd: () => void; 
   const [openActionsUpward, setOpenActionsUpward] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const actionButtonRefs = useRef(new Map<string, HTMLButtonElement>());
+  const addButtonRef = useRef<HTMLButtonElement>(null);
+  const lastActionRowRef = useRef<string | null>(null);
+  const focusRescue = useFocusRescue(() =>
+    actionButtonRefs.current.get(lastActionRowRef.current ?? "") ?? addButtonRef.current);
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -234,17 +235,18 @@ export function LayersSection({ onOpenAdd, screenId }: { onOpenAdd: () => void; 
   };
 
   const patch = (element: Element, p: CommonElementPatch) =>
-    mutateAndSave(() => editorStore.getState().patchElement({
+    applyElementPatchToScope({
       id: element.id,
       type: element.type,
       patch: p,
       screenId: activeScreenId,
-    }));
+      scope: "screen",
+    });
 
   const toneFor = (selected: boolean): LayerTone => !selected ? "idle" : selectedItems.length > 1 ? "soft" : "solid";
 
   return (
-    <div className="pb-1">
+    <div className="pb-1" {...focusRescue}>
       <header className="flex items-center justify-between py-1 pl-[42px] pr-3">
         <LayersHeading
           count={rows.length}
@@ -252,6 +254,7 @@ export function LayersSection({ onOpenAdd, screenId }: { onOpenAdd: () => void; 
           showScreenContext={layout.mode === "connected"}
         />
         <button
+          ref={addButtonRef}
           type="button"
           aria-label="Add element"
           title="Add element"
@@ -299,8 +302,17 @@ export function LayersSection({ onOpenAdd, screenId }: { onOpenAdd: () => void; 
                     onChange={(ev) => setRenaming({ id: el.id, value: ev.target.value })}
                     onBlur={() => { patch(el, { name: renaming.value }); setRenaming(null); }}
                     onKeyDown={(ev) => {
-                      if (ev.key === "Enter") { patch(el, { name: renaming.value }); setRenaming(null); }
-                      if (ev.key === "Escape") setRenaming(null);
+                      if (ev.key === "Enter") {
+                        // Focus moves to the row's menu button before keypress, which would click it.
+                        ev.preventDefault();
+                        patch(el, { name: renaming.value });
+                        setRenaming(null);
+                      }
+                      if (ev.key === "Escape") {
+                        ev.preventDefault();
+                        ev.stopPropagation();
+                        setRenaming(null);
+                      }
                     }}
                     className="h-7 min-w-0 flex-1 rounded-[var(--editor-radius-compact)] border border-[var(--editor-color-focus-border)] bg-[var(--editor-color-surface)] px-2 text-xs text-[color:var(--editor-color-text)] outline-none ring-2 ring-[var(--editor-color-focus-subtle)]"
                   />
@@ -315,7 +327,10 @@ export function LayersSection({ onOpenAdd, screenId }: { onOpenAdd: () => void; 
                         event.shiftKey || event.metaKey || event.ctrlKey ? "toggle" : "replace",
                       );
                     }}
-                    onDoubleClick={() => setRenaming({ id: el.id, value: el.name ?? "" })}
+                    onDoubleClick={() => {
+                      lastActionRowRef.current = el.id;
+                      setRenaming({ id: el.id, value: el.name ?? "" });
+                    }}
                     aria-pressed={selected}
                     className={layerNameClass(el, tone)}
                   />
@@ -336,6 +351,7 @@ export function LayersSection({ onOpenAdd, screenId }: { onOpenAdd: () => void; 
                       : cx(layerButtonTone[tone], rowHoverControl, overlayBeforeThat),
                   )}
                   onClick={() => {
+                    lastActionRowRef.current = el.id;
                     setOpenActionsUpward(false);
                     setOpenActionsId((current) => current === el.id ? null : el.id);
                   }}
@@ -343,101 +359,15 @@ export function LayersSection({ onOpenAdd, screenId }: { onOpenAdd: () => void; 
                   <MoreHorizontal size={14} strokeWidth={1.9} />
                 </button>}
                 {menuOpen ? (
-                  <div
-                    ref={menuRef}
-                    role="menu"
-                    aria-label={`${elementLabel(el)} actions`}
-                    className={cx(
-                      "absolute right-1 z-30 w-36 rounded-lg border border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] p-1 shadow-[var(--editor-shadow-menu)]",
-                      openActionsUpward ? "bottom-8" : "top-8",
-                    )}
-                    onKeyDown={(event) => {
-                      handleMenuKeyboardNavigation(event, "[role='menuitem']");
-                    }}
-                  >
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        setRenaming({ id: el.id, value: el.name ?? "" });
-                        setOpenActionsId(null);
-                      }}
-                      aria-label="Rename layer"
-                      className={menuItem}
-                    >
-                      <Pencil size={13} strokeWidth={1.8} />
-                      Rename
-                    </button>
-                    {el.type === "group" ? (
-                      <>
-                        <button
-                          type="button"
-                          role="menuitem"
-                          onClick={() => {
-                            editorStore.getState().select(el.id, activeScreenId);
-                            mutateAndSave(() => editorStore.getState().duplicateSelected());
-                            setOpenActionsId(null);
-                          }}
-                          aria-label="Duplicate group"
-                          className={menuItem}
-                        >
-                          <Copy size={13} strokeWidth={1.8} /> Duplicate
-                        </button>
-                        <button
-                          type="button"
-                          role="menuitem"
-                          onClick={() => {
-                            editorStore.getState().select(el.id, activeScreenId);
-                            mutateAndSave(() => editorStore.getState().ungroupSelected());
-                            setOpenActionsId(null);
-                          }}
-                          aria-label="Ungroup layer"
-                          className={menuItem}
-                        >
-                          <Ungroup size={13} strokeWidth={1.8} /> Ungroup
-                        </button>
-                      </>
-                    ) : null}
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        patch(el, { visible: !el.visible });
-                        setOpenActionsId(null);
-                      }}
-                      aria-label={el.visible ? "Hide layer" : "Show layer"}
-                      className={menuItem}
-                    >
-                      {el.visible ? <Eye size={13} strokeWidth={1.8} /> : <EyeOff size={13} strokeWidth={1.8} />}
-                      {el.visible ? "Hide" : "Show"}
-                    </button>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        patch(el, { locked: !el.locked });
-                        setOpenActionsId(null);
-                      }}
-                      aria-label={el.locked ? "Unlock layer" : "Lock layer"}
-                      className={menuItem}
-                    >
-                      {el.locked ? <Lock size={13} strokeWidth={1.8} /> : <LockOpen size={13} strokeWidth={1.8} />}
-                      {el.locked ? "Unlock" : "Lock"}
-                    </button>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        mutateAndSave(() => editorStore.getState().removeElement(el.id, activeScreenId));
-                        setOpenActionsId(null);
-                      }}
-                      aria-label="Delete layer"
-                      className={menuItemDanger}
-                    >
-                      <Trash2 size={13} strokeWidth={1.8} />
-                      Delete
-                    </button>
-                  </div>
+                  <LayerActionsMenu
+                    menuRef={menuRef}
+                    el={el}
+                    activeScreenId={activeScreenId}
+                    openActionsUpward={openActionsUpward}
+                    patch={patch}
+                    setRenaming={setRenaming}
+                    setOpenActionsId={setOpenActionsId}
+                  />
                 ) : null}
               </SortableRow>
               {el.type === "group" ? el.children.map((child) => {
@@ -478,10 +408,13 @@ export function LayersSection({ onOpenAdd, screenId }: { onOpenAdd: () => void; 
                         overlayNearLock,
                         childTone === "solid"
                           ? layerButtonTone.solid
-                          : "text-[color:var(--editor-color-danger)] hover:bg-[var(--editor-color-danger-surface)] focus-visible:ring-[var(--editor-color-focus)]",
+                          : "text-[color:var(--editor-color-danger-text)] hover:bg-[var(--editor-color-danger-surface)] focus-visible:ring-[var(--editor-color-focus)]",
                       )}
                       aria-label={`Delete ${elementLabel(child)}`}
-                      onClick={() => mutateAndSave(() => editorStore.getState().removeElement(child.id, activeScreenId))}
+                      onClick={() => {
+                        lastActionRowRef.current = el.id;
+                        mutateAndSave(() => editorStore.getState().removeElement(child.id, activeScreenId));
+                      }}
                     >
                       <Trash2 size={12} />
                     </button>

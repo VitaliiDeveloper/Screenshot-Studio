@@ -32,7 +32,7 @@ export function InspectorDisclosure({
         className={cx(
           "inline-flex min-h-6 items-center gap-1 text-left text-[length:var(--editor-font-control-size)] font-semibold text-[color:var(--editor-color-text-default)]",
           "rounded-sm transition-colors duration-[var(--editor-motion-fast)] ease-[var(--editor-motion-ease)]",
-          "hover:text-[color:var(--editor-color-accent)] focus-visible:bg-[var(--editor-color-surface-muted)] focus-visible:outline-none",
+          "hover:text-[color:var(--editor-color-accent-text)] focus-visible:bg-[var(--editor-color-surface-muted)] focus-visible:outline-none",
         )}
         onClick={() => setOpen((current) => !current)}
       >

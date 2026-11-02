@@ -21,10 +21,9 @@ project's JSON with `--project`.
 - `app-store-screenshots.json` is the only persisted project state. It is strict v1 JSON; unknown
   keys fail validation.
 - Use CLI commands for structural changes to layouts, screens, templates, locales, fonts, themes,
-  and imports, and for copy and media (`element text`, `element media`). Each command takes the
-  project lock, validates the complete strict Project, and writes atomically. Directly edit JSON
-  only for literals the CLI does not manage, such as element geometry, typography, screen names,
-  and backgrounds.
+  and imports, and for element edits (`element text`, `element media`, `element set`, `element add`,
+  `element rm`). Each command takes the project lock, validates the complete strict Project, and
+  writes atomically. Directly edit JSON only for literals the CLI does not manage.
 - The visual editor may be open on this project. It refuses to save over a newer file ("Project
   changed on disk"), so reload it after CLI or JSON changes made outside it.
 - Preserve layout, screen, and element ids unless intentionally creating a new object. Layout ids
@@ -42,6 +41,14 @@ project's JSON with `--project`.
 - Do not add prompt history, translation-pair ids, nested groups, clipping/scale state, new element
   types, or any other field outside the enforced schema.
 - Keep each exported artboard useful by itself and preserve render/export parity.
+- Store upload is a human-only action. Never run `screenshots upload`, never ask for or handle store
+  keys, and never set `GOOGLE_PLAY_SERVICE_ACCOUNT_PATH` or `APP_STORE_CONNECT_*` variables. When the
+  user wants to publish, set the app identifiers with `screenshots publishing set` and tell them to
+  run `screenshots upload --store google --dry-run` or `screenshots upload --store apple --dry-run`,
+  then without `--dry-run`, themselves. The
+  command refuses to run inside an agent the editor started (`SCREENSHOT_STUDIO_AGENT` is set).
+- `screenshots` or `ss-studio` with no command or with only a folder starts the editor for a person
+  and keeps running until stopped. Never run it; always name a command such as `screenshots check`.
 
 ## Enforced v1 shape
 
@@ -50,6 +57,7 @@ Project
 ├── meta: { name, appIcon?, schemaVersion: 1 }
 ├── fonts: FontAsset[]                    # file-backed project fonts
 ├── preferredExportLayoutId: string
+├── publishing?: { apple?: { appId }, google?: { packageName } }  # store app ids only, never keys
 └── layouts: DesignLayout[]
     ├── id, name, mode: isolated | connected
     ├── screenSetPolicies?: ScreenSetPolicy[] # per output family/locale; independent | synchronized
@@ -137,7 +145,8 @@ editor's **Keep 1:1** mode and requires every exact-size target to match the roo
 order. The policy changes structural screen operations, not rendered pixels.
 
 `isolated` clips every screen independently. In `connected`, each exact
-platform/device/locale/`storeTargetId` group forms a gapless horizontal strip in layout order;
+platform/device/locale/`storeTargetId` group forms a gapless horizontal strip in layout order, running
+right to left in an RTL locale so the first screen is rightmost and its left edge meets the second;
 root screens have no `storeTargetId`, while explicit variants pair `variantOf` with a target id and
 must not be mistaken for duplicate roots. Elements stay owned by one screen with owner-local coordinates,
 and export crops the requested artboard through the
@@ -158,10 +167,14 @@ screenshots layout list --project ./app-store-screenshots.json      # id, name, 
 screenshots screen list --project ./app-store-screenshots.json      # order, screen id, family, locale, name
 screenshots locale list --project ./app-store-screenshots.json      # locale, direction, screen count
 screenshots template list --project ./app-store-screenshots.json    # source, id, family, target, name
-# screen packs: built-in-pack, id, family, style (a Design pack id), screen count, name
-screenshots theme list --project ./app-store-screenshots.json       # source, id, name (built-in = Design packs)
+# screen packs: built-in-pack or project-pack, id, family, style (a Design pack id), screen count, name
+# invalid-pack lines name a broken packs/ file and the reason; invalid-template and invalid-theme
+# lines name a broken templates/ or themes/ file
+screenshots theme list --project ./app-store-screenshots.json       # source, id, name (built-in, project-pack = Design packs)
 screenshots element list --locale en --project ./app-store-screenshots.json
 # screen id, locale, element id, type, role, then JSON-quoted text or the media path ("-" when empty)
+screenshots screen show <screen-id> --json --project ./app-store-screenshots.json            # full screen JSON
+screenshots element get <screen-id> <element-id> --project ./app-store-screenshots.json  # full element JSON
 ```
 
 | Request | Commands |
@@ -171,22 +184,85 @@ screenshots element list --locale en --project ./app-store-screenshots.json
 | Change copy on every exact size of a slot | `element text <screen-id> <element-id> --all-sizes "<copy>"` |
 | Replace a screenshot or image | `element media <screen-id> <element-id> <project-relative-path>` |
 | Use an image from outside the project | `asset import <file>`, then `element media` with the printed path |
+| Same geometry on every exact size of a slot | `element set <screen-id> <element-id> --all-sizes --json '{"x":76,"rotation":-6}'` |
 | Add a locale | `locale add <target> --from <source> [--direction rtl]` |
-| Add every screen of a built-in screen pack | `template add <pack-id> --pack --locale <locale>` |
-| Restyle with a theme or Design pack | `theme set <id> [--built-in]` |
+| Add every screen of a built-in or project screen pack | `template add <pack-id> --pack --locale <locale>` |
+| Restyle with a theme or Design pack | `theme set <id> [--built-in\|--pack]` |
+| Save a layout as a reusable project pack | `template export-pack <layout-id> --out packs/<name> [--locale <locale>] [--force]` |
 | Reorder or remove screens | `screen reorder <id> --to <n>`, `screen rm <id> [--cascade]` |
 | Register a font | `font add <file> --family <family> [--weight <100..900>]` |
 | Import raw captures | `import <dir>` |
+| Refresh re-captured screens | `import <dir> --refresh` |
+| Find problems before export | `check --render [--json] [--strict]` |
 | Export a bundle | `export [--locale <l>] [--platform <p> --device <d>]` |
 | Export one screen | `export --screen <id> [--size <target-id>]` (no bundle filters) |
+| Export for fastlane deliver/supply | `export --profile fastlane [--locale <l>]` (writes `fastlane/` and removes stale generated images unless filtered; ambiguous locales such as `pt` or `zh` abort it) |
+| Store app identifiers for upload | `publishing set [--google-package <name>] [--apple-app-id <id>]`, `publishing show`, `publishing clear <google\|apple>` |
+| Upload to Google Play or App Store Connect | Human-only: the user runs `upload --store google\|apple [--dry-run]`; agents never run it |
+| Move, resize, restyle, hide, or lock any element | `element set <screen-id> <element-id> --json '{"x":80,"color":"#FFFFFF"}'` |
+| Add an element | `element add <screen-id> --type <text\|shape\|screenshot\|image\|icon\|device-frame> [--json '<props>']` |
+| Remove an element | `element rm <screen-id> <element-id>` |
+| Change a screen background | `screen set <screen-id> --background '{"type":"linear-gradient","from":"#101828","to":"#344054","angle":90}'` |
 
 Element ids are fresh UUIDs after a template add or locale clone, so list before every edit.
+`element set` takes the field names and values printed by `element get`: every schema field except
+`id`, `type`, and a group's `children`, and the error for an unknown field lists the settable ones.
+`null` removes `role`, `shadow`, `gradient`, `stroke`, `crop`, `blur`, or a device frame's `assetUrl`. It edits one element
+on one screen, so repeat it on each locale that should change; for geometry, `--all-sizes` covers
+the slot's other exact sizes. Render the screen with
+`export --screen <id>` and look at the PNG after layout or style edits: the schema accepts geometry
+that overlaps or leaves the artboard.
 Store target variants are separate screens with their own elements and ids. `element text
---all-sizes` also writes the same layer on every other exact size of that slot, matched by layer
-position like the editor's Status by size and Apply to, in one locked write. It reports each size it
-skips: a size whose layer structure has diverged, or whose matching layer or its group is locked.
-Edit those individually. Copy that starts with `--` goes after a `--` terminator:
+--all-sizes` and `element set --all-sizes` also write the same layer on every other exact size of
+that slot, matched by layer position like the editor's Status by size and Apply to, in one locked
+write. `element set --all-sizes` accepts only `x`, `y`, `width`, `height`, `rotation`, and
+`opacity`, and fits the edited layer into each size's artboard the way Apply to does, so
+pixel values scale with the artboard while rotation and opacity copy. Both report each size they
+skip: a size whose layer structure has diverged, whose matching layer or its group is locked, or
+(for `element set`) whose fitted layer would leave a schema range. Edit those individually.
+
+`element set` writes only the fields in the patch; the other fields keep their values. Values are
+artboard pixels and degrees, and a group child's `x`/`y` are relative to its group. With
+`--all-sizes` it targets leaf layers, so move a group by moving each child. Copy that starts with `--` goes after a `--` terminator:
 `element text <screen-id> <element-id> -- "--flag-like copy"`.
+
+## Check before export
+
+Inside a run the editor started, the editor renders `export` and `check --render` for you, so
+`--out` and `--project` are not available on them and PNGs land in the project's `export/` folder.
+
+`screenshots check --render --json` lists the editor's Issues
+and export preflight for the layout `export` ships (or `--layout`) without writing anything. It exits
+1 on any blocker; `--strict` also fails on warnings. Without `--render` it is browser-free and skips
+text overflow. The JSON report is:
+
+```json
+{
+  "layoutId": "default",
+  "textMeasured": true,
+  "strict": false,
+  "ok": false,
+  "counts": { "blockers": 1, "warnings": 0 },
+  "issues": [
+    { "id": "missing-image:hero:shot", "kind": "missing-image", "level": "blocker",
+      "message": "Image missing from the project folder: assets/hero.png", "layoutId": "default",
+      "screenId": "hero", "size": "6.9", "locale": "en", "elementId": "shot" }
+  ]
+}
+```
+
+`kind` is one of `missing-locale-screen`, `missing-image`, `text-overflow`,
+`unequal-connected-artboard`, `invalid-project`,
+`unresolved-font`, `missing-font-file`, `unknown-size`, `artboard-size`, `export-path`, or
+`android-tablet-screen-count`; fields that do not apply are `null`. For `missing-locale-screen`,
+`screenId` is the first-locale screen to copy and `locale` is the locale that lacks it. Fix each
+issue with the commands above, then run `check` again.
+
+Even with `--render`, `textMeasured` is `false` while a font blocker remains: text is never measured
+on fallback fonts, so fix the fonts and run `check --render` again before trusting a pass. A failure
+that is not a report (missing project, unknown `--layout`, bad `--store-specs`, or a render-host
+error) exits 2 and prints no JSON, only an error on stderr; treat it as a tool error, not as a list
+of issues.
 
 ## Recipe: generate or refresh copy
 
@@ -203,7 +279,7 @@ Edit those individually. Copy that starts with `--` goes after a `--` terminator
 
    The command changes only `content` and keeps ids, roles, font identities, and unrelated locales.
    Prefer `--all-sizes` so exact-size variants do not drift, and handle any reported skipped size.
-   If copy no longer fits, adjust that text element's literal box/typography in JSON and then
+   If copy no longer fits, adjust that text element's box or typography with `element set` and then
    visually inspect it; do not add an automatic runtime layout rule.
 4. Make adjacent slides visibly different in composition while keeping the deck's theme and type
    hierarchy consistent.
@@ -211,8 +287,8 @@ Edit those individually. Copy that starts with `--` goes after a `--` terminator
 
    ```bash
    screenshots screen list --project ./app-store-screenshots.json
-   screenshots dev --project ./app-store-screenshots.json
-   screenshots export --locale en --project ./app-store-screenshots.json
+   screenshots check --render
+   screenshots export --locale en
    ```
 
 ## Recipe: lay out slides
@@ -230,9 +306,25 @@ Edit those individually. Copy that starts with `--` goes after a `--` terminator
    ```
 2. Establish the hierarchy first: headline, proof/supporting copy, product media, then decoration.
    Keep required text and critical UI inside one artboard.
-3. Write final element geometry against that screen's exact artboard. Keep all finite dimensions
-   positive, preserve intentional aspect ratios for media, and remember that `elements` order is
-   back-to-front z-order.
+3. Write final element geometry against that screen's exact artboard with `element set`. Keep all
+   finite dimensions positive, scale media by multiplying `width` and `height` by the same factor to
+   preserve its aspect ratio, and remember that `elements` order is back-to-front z-order.
+
+   Rotation turns the element about its top-left corner (`x`, `y`), not its centre. To tilt an
+   upright element by `θ` degrees and keep its centre in place, start from its unrotated box
+   (`x0`, `y0`, `w`, `h` with `rotation` 0) and set:
+
+   ```text
+   x = x0 + w/2 − (w/2)·cos θ + (h/2)·sin θ
+   y = y0 + h/2 − (w/2)·sin θ − (h/2)·cos θ
+   ```
+
+   For an element that is already rotated, set `rotation` to 0 first or recompute from the
+   original upright `x`/`y`. For example, a 420×860 device at `x0` 120, `y0` 500 tilted −6°:
+
+   ```bash
+   screenshots element set <screen-id> <element-id> --json '{"rotation":-6,"x":76,"y":524}' --project ./app-store-screenshots.json
+   ```
 4. Vary device placement and negative space across adjacent slides. In `isolated` mode, never make
    one slide depend on a neighbouring crop. In `connected` mode, cross-screen decoration may span an
    exact platform/device/locale strip, but required text and critical UI must remain complete in
@@ -258,6 +350,23 @@ Edit those individually. Copy that starts with `--` goes after a `--` terminator
 3. Translate only text content in the cloned target set with `element list --locale <target>` and
    `element text --all-sizes`. Preserve the fresh ids, roles, geometry, and source locale. Adapt phrasing for
    the store audience; do not force a word-for-word translation into a box that no longer fits.
+   For a translator or translation service, `screenshots copy export --locale <target>[,<target>...] --out copy.csv`
+   writes one row per base-locale text layer (`screen`, `element`, `source`, one column per target
+   locale; `.json` works too). The base is the first locale in screen order. `--locale` takes a comma
+   list; a repeated `--locale` keeps only the last value. A relative `--out` resolves against the
+   current directory, an existing file needs `--force`, and the project document, its lock file and
+   `assets/` are refused. Fill the target cells, then `screenshots copy import copy.csv`. Every
+   non-empty cell overwrites the target text, so export only the locales being translated and do not
+   edit them in the editor meanwhile. Empty cells stay untouched, rows whose `source` changed since
+   export are skipped with a warning (`--force` overrides), locked layers and locked groups are
+   skipped, and an unknown row key writes nothing. Use `--layout` when the project has several
+   layouts and `--json` for machine-readable counts.
+
+   Target cells are paired by name and position: the target size row must have as many screens as the
+   base row, the paired screen must have the same name, and an exact-size variant follows its target
+   root through `variantOf`. If any of that differs (reordered, renamed, added or removed screens),
+   or the layer type sequence differs, the cell is skipped with a warning. The layer match compares
+   only the type sequence, so swapping two same-type layers in one locale is not detected.
 4. Replace screenshots or other media only when a locale-specific asset exists (see the media
    recipe). Shared asset paths are intentional until then.
 5. Verify that every target glyph is covered by the registered file-backed font. If a different font
@@ -266,7 +375,6 @@ Edit those individually. Copy that starts with `--` goes after a `--` terminator
 
    ```bash
    screenshots screen list --project ./app-store-screenshots.json
-   screenshots dev --project ./app-store-screenshots.json
    screenshots export --locale ar --project ./app-store-screenshots.json
    ```
 
@@ -303,8 +411,10 @@ Use this when the user wants a ready-made look. Built-in packs are read-only app
 applying one writes ordinary literals, and the pack id is not stored anywhere in the project.
 
 1. List what exists and offer only ids that appear. Design packs come from `theme list` (`built-in`
-   lines). Screen packs come from `template list` (`built-in-pack` lines); a screen pack's style is
-   the id of the Design pack its screens were baked from.
+   lines, and `project-pack` lines for the project's own `packs/<id>/design-pack.json`). Screen packs
+   come from `template list` (`built-in-pack` lines, and `project-pack` lines for
+   `packs/<id>/screen-pack.json`); a built-in screen pack's style is the id of the Design pack its
+   screens were baked from. Report `invalid-pack` lines to the user instead of editing pack files.
 
    ```bash
    screenshots theme list --project ./app-store-screenshots.json
@@ -313,11 +423,12 @@ applying one writes ordinary literals, and the pack id is not stored anywhere in
 
 2. Choose one path:
    - Restyle the screens you have with a Design pack:
-     `screenshots theme set <design-pack-id> --built-in`. It replaces the background of every
-     screen in the layout.
+     `screenshots theme set <design-pack-id> --built-in` (or `--pack` for a project pack). It
+     replaces the background of every screen in the layout.
    - Add finished screens from a screen pack:
      `screenshots template add <pack-id> --pack --locale <locale>`. It appends every pack screen to
-     the layout in one write and prints the new screen ids.
+     the layout in one write and prints the new screen ids. A project screen pack's images are
+     copied into `assets/packs/<pack-id>/` and the new screens point there.
      A fresh `screenshots init` project starts with a blank `hero` screen that stays first and would
      be exported, so remove it with `screenshots screen rm hero` when the pack screens replace it.
 3. Edit the copy. The screens carry placeholder text and an empty mockup, so list the leaves and
@@ -329,6 +440,13 @@ applying one writes ordinary literals, and the pack id is not stored anywhere in
    ```
 
 After this the result is plain project JSON: add or remove layers freely.
+
+To reuse a finished layout in other projects, save it as a project pack with
+`screenshots template export-pack <layout-id> --out packs/<name>`. It writes
+`packs/<name>/screen-pack.json` and copies every image the screens use. It exports one locale's main
+screens of one output family and refuses right-to-left locales. `--out` is relative to the project
+folder. An existing pack is overwritten only with `--force`, file by file, and files the new export
+does not write are kept. Copy the folder into another project's `packs/` to use it there.
 
 ## Recipe: apply a theme or design pack
 
@@ -404,6 +522,19 @@ copied resources atomically. Warnings identify skipped unsupported inputs; inval
 block apply. Do not use **Import project** Folder/ZIP/JSON terminology for this command, and do not
 manually copy captures into `assets/imports/` or precompute ids.
 
+After re-capturing the app, add `--refresh` to update designed screens instead of adding new ones:
+
+```bash
+screenshots import ./screenshots --refresh --layout "Feature campaign" --project ./app-store-screenshots.json
+```
+
+Refresh swaps the new bytes into every element or background in the layout that still uses the
+earlier import of the same `<platform>/<device>/<locale>/<file>.png` capture. It never adds, moves,
+or resizes screens. A capture no screen uses is reported as unmatched; run the import without
+`--refresh` to add it. Keep capture file names stable between runs, since the name is the match key.
+Point refresh at `screenshots/`, not the project root: replaced import files stay under `assets/` and
+a root input would re-read all of them on every run.
+
 ## Recipe: process a local asset
 
 Both asset commands are explicit and non-destructive. Relative input paths resolve from the project
@@ -426,6 +557,7 @@ screenshots asset remove-background assets/icons/product.png --background FFFFFF
 ## Completion checklist
 
 - The CLI can list the project without a validation error.
+- `screenshots check --render` exits 0: no blockers, and any warning is deliberate.
 - Copy and media changes are limited to the intended layout, locale, and screens.
 - Every text font identity is registered and contains the required glyphs.
 - Focus and Overview show no accidental overlap, clipping, or broken hierarchy.

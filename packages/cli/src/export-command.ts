@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { readFile } from "node:fs/promises";
+import { readFile, realpath } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import {
   buildBundleEntries,
@@ -10,6 +10,7 @@ import {
   safeLocalePathSegment,
   safeStoreSizePathToken,
   validateBundleArtboards,
+  type BundleEntry,
   type BundleFilters,
   type StoreSize,
   type StoreSpecs,
@@ -22,6 +23,7 @@ import {
   SCREEN_DEVICES_BY_PLATFORM,
   type Screen,
 } from "@screenshot-studio/core/model";
+import { resolveBrowserChoice } from "./browser-setup.js";
 import { closeAll, failWhenServerExits, runWithCleanup } from "./cli-runtime.js";
 import {
   exportBundle,
@@ -29,6 +31,8 @@ import {
   resolveTarget,
   withStableProjectExport,
 } from "./export.js";
+import { fastlaneBundleEntries, fastlaneSkippedSummary } from "./fastlane-layout.js";
+import { pruneStaleFastlaneFiles } from "./fastlane-prune.js";
 import { loadProjectFile, resolveProjectPath } from "./project-io.js";
 import { createRenderBrowserSession } from "./render-driver.js";
 import { publishFileSafely } from "./safe-file-publisher.js";
@@ -45,6 +49,8 @@ export interface ExportCommandDependencies {
   createRenderBrowserSession?: typeof createRenderBrowserSession;
   publishFileSafely?: typeof publishFileSafely;
   log?: (message: string) => void;
+  /** Re-lays out the bundle before rendering; `screenshots upload` renders its store plan through it. */
+  layoutBundleEntries?: (entries: BundleEntry[]) => BundleEntry[];
 }
 
 const SUPPORTED_DEVICES = new Set<string>(Object.values(SCREEN_DEVICES_BY_PLATFORM).flat());
@@ -125,12 +131,18 @@ export async function runExportCommand(
   const log = dependencies.log ?? console.log;
   const projectPath = resolveProjectPath(flags);
   const storeSpecsPath = flags["store-specs"] ? resolve(flags["store-specs"]) : defaultStoreSpecsPath;
-  const explicitOutDir = flags.out ? resolve(flags.out) : undefined;
+  // An explicit --out is the user's own location, so an existing link there (macOS /tmp) is followed;
+  // the default <project>/export stays a no-follow root.
+  const explicitOut = flags.out ? resolve(flags.out) : undefined;
+  const explicitOutDir = explicitOut && await realpath(explicitOut).catch(() => explicitOut);
   const mode = resolveExportMode(flags);
-  const profile = parseExportProfile(flags.profile);
+  const browser = resolveBrowserChoice(flags.browser);
+  // fastlane only re-lays out the store bundle, so it stays a CLI profile outside the core list.
+  const fastlane = flags.profile === "fastlane";
+  const profile = parseExportProfile(fastlane ? undefined : flags.profile);
   const specs = parseStoreSpecs(JSON.parse(await readFile(storeSpecsPath, "utf8")));
-  if (profile === "web-share" && mode.kind === "single") {
-    throw new Error("--profile web-share requires a bundle export, not --screen");
+  if ((fastlane || profile === "web-share") && mode.kind === "single") {
+    throw new Error(`--profile ${flags.profile} requires a bundle export, not --screen`);
   }
   const layoutId = resolveLayoutReference(await loadProjectFile(projectPath), flags.layout).id;
 
@@ -156,6 +168,7 @@ export async function runExportCommand(
           layoutId,
           screenId: mode.screenId,
           target,
+          browser,
         }));
         const publication = await context.publish(() => publishFile({
           root: outDir,
@@ -172,11 +185,22 @@ export async function runExportCommand(
   const server = await startServer(undefined, { storeSpecsPath });
   let session: Awaited<ReturnType<typeof createRenderBrowserSession>> | undefined;
   await runWithCleanup(async () => {
-    session = await createRenderSession();
+    session = await createRenderSession({ browser });
     await withStableProjectExport(projectPath, async (context) => {
       resolveLayoutReference(context.project, layoutId);
       assertProjectFontsResolved(context.project, layoutId);
-      const entries = buildBundleEntries(context.project, layoutId, specs, mode.filters);
+      let entries = buildBundleEntries(context.project, layoutId, specs, mode.filters);
+      // A filtered export covers only part of the tree, so whatever it did not render is not stale.
+      const prune = fastlane && !Object.values(mode.filters).some(Boolean);
+      if (fastlane) {
+        if (!prune) log("Warning: a filtered fastlane export removes nothing, so stale files may remain");
+        const layout = fastlaneBundleEntries(entries);
+        const skippedSummary = fastlaneSkippedSummary(layout.skipped);
+        if (skippedSummary) log(skippedSummary);
+        if (layout.entries.length === 0) throw new Error("No selected screen has a fastlane upload slot");
+        entries = layout.entries;
+      }
+      if (dependencies.layoutBundleEntries) entries = dependencies.layoutBundleEntries(entries);
       validateBundleArtboards(entries, specs);
       for (const warning of bundlePreflightWarnings(entries, specs)) log(`Warning: ${warning.message}`);
       const outDir = explicitOutDir ?? join(dirname(context.projectPath), "export");
@@ -188,7 +212,14 @@ export async function runExportCommand(
         outDir,
         entries,
         renderSession: session!,
-        publicationGuard: context.publish,
+        publicationGuard: prune
+          ? (publish) => context.publish(async () => {
+            const zipPath = await publish();
+            const published = entries.map(({ relativePath }) => relativePath);
+            await pruneStaleFastlaneFiles({ outDir, published, specs, log });
+            return zipPath;
+          })
+          : context.publish,
         profile,
         project: context.project,
       }));

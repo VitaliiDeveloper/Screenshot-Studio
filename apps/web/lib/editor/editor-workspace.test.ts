@@ -10,24 +10,27 @@ import {
   type StoreSize,
 } from "@screenshot-studio/core/export";
 import {
-  adjacentSizeScreenId,
   clampZoom,
-  compactStoreSizeLabel,
-  conciseStoreTargetLabel,
-  defaultDeviceFrameInputForScreen,
-  deviceFrameContextForScreen,
-  distinctSizeLabels,
-  filterAddCatalog,
   fitArtboardRowsZoom,
   fitArtboardsZoom,
-  groupScreensByOutput,
   OVERVIEW_GAP,
+} from "./editor-workspace";
+import {
+  adjacentSizeScreenId,
+  groupScreensByOutput,
+  workspaceEditingScope,
+  workspaceOverviewRows,
+} from "./workspace-output-rows";
+import {
+  compactStoreSizeLabel,
+  conciseStoreTargetLabel,
+  distinctSizeLabels,
   outputFamilyEditorLabel,
   storeOutputLabel,
   storeTargetDeviceCopy,
-  workspaceEditingScope,
-  workspaceOverviewRows,
-} from "./editor-workspace";
+} from "./store-target-labels";
+import { defaultDeviceFrameInputForScreen, deviceFrameContextForScreen } from "./device-frame-context";
+import { filterAddCatalog } from "./add-catalog";
 
 function scopeProject(mode: CanvasMode): DesignLayout {
   const screen = (

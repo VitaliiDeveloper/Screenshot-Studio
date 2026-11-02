@@ -22,20 +22,41 @@ Use the packaged `screenshots` CLI to create the project, then treat the generat
    running another command.
 
 The script resolves the CLI from `--cli <executable>`, then `SCREENSHOT_STUDIO_CLI`, then
-`screenshots` on `PATH`. If none is available, stop and ask the user to make the built
-`@screenshot-studio/cli` artifact available. Do not fetch packages, invent project JSON, or replace
-the CLI initialization path.
+`screenshots` on `PATH`; on Windows, pass the CLI's `dist/index.js` instead. If none is available,
+stop and ask the user to make the built `@screenshot-studio/cli` artifact available. Do not fetch
+packages, invent project JSON, or replace the CLI initialization path.
 
 ## Choose a style
 
 For a ready-made look, follow the generated guide's "Recipe: choose a style".
+
+## Make it sell
+
+When the user wants marketing-grade screenshots, a livelier look, or a restyle from a reference
+image, read [`references/art-direction.md`](references/art-direction.md) before editing. It covers
+the slide story, copy rules, a pattern catalog built only from schema fields, and the export-and-look
+loop. When the set is done, offer the read-only critic in
+[`references/critic.md`](references/critic.md) and run it only if the user agrees.
 
 ## Boundaries
 
 - Delegate schema, layout, copy, translation, asset processing, editor, and export behavior to the
   generated `AGENTS.md` and the CLI it documents. Prefer its `template`, `element`, `locale`,
   `theme`, `screen`, `import`, and `export` commands over hand-editing project JSON; they lock and
-  validate the project.
+  validate the project. Run `screenshots check --render --json` before export: it exits 1 on any
+  blocker and lists each issue with its screen, size, locale, and element. Inside a run the editor
+  started, the editor renders both, and `--out` and `--project` are not available on them. `element get|set|add|rm`
+  and `screen show|set` cover element geometry, style, and screen backgrounds. `copy export|import`
+  moves all texts per locale through a CSV or JSON file for translators without editing project
+  JSON; the base is the first locale in screen order, `--locale` takes a comma list (a repeated
+  `--locale` keeps only the last value), and every non-empty imported cell overwrites its target
+  text. A project's own packs live in `packs/<id>/` (`screen-pack.json` or
+  `design-pack.json`) and list as `project-pack` lines in `template list` and `theme list`; apply
+  them with `template add <id> --pack` or `theme set <id> --pack`, and save a finished layout as a
+  reusable pack with `template export-pack <layout-id> --out packs/<name>`.
+- Never run `screenshots upload` (Google Play or App Store Connect) or handle store keys: uploading to
+  a store is a human-only action, and the command refuses to run in an agent the editor started. Setting app identifiers with
+  `screenshots publishing set` is fine.
 - Keep AI optional: require no provider SDK, API key, or persisted agent state.
 - Keep all created files inside the explicit target folder.
 - Never overwrite an existing project file or project-local agent guide.

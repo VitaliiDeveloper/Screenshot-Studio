@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import type { ScreenSetMode } from "@screenshot-studio/core/model";
+import { setPublishing as setProjectPublishing, type PublishingPatch, type ScreenSetMode } from "@screenshot-studio/core/model";
 import type { StoreSize } from "@screenshot-studio/core/export";
 import { recordProjectChange } from "./editor-history.js";
 import {
@@ -17,6 +17,8 @@ export interface EditorOutputActions {
   ensureStoreTargetVariant: (target: StoreSize) => void;
   removeStoreTargetVariant: (rootScreenId: string, storeTargetId: string) => void;
   setOutputFamilyScreenSetMode: (mode: ScreenSetMode) => void;
+  /** Store identifiers live outside layouts, so the change saves without an undo step. */
+  setPublishing: (patch: PublishingPatch) => void;
 }
 
 export function createEditorOutputActions(set: EditorSet): EditorOutputActions {
@@ -81,5 +83,7 @@ export function createEditorOutputActions(set: EditorSet): EditorOutputActions {
         );
         return recordProjectChange(state, result.project, null, result);
       }),
+    setPublishing: (patch) =>
+      set((state) => (state.project ? recordProjectChange(state, setProjectPublishing(state.project, patch)) : state)),
   };
 }

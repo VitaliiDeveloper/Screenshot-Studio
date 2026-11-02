@@ -121,9 +121,9 @@ function ArtboardSizeEditor({
           <NumberField label="H" value={height} min={1} integer layout="column" onChange={setHeight} />
           <span className="pb-2 text-[length:var(--editor-font-label-size)] text-[color:var(--editor-color-text-subtle)]">px</span>
         </div>
-        <p className={`text-[length:var(--editor-font-label-size)] leading-4 ${draftStatus?.kind === "invalid" ? "text-[color:var(--editor-color-danger)]" : "text-[color:var(--editor-color-text-secondary)]"}`}>
+        <p className={`text-[length:var(--editor-font-label-size)] leading-4 ${draftStatus?.kind === "invalid" ? "text-[color:var(--editor-color-danger-text)]" : "text-[color:var(--editor-color-text-secondary)]"}`}>
           {draftStatus?.kind === "invalid"
-            ? "Custom dimensions must keep the export size's aspect ratio."
+            ? "Custom dimensions must scale exactly to the export size."
             : "Apply resizes every screen at this export size and fits each composition."}
         </p>
         <div className="grid grid-cols-2 gap-2">
@@ -204,7 +204,7 @@ function ArtboardSizeEditor({
         {!target
           ? "This screen's export size is unavailable."
           : status?.kind === "invalid"
-            ? "This custom size does not match the export size's aspect ratio."
+            ? "This custom size cannot scale exactly to the export size."
             : targetExportDescription(target)}
       </p>
     </div>

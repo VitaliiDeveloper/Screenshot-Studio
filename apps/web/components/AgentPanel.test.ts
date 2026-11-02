@@ -43,6 +43,7 @@ function chat(overrides: Partial<EditorAgentChat> = {}): EditorAgentChat {
     locked: false,
     outcome: null,
     outcomeError: null,
+    criticOffered: false,
     consentError: null,
     setConsent: vi.fn(),
     refreshAgents: vi.fn(),
@@ -50,6 +51,8 @@ function chat(overrides: Partial<EditorAgentChat> = {}): EditorAgentChat {
     selectModel: vi.fn(),
     selectEffort: vi.fn(),
     send: vi.fn(),
+    critique: vi.fn(),
+    dismissCritic: vi.fn(),
     queueStart: vi.fn(),
     stop: vi.fn(),
     keep: vi.fn(),
@@ -95,6 +98,25 @@ describe("AgentPanel", () => {
     expect(markup).toMatch(/<button type="submit"[^>]*disabled=""[^>]*>Send<\/button>/);
   });
 
+  it("suggests starting points, offers the critic only after a kept run, and applies a critique through the composer", () => {
+    const empty = render(chat());
+    expect(empty).toMatch(/role="group" aria-label="Suggestions"[^]*>Make it sell<[^]*>Write store copy<[^]*>Match a reference<[^]*>Critique my set</);
+    expect(empty).not.toContain("Run critic");
+
+    const kept = createAgentTurn(1, "Claude Code", "Make it sell");
+    expect(render(chat({ turns: [kept], criticOffered: true }))).toMatch(/aria-label="Critic review"[^]*>Run critic<[^]*>Not now</);
+    expect(render(chat({ turns: [kept], criticOffered: true, phase: "running" }))).not.toContain("Run critic");
+
+    const critique = ([
+      { type: "text", text: "[major] Slide 1: headline names a feature." },
+      { type: "result", status: "accepted", reason: null, changed: false, changedScreens: [], revision: "r", otherFiles: { files: [], count: 0 } },
+      { type: "done", status: "completed", summary: null, durationMs: 10 },
+    ] as AgentEvent[]).reduce(applyAgentEvent, createAgentTurn(2, "Claude Code", "Review", [], "critic"));
+    const reviewed = render(chat({ turns: [critique] }));
+    expect(reviewed).toContain(">Apply findings</button>");
+    expect(reviewed).not.toContain("No changes to the project");
+  });
+
   it("explains every 7c state with its next action", () => {
     const missing = { ...claude, installed: false, state: "not-installed" as const };
     const noAgent = render(chat({ agents: [missing, { ...codex, installed: false, state: "not-installed" }] }));
@@ -121,6 +143,15 @@ describe("AgentPanel", () => {
     expect(limit).toContain("Your Claude Code subscription limit resets 3pm (Europe/Kyiv). Nothing in the project was changed.");
     expect(limit).toContain("Switch agent");
     expect(limit).toContain("Retry");
+
+    const earlierLimit = { ...limited.reduce(applyAgentEvent, createAgentTurn(1, "Claude Code", "Add German")), earlier: true, droppedImages: 2 };
+    const restored = render(chat({ turns: [earlierLimit, createAgentTurn(2, "Claude Code", "Now French")] }));
+    expect(restored).toContain("Your Claude Code subscription limit resets 3pm (Europe/Kyiv).");
+    expect(restored).toContain("2 images not kept after reload");
+    expect(restored).toContain('role="separator"');
+    expect(restored).toContain("Restored after the page reloaded");
+    expect(restored).not.toContain("Switch agent");
+    expect(restored).not.toContain(">Retry<");
 
     const rejectedEvents: AgentEvent[] = [
       { type: "result", status: "rejected", reason: "layouts: Required", changed: false, changedScreens: [], revision: "r1", otherFiles: { files: [], count: 0 } },

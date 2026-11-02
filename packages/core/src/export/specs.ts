@@ -14,6 +14,21 @@ import {
  * creation policy, and export dimensions are decoded from this data document.
  */
 
+/** App Store Connect API `ScreenshotDisplayType` values for app screenshots. */
+export const APP_STORE_DISPLAY_TYPES = [
+  "APP_IPHONE_67", "APP_IPHONE_65", "APP_IPHONE_61", "APP_IPHONE_58", "APP_IPHONE_55", "APP_IPHONE_47",
+  "APP_IPHONE_40", "APP_IPHONE_35", "APP_IPAD_PRO_3GEN_129", "APP_IPAD_PRO_3GEN_11", "APP_IPAD_PRO_129",
+  "APP_IPAD_105", "APP_IPAD_97", "APP_WATCH_ULTRA", "APP_WATCH_SERIES_10", "APP_WATCH_SERIES_7",
+  "APP_WATCH_SERIES_4", "APP_WATCH_SERIES_3", "APP_DESKTOP", "APP_APPLE_TV", "APP_APPLE_VISION_PRO",
+] as const;
+export type AppStoreDisplayType = (typeof APP_STORE_DISPLAY_TYPES)[number];
+
+/** Where an App Store target uploads, or why App Store Connect has no screenshot set for it. */
+const AppStoreConnectTargetSchema = z.union([
+  z.object({ displayType: z.enum(APP_STORE_DISPLAY_TYPES) }).strict(),
+  z.object({ unsupported: z.string().trim().min(1) }).strict(),
+]);
+
 const StoreSizeSchema = z
   .object({
     id: z.string().trim().min(1),
@@ -26,6 +41,7 @@ const StoreSizeSchema = z
     kind: z.enum(["device", "promotion", "responsive"]).optional(),
     format: z.enum(["png", "jpeg", "png-or-jpeg"]).optional(),
     alpha: z.boolean().optional(),
+    appStoreConnect: AppStoreConnectTargetSchema.optional(),
   })
   .strict();
 export type StoreSize = z.infer<typeof StoreSizeSchema>;
@@ -177,6 +193,13 @@ const StoreSpecsSchema = z
               code: z.ZodIssueCode.custom,
               path: [...familyPath, "targets", index, "orientation"],
               message: `Orientation ${target.orientation} does not match ${target.width}x${target.height}`,
+            });
+          }
+          if (platform !== "apple" && target.appStoreConnect !== undefined) {
+            context.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: [...familyPath, "targets", index, "appStoreConnect"],
+              message: "Only App Store targets declare appStoreConnect",
             });
           }
         });

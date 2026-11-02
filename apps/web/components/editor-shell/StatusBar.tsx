@@ -2,11 +2,13 @@
 "use client";
 
 import { useStore } from "zustand";
+import { Redo2, Undo2 } from "lucide-react";
 import { findElementLocation } from "@screenshot-studio/core/model";
 import type { StoreSpecs } from "@screenshot-studio/core/export";
 import { editorStore, selectEditorLayout, type EditorState } from "@web/lib/editor/editor-store";
+import { mutateAndSave } from "@web/lib/editor/mutate-and-save";
 import { compactScreenSizeLabel, elementLabel, selectionTypeSummary } from "@web/lib/panel-helpers";
-import { cx } from "@web/components/editor-ui";
+import { cx, editorUi } from "@web/components/editor-ui";
 
 type SaveTone = "idle" | "busy" | "error";
 
@@ -60,6 +62,7 @@ const HINTS = [
   { keys: "O", action: "Focus/Overview" },
   { keys: "⌘K", action: "Find" },
   { keys: "⌘Z", action: "Undo" },
+  { keys: "⇧⌘Z", action: "Redo" },
 ] as const;
 
 const toneClass: Record<SaveTone, string> = {
@@ -68,11 +71,17 @@ const toneClass: Record<SaveTone, string> = {
   error: "bg-[var(--editor-color-danger)]",
 };
 
-/** The 34 px strip under the Workspace: save state, the current selection, and key hints. */
-export function StatusBar({ specs }: { specs: StoreSpecs }) {
+/** The 34 px strip under the Workspace: undo/redo, save state, the current selection, and key hints. */
+export function StatusBar({ specs, editingLocked = false }: {
+  specs: StoreSpecs;
+  /** An agent run owns the project, so Undo and Redo wait for it. */
+  editingLocked?: boolean;
+}) {
   const saveStatus = useStore(editorStore, (state) => state.saveStatus);
   const lastSavedAt = useStore(editorStore, (state) => state.lastSavedAt);
   const selection = useStore(editorStore, (state) => selectionStatus(state, specs));
+  const canUndo = useStore(editorStore, (state) => state.historyPast.length > 0) && !editingLocked;
+  const canRedo = useStore(editorStore, (state) => state.historyFuture.length > 0) && !editingLocked;
   const save = saveStatusParts(saveStatus, lastSavedAt);
 
   return (
@@ -80,6 +89,28 @@ export function StatusBar({ specs }: { specs: StoreSpecs }) {
       data-testid="status-bar"
       className="flex h-[34px] shrink-0 items-center gap-4 border-t border-[var(--editor-color-border)] bg-[var(--editor-color-surface-subtle)] px-3 text-[11px] text-[color:var(--editor-color-text-secondary)]"
     >
+      <div className="-ml-1.5 flex shrink-0 items-center gap-0.5">
+        <button
+          type="button"
+          aria-label="Undo"
+          title="Undo (⌘Z)"
+          disabled={!canUndo}
+          className={editorUi.compactIconButton}
+          onClick={() => mutateAndSave(() => editorStore.getState().undo())}
+        >
+          <Undo2 size={14} strokeWidth={1.9} />
+        </button>
+        <button
+          type="button"
+          aria-label="Redo"
+          title="Redo (⇧⌘Z)"
+          disabled={!canRedo}
+          className={editorUi.compactIconButton}
+          onClick={() => mutateAndSave(() => editorStore.getState().redo())}
+        >
+          <Redo2 size={14} strokeWidth={1.9} />
+        </button>
+      </div>
       <p
         data-save-status={saveStatus}
         className={cx(

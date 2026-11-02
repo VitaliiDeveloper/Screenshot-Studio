@@ -14,6 +14,9 @@ import { withManagedProjectReadGuard } from "./managed-project-mutation-guard.se
 import { ManagedProjectNotFoundError, ManagedProjectRepository } from "./managed-project-repository.server.js";
 import { ManagedProjectSourceAdapter, ProjectSessionRegistry } from "@web/lib/session/project-session.server.js";
 
+// A tsx child cold-starts in about 0.6 s on an idle machine and several times slower on a loaded
+// one, so the 5 s default leaves too little headroom for tests that wait on a real child process.
+const CHILD_PROCESS_TIMEOUT_MS = 30_000;
 const roots: string[] = [];
 const childProcesses = new Set<ChildProcess>();
 const managedPutChild = fileURLToPath(new URL("./fixtures/managed-put-child.ts", import.meta.url));
@@ -27,7 +30,7 @@ afterEach(async () => {
   await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
 });
 
-function waitForChildOutput(child: ChildProcess, expected: string, timeoutMs = 5_000): Promise<void> {
+function waitForChildOutput(child: ChildProcess, expected: string, timeoutMs = CHILD_PROCESS_TIMEOUT_MS / 2): Promise<void> {
   return new Promise((resolve, reject) => {
     let stdout = "";
     let stderr = "";
@@ -183,7 +186,7 @@ describe("ManagedProjectLifecycleService", () => {
     await waitForChildOutput(child, "status:409\n");
     childProcesses.delete(child);
     await expect(deleting).resolves.toMatchObject({ state: "complete" });
-  });
+  }, CHILD_PROCESS_TIMEOUT_MS);
 
   it("fails before reservation for unsafe project trees and redirected managed roots", async () => {
     const linked = await fixture();
@@ -196,7 +199,7 @@ describe("ManagedProjectLifecycleService", () => {
     const hardLinked = await fixture();
     await link(hardLinked.project.projectPath, join(hardLinked.project.projectDirectory, "copy.json"));
     await expect(new ManagedProjectLifecycleService(hardLinked.config, hardLinked.registry)
-      .permanentlyDelete(request(hardLinked))).rejects.toThrow(/unsafe file/i);
+      .permanentlyDelete(request(hardLinked))).rejects.toThrow(/hard link/i);
     await expect(new ManagedProjectCatalogStore(hardLinked.config).read())
       .resolves.toMatchObject({ deletions: [] });
 
@@ -386,6 +389,54 @@ describe("ManagedProjectLifecycleService", () => {
     await expect(readdir(input.config.recoveryRoot)).resolves.toHaveLength(1);
   });
 
+  it("finishes a tombstone removal that was interrupted after unlinking the Project document", async () => {
+    const input = await fixture();
+    const lifecycle = new ManagedProjectLifecycleService(input.config, input.registry, {
+      failpoint: (point) => {
+        if (point === "after-catalog-journal") throw new Error("pause after catalog journal");
+      },
+    });
+    await expect(lifecycle.permanentlyDelete(request(input))).rejects.toThrow(/pause after catalog journal/i);
+    const tombstone = join(input.config.tombstonesRoot, `${input.project.id}.${OPERATION_ID}`);
+    await rm(join(tombstone, "app-store-screenshots.json"));
+
+    await expect(new ManagedProjectLifecycleService(input.config, input.registry).reconcileAll())
+      .resolves.toBeUndefined();
+    await expect(new ManagedProjectCatalogStore(input.config).getDeletionEvidence(OPERATION_ID))
+      .resolves.toMatchObject({ state: "complete" });
+    await expect(readdir(input.config.tombstonesRoot)).resolves.toEqual([]);
+    await expect(readdir(input.config.recoveryRoot)).resolves.toEqual([]);
+  });
+
+  it("keeps reconciling other deletions after one record fails", async () => {
+    const input = await fixture();
+    const stage = await input.repository.createStage();
+    await writeFile(join(stage.path, "app-store-screenshots.json"), projectJson("Second"));
+    const second = await input.repository.publishStage({ token: stage.token });
+    const secondOperationId = "operation_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+    const pausing = new ManagedProjectLifecycleService(input.config, input.registry, {
+      failpoint: (point) => {
+        if (point === "after-catalog-commit") throw new Error("pause after catalog commit");
+      },
+    });
+    await expect(pausing.permanentlyDelete(request(input))).rejects.toThrow(/pause/i);
+    await expect(pausing.permanentlyDelete({
+      ...request(input),
+      id: second.id,
+      expectedProjectRevision: (await readProjectSnapshot(second.projectPath)).revision,
+      operationId: secondOperationId,
+    })).rejects.toThrow(/pause/i);
+    const stuckTombstone = join(input.config.tombstonesRoot, `${input.project.id}.${OPERATION_ID}`);
+    await rename(stuckTombstone, join(input.config.root, "original-tombstone"));
+    await mkdir(stuckTombstone);
+
+    await expect(new ManagedProjectLifecycleService(input.config, input.registry).reconcileAll())
+      .rejects.toThrow(/tombstone no longer matches recovery intent/i);
+    const catalog = new ManagedProjectCatalogStore(input.config);
+    await expect(catalog.getDeletionEvidence(OPERATION_ID)).resolves.toMatchObject({ state: "cleanup-pending" });
+    await expect(catalog.getDeletionEvidence(secondOperationId)).resolves.toMatchObject({ state: "complete" });
+  });
+
   it("rejects a forged pending intent and preserves its tombstone", async () => {
     const input = await fixture();
     const lifecycle = new ManagedProjectLifecycleService(input.config, input.registry, {
@@ -447,6 +498,35 @@ describe("ManagedProjectLifecycleService", () => {
       .resolves.toMatchObject({ state: "complete", projectRevision: input.projectRevision });
     await expect(readdir(input.config.tombstonesRoot)).resolves.toEqual([]);
     await expect(readdir(input.config.recoveryRoot)).resolves.toEqual([]);
+  });
+
+  it("still recovers publications when a deletion record is stuck", async () => {
+    const input = await fixture();
+    const lifecycle = new ManagedProjectLifecycleService(input.config, input.registry, {
+      failpoint: (point) => {
+        if (point === "after-catalog-commit") throw new Error("pause after catalog commit");
+      },
+    });
+    await expect(lifecycle.permanentlyDelete(request(input))).rejects.toThrow(/pause after catalog commit/i);
+    const tombstone = join(input.config.tombstonesRoot, `${input.project.id}.${OPERATION_ID}`);
+    await rename(tombstone, join(input.config.root, "original-tombstone"));
+    await mkdir(tombstone);
+    const stage = await input.repository.createStage();
+    const publishIntentPath = join(input.config.recoveryRoot, "project_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee.json");
+    await writeFile(publishIntentPath, `${JSON.stringify({
+      version: 1,
+      operation: "publish",
+      id: "project_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      token: stage.token,
+      name: "Rolled back",
+      createdAt: "2026-07-19T00:00:00.000Z",
+      phase: "directory-published",
+    })}\n`);
+
+    await expect(new ManagedProjectRepository(input.config).initialize())
+      .rejects.toThrow(/tombstone no longer matches recovery intent/i);
+    await expect(lstat(publishIntentPath)).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(lstat(stage.path)).rejects.toMatchObject({ code: "ENOENT" });
   });
 
   it("rejects non-adjacent journal, catalog, and directory states without deleting evidence", async () => {

@@ -10,12 +10,11 @@ import type { Screen } from "@screenshot-studio/core/model";
 import type { ProjectIssue } from "@screenshot-studio/core/validation";
 import {
   CANVAS_PADDING,
-  workspaceEditingScope,
-  workspaceOverviewRows,
   type CanvasPattern,
   type WorkspaceTool,
   type WorkspaceView,
 } from "@web/lib/editor/editor-workspace";
+import { workspaceEditingScope, workspaceOverviewRows } from "@web/lib/editor/workspace-output-rows";
 import { editorStore, selectEditorLayout } from "@web/lib/editor/editor-store";
 import { cx, editorUi } from "@web/components/editor-ui";
 import { CanvasPatternSelect } from "./CanvasPatternSelect";
@@ -116,7 +115,7 @@ export function CanvasViewport({
     : undefined;
 
   if (!project || !layout || screens.length === 0) {
-    return <section className="min-w-0 flex-1 bg-slate-50" />;
+    return <section className="min-w-0 flex-1 bg-[var(--editor-color-canvas)]" />;
   }
 
   const renderIsolatedScreen = (screen: Screen) => (
@@ -135,7 +134,7 @@ export function CanvasViewport({
   );
 
   return (
-    <section className="relative min-w-0 flex-1 overflow-hidden bg-slate-50" aria-label="Canvas workspace">
+    <section className="relative min-w-0 flex-1 overflow-hidden bg-[var(--editor-color-canvas)]" aria-label="Canvas workspace">
       <CanvasSurface
         viewportRef={viewportRef}
         pattern={pattern}
@@ -209,11 +208,11 @@ export function CanvasViewport({
       {!controlsHidden ? (
         <div
           data-testid="canvas-footer"
-          className="absolute bottom-4 z-20 flex -translate-x-1/2 items-center rounded-xl border border-slate-200 bg-white p-1 shadow-lg shadow-slate-950/10"
+          className="absolute bottom-4 z-20 flex -translate-x-1/2 items-center rounded-xl border border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] p-1 shadow-lg shadow-slate-950/10"
           style={{ left: `calc(50% + ${(leftInset - rightInset) / 2}px)` }}
         >
           <CanvasZoomControls zoom={zoom} onZoom={zoomAt} onFit={fit} />
-          <span className="mx-1 h-5 w-px bg-slate-200" aria-hidden="true" />
+          <span className="mx-1 h-5 w-px bg-[var(--editor-color-border)]" aria-hidden="true" />
           <CanvasPatternSelect pattern={pattern} onPatternChange={onPatternChange} />
         </div>
       ) : null}

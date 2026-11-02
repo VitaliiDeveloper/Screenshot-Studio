@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
+import { execFileSync } from "node:child_process";
 import { chmod, cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
+import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 import JSZip from "jszip";
@@ -9,6 +11,7 @@ import {
   isPortableRenderHostPath,
   PACKAGE_LINKS_MANIFEST,
 } from "./package-archive.mjs";
+import { pnpmCommand } from "./pnpm-command.mjs";
 import { generateThirdPartyNotices } from "./release-audit.mjs";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -17,6 +20,13 @@ const packageRoot = join(cliRoot, "package");
 const webRoot = join(repoRoot, "apps", "web");
 const standaloneRoot = join(webRoot, ".next", "standalone");
 const expectedServer = join(standaloneRoot, "apps", "web", "server.js");
+
+const [pnpm, webBuildArgs] = pnpmCommand(["--filter", "@screenshot-studio/web", "build"]);
+execFileSync(pnpm, webBuildArgs, {
+  cwd: repoRoot,
+  stdio: "inherit",
+  env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1" },
+});
 
 await rm(packageRoot, { recursive: true, force: true });
 await mkdir(join(packageRoot, "dist"), { recursive: true });
@@ -38,6 +48,10 @@ await build({
 await chmod(join(packageRoot, "dist", "index.js"), 0o755);
 await cp(join(cliRoot, "src", "project-agent-guide.md"), join(packageRoot, "dist", "project-agent-guide.md"));
 await cp(join(repoRoot, "store-specs.json"), join(packageRoot, "runtime", "store-specs.json"));
+// Editor agent runs find the skill beside the store specs; only its instructions ship, not the bootstrap.
+for (const file of ["SKILL.md", "references/art-direction.md", "references/critic.md"]) {
+  await cp(join(repoRoot, "skills", "screenshot-studio", file), join(packageRoot, "runtime", "skills", "screenshot-studio", file));
+}
 
 await readFile(expectedServer);
 
@@ -79,7 +93,7 @@ const manifest = {
   bugs: sourceManifest.bugs,
   keywords: sourceManifest.keywords,
   publishConfig: sourceManifest.publishConfig,
-  bin: { screenshots: "./dist/index.js" },
+  bin: { screenshots: "./dist/index.js", "ss-studio": "./dist/index.js" },
   engines: { node: ">=22.13" },
   files: ["dist", "runtime", "README.md", "LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md"],
   dependencies: {

@@ -14,10 +14,9 @@ import {
   type ProjectImageAsset,
 } from "@web/lib/project-assets";
 import { editorStore } from "@web/lib/editor/editor-store";
-import {
-  defaultDeviceFrameInputForScreen,
-  type MediaAssetTarget,
-} from "@web/lib/editor/editor-workspace";
+import { type MediaAssetTarget } from "@web/lib/editor/editor-workspace";
+import { defaultDeviceFrameInputForScreen } from "@web/lib/editor/device-frame-context";
+import { applyElementPatchToScope } from "@web/lib/editor/editor-apply-to";
 import { mutateAndSave } from "@web/lib/editor/mutate-and-save";
 import { projectJsonRequest } from "@web/lib/clients/project-api-client";
 import { resolveActiveProjectAssetUrl } from "@web/lib/clients/save-project";
@@ -115,32 +114,34 @@ export function AssetPickerDialog({
   const insert = (path: string, dimensions: CachedAssetDimensions) => {
     if (!isCurrent()) return;
     if (targetMedia) {
-      mutateAndSave(() => editorStore.getState().patchElement({
+      applyElementPatchToScope({
         id: targetMedia.elementId,
         screenId: targetMedia.screenId,
         type: targetMedia.elementType,
         patch: { assetUrl: path },
-      }));
+        scope: "screen",
+      });
       requestClose();
       return;
     }
     if (isBackground) {
-      mutateAndSave(() => editorStore.getState().setBackground({
-        type: "image",
-        assetUrl: path,
-        fit: "cover",
-        color: "#000000",
-      }));
+      mutateAndSave(() => {
+        const store = editorStore.getState();
+        store.endHistoryGroup();
+        store.setBackground({ type: "image", assetUrl: path, fit: "cover", color: "#000000" });
+        store.endHistoryGroup();
+      });
       requestClose();
       return;
     }
     if (isFrame && targetDeviceFrame) {
-      mutateAndSave(() => editorStore.getState().patchElement({
+      applyElementPatchToScope({
         id: targetDeviceFrame.elementId,
         screenId: targetDeviceFrame.screenId,
         type: "device-frame",
         patch: { assetUrl: path },
-      }));
+        scope: "screen",
+      });
       requestClose();
       return;
     }
@@ -236,7 +237,7 @@ export function AssetPickerDialog({
     >
       <div className="mb-4 flex items-center gap-2">
         <label className="relative min-w-0 flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} strokeWidth={1.9} />
+          <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[color:var(--editor-color-text-subtle)]" size={15} strokeWidth={1.9} />
           <input
             type="search"
             aria-label="Search project assets"
@@ -271,11 +272,10 @@ export function AssetPickerDialog({
         </button>
       </div>
 
-      {error ? (
-        <StatusMessage tone="error">{error}</StatusMessage>
-      ) : assets === null ? (
-        <p role="status" className="grid flex-1 place-items-center text-center text-xs text-slate-500">Scanning project images…</p>
-      ) : visibleAssets.length === 0 ? (
+      {error ? <StatusMessage tone="error" className="mb-4">{error}</StatusMessage> : null}
+      {assets === null ? (error ? null : (
+        <p role="status" className="grid flex-1 place-items-center text-center text-xs text-[color:var(--editor-color-text-secondary)]">Scanning project images…</p>
+      )) : visibleAssets.length === 0 ? (
         <EmptyResourceState
           icon={FolderOpen}
           title={assets.length === 0 ? "No project images found" : "No matching images"}
@@ -292,10 +292,10 @@ export function AssetPickerDialog({
               type="button"
               aria-label={`Use ${asset.path}`}
               disabled={uploading || isClosing}
-              className="group overflow-hidden rounded-xl border border-slate-200 bg-white text-left shadow-sm transition hover:border-blue-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70"
+              className="group overflow-hidden rounded-xl border border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] text-left shadow-sm transition hover:border-[var(--editor-color-accent-border-strong)] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)]"
               onClick={() => { void cacheAndInsert(asset.path); }}
             >
-              <span className="relative flex aspect-[4/3] items-center justify-center overflow-hidden bg-[linear-gradient(45deg,#f8fafc_25%,transparent_25%),linear-gradient(-45deg,#f8fafc_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#f8fafc_75%),linear-gradient(-45deg,transparent_75%,#f8fafc_75%)] bg-[length:16px_16px] bg-[position:0_0,0_8px,8px_-8px,-8px_0px]">
+              <span className="relative flex aspect-[4/3] items-center justify-center overflow-hidden bg-[linear-gradient(45deg,var(--editor-color-surface-muted)_25%,transparent_25%),linear-gradient(-45deg,var(--editor-color-surface-muted)_25%,transparent_25%),linear-gradient(45deg,transparent_75%,var(--editor-color-surface-muted)_75%),linear-gradient(-45deg,transparent_75%,var(--editor-color-surface-muted)_75%)] bg-[length:16px_16px] bg-[position:0_0,0_8px,8px_-8px,-8px_0px]">
                 <NextImage
                   src={resolveActiveProjectAssetUrl(asset.path)}
                   alt=""
@@ -306,13 +306,13 @@ export function AssetPickerDialog({
                   draggable={false}
                   className="size-full object-contain transition-transform duration-200 group-hover:scale-[1.02]"
                 />
-                <span className="absolute right-2 top-2 inline-flex size-7 items-center justify-center rounded-lg bg-white/90 text-slate-600 shadow-sm backdrop-blur">
+                <span className="absolute right-2 top-2 inline-flex size-7 items-center justify-center rounded-lg bg-[var(--editor-color-surface-translucent-strong)] text-[color:var(--editor-color-text-muted)] shadow-sm backdrop-blur">
                   {isFrame ? <Smartphone size={14} strokeWidth={1.8} /> : <ImageIcon size={14} strokeWidth={1.8} />}
                 </span>
               </span>
               <span className="block p-3">
-                <span className="block truncate text-xs font-semibold text-slate-800">{asset.name}</span>
-                <span className="mt-1 block truncate font-mono text-[10px] text-slate-400">{asset.path}</span>
+                <span className="block truncate text-xs font-semibold text-[color:var(--editor-color-text)]">{asset.name}</span>
+                <span className="mt-1 block truncate font-mono text-[10px] text-[color:var(--editor-color-text-subtle)]">{asset.path}</span>
               </span>
             </button>
           ))}

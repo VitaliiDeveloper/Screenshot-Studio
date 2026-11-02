@@ -5,7 +5,7 @@ import type { StoreSpecs } from "@screenshot-studio/core/export";
 import type { Screen } from "@screenshot-studio/core/model";
 import { cx } from "@web/components/editor-ui";
 import { screenSizeLabel } from "@web/lib/editor/editor-issues";
-import { screenStoreTarget } from "@web/lib/editor/editor-workspace";
+import { screenStoreTarget } from "@web/lib/editor/store-target-labels";
 
 function previewWidthStyle(width?: number): CSSProperties | undefined {
   return width === undefined ? undefined : { width };
@@ -36,7 +36,7 @@ export function ScreenPreviewTitle({
     <div
       className={cx(
         "mb-2 flex h-5 min-w-0 shrink-0 items-center overflow-hidden text-[11px] font-semibold leading-5 transition-colors duration-200 ease-[var(--editor-motion-ease)] motion-reduce:transition-none",
-        active ? "text-blue-700" : "text-slate-500",
+        active ? "text-[color:var(--editor-color-accent-text-strong)]" : "text-[color:var(--editor-color-text-secondary)]",
         className,
       )}
       data-testid="artboard-preview-label"
@@ -68,7 +68,7 @@ export function ScreenPreviewMetadata({
   return (
     <div
       className={cx(
-        "mt-2 flex h-5 min-w-0 shrink-0 items-center overflow-hidden text-[10px] font-normal leading-5 text-slate-400",
+        "mt-2 flex h-5 min-w-0 shrink-0 items-center overflow-hidden text-[10px] font-normal leading-5 text-[color:var(--editor-color-text-subtle)]",
         className,
       )}
       data-testid="artboard-preview-caption"

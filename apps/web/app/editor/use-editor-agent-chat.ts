@@ -3,10 +3,11 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AgentStatus } from "@web/lib/agents/agent-registry.server";
-import type { AgentRunOutcome } from "@web/lib/agents/agent-session.server";
+import type { AgentRunMode, AgentRunOutcome } from "@web/lib/agents/agent-session.server";
 import {
   applyAgentEvent,
   createAgentEventParser,
+  CRITIC_REQUEST,
   agentCanRun,
   agentRunChoices,
   createAgentTurn,
@@ -15,9 +16,10 @@ import {
   type AgentResult,
   type AgentTurn,
 } from "@web/components/agent-panel-model";
+import { readAgentChat, readAgentChoice, writeAgentChat, writeAgentChoice } from "@web/components/agent-chat-memory";
 import { projectRequestHeaders } from "@web/lib/clients/save-project";
 import type { AgentStartRequest } from "@web/lib/editor/agent-start-request";
-import { flushScheduledSave } from "@web/lib/editor/debounced-save";
+import { saveProjectNow } from "@web/lib/editor/debounced-save";
 import { readJsonBody, responseErrorMessage } from "@web/lib/json-response";
 
 /** `running` and `syncing` (verdict reload, Undo run) own the project, so the editor pauses writes. */
@@ -54,7 +56,11 @@ async function postOutcome(action: "keep" | "undo"): Promise<void> {
  * The Agent panel's state. It lives in the Workspace, above its loading screen, because the
  * session route cancels a run when its stream closes: a resource reload or a panel switch must not.
  */
-export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<boolean>) {
+export function useEditorAgentChat(
+  open: boolean,
+  reloadFromDisk: () => Promise<boolean>,
+  projectId: string | null = null,
+) {
   const [agents, setAgents] = useState<AgentStatus[] | null>(null);
   const [agentsError, setAgentsError] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
@@ -62,9 +68,13 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
   const [model, setModel] = useState<string | null>(null);
   const [effort, setEffort] = useState<string | null>(null);
   const [turns, setTurns] = useState<AgentTurn[]>([]);
+  // The project whose stored chat `turns` holds; nothing is written until it is restored.
+  const [chatProjectId, setChatProjectId] = useState<string | null>(null);
   const [phase, setPhase] = useState<AgentChatPhase>("idle");
   const [outcome, setOutcome] = useState<AgentRunOutcome | null>(null);
   const [outcomeError, setOutcomeError] = useState<string | null>(null);
+  // Offered once the user keeps a run's changes; never started without their click.
+  const [criticOffered, setCriticOffered] = useState(false);
   const [consentError, setConsentError] = useState<string | null>(null);
   // A ref, not state: re-renders while the run starts must not send the request twice.
   const queued = useRef<AgentStartRequest | null>(null);
@@ -94,7 +104,13 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
       const list = body.agents as AgentStatus[];
       setAgents(list);
       setAgentsError(null);
-      setAgentId((current) => defaultAgentId(list, current));
+      // An explicit pick (Start with agent) wins over the one remembered from an earlier page.
+      const remembered = queued.current ? null : readAgentChoice();
+      setAgentId((current) => defaultAgentId(list, current ?? remembered?.agentId ?? null));
+      if (remembered) {
+        setModel((current) => current ?? remembered.model);
+        setEffort((current) => current ?? remembered.effort);
+      }
     } catch (error) {
       setAgentsError((error as Error).message);
     } finally {
@@ -120,6 +136,22 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
     void loadOutcome();
   }, [loadOutcome, open, refreshAgents]);
 
+  useEffect(() => {
+    if (!projectId) return;
+    // The Workspace remounts per project, so this runs once; a run queued by Start with agent may
+    // already be in `turns`. Negative ids keep restored turns clear of the ids new turns take.
+    const frame = requestAnimationFrame(() => {
+      const restored = readAgentChat(projectId).map((turn, index, all) => ({ ...turn, id: index - all.length }));
+      setTurns((current) => [...restored, ...current]);
+      setChatProjectId(projectId);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [projectId]);
+
+  useEffect(() => {
+    if (chatProjectId) writeAgentChat(chatProjectId, turns);
+  }, [chatProjectId, turns]);
+
   // Leaving the editor closes the stream, which stops the run on the server.
   useEffect(() => {
     mounted.current = true;
@@ -130,7 +162,7 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
     };
   }, []);
 
-  const send = useCallback(async (message: string, files: readonly File[] = []): Promise<boolean> => {
+  const send = useCallback(async (message: string, files: readonly File[] = [], mode: AgentRunMode = "edit"): Promise<boolean> => {
     const agent = selected;
     if (!agentCanRun(agent) || phase !== "idle" || !message.trim()) return false;
     const id = nextTurnId.current++;
@@ -143,8 +175,9 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
       done: turn.done ?? { type: "done", status: "failed", summary: null, durationMs: null },
     }));
     const turnAttachments = attachmentsOf(files);
-    setTurns((all) => [...all, createAgentTurn(id, agent.name, message, turnAttachments)]);
+    setTurns((all) => [...all, createAgentTurn(id, agent.name, message, turnAttachments, mode)]);
     setPhase("running");
+    setCriticOffered(false);
     setOutcomeError(null);
     stopped.current = false;
     responded.current = false;
@@ -154,12 +187,13 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
     let finished = false;
     let launched = false;
     try {
-      // A debounced edit that fired mid-run would be refused, so the run starts from saved work.
-      await flushScheduledSave();
+      // An edit saved mid-run would be refused, so the run starts only from saved work.
+      await saveProjectNow();
       // Images go with the request in one multipart body; the browser sets its boundary header.
       const form = new FormData();
       form.set("agentId", agent.id);
       form.set("message", message);
+      form.set("mode", mode);
       if (selectedModel) form.set("model", selectedModel);
       if (selectedEffort) form.set("effort", selectedEffort);
       for (const file of files) form.append("image", file);
@@ -168,7 +202,7 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
         headers: files.length > 0 ? projectRequestHeaders() : jsonHeaders(),
         body: files.length > 0
           ? form
-          : JSON.stringify({ agentId: agent.id, message, model: selectedModel, effort: selectedEffort }),
+          : JSON.stringify({ agentId: agent.id, message, mode, model: selectedModel, effort: selectedEffort }),
         signal: controller.signal,
       });
       responded.current = true;
@@ -181,8 +215,8 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
         return false;
       }
       launched = true;
-      // The server drops the previous run's snapshot once this one starts.
-      setOutcome(null);
+      // The server drops the previous run's snapshot once an edit run starts; a critic run keeps it.
+      if (mode === "edit") setOutcome(null);
       const parse = createAgentEventParser();
       const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
       for (let next = await reader.read(); !next.done; next = await reader.read()) {
@@ -291,6 +325,7 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
     try {
       await postOutcome("keep");
       setOutcome(null);
+      setCriticOffered(true);
     } catch (error) {
       setOutcomeError((error as Error).message);
     }
@@ -302,9 +337,10 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
     setOutcomeError(null);
     try {
       // A pending edit must reach disk first, so Undo run refuses it instead of overwriting it.
-      await flushScheduledSave();
+      await saveProjectNow();
       await postOutcome("undo");
       setOutcome(null);
+      setCriticOffered(false);
       await reloadFromDisk();
     } catch (error) {
       setOutcomeError((error as Error).message);
@@ -318,13 +354,28 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
     setModel(null);
     setEffort(null);
     setConsentError(null);
+    writeAgentChoice({ agentId: id, model: null, effort: null });
   }, []);
+
+  const selectModel = useCallback((next: string) => {
+    setModel(next);
+    writeAgentChoice({ agentId: selected?.id ?? null, model: next, effort: selectedEffort });
+  }, [selected, selectedEffort]);
+
+  const selectEffort = useCallback((next: string) => {
+    setEffort(next);
+    writeAgentChoice({ agentId: selected?.id ?? null, model: selectedModel, effort: next });
+  }, [selected, selectedModel]);
 
   const newChat = useCallback(() => {
     if (phase !== "idle") return;
     revokeAttachments(turnsRef.current);
     setTurns([]);
+    setCriticOffered(false);
   }, [phase]);
+
+  const critique = useCallback(() => send(CRITIC_REQUEST, [], "critic"), [send]);
+  const dismissCritic = useCallback(() => setCriticOffered(false), []);
 
   return {
     agents,
@@ -338,13 +389,16 @@ export function useEditorAgentChat(open: boolean, reloadFromDisk: () => Promise<
     locked: phase !== "idle",
     outcome,
     outcomeError,
+    criticOffered,
     consentError,
     setConsent,
     refreshAgents,
     selectAgent,
-    selectModel: setModel,
-    selectEffort: setEffort,
+    selectModel,
+    selectEffort,
     send,
+    critique,
+    dismissCritic,
     queueStart,
     stop,
     keep,

@@ -131,4 +131,20 @@ describe("unified store catalog", () => {
     expect(() => parseStoreSpecs(invalidRecommended))
       .toThrow(/exactly one creatable recommended family/);
   });
+
+  it("maps every App Store target to a display type or an explicit reason, and nothing else", () => {
+    const apple = Object.values(DEFAULT_STORE_SPECS.platforms.apple.families).flatMap(({ targets }) => targets);
+    expect(apple.every(({ appStoreConnect }) => appStoreConnect !== undefined)).toBe(true);
+    expect(apple.filter(({ appStoreConnect }) => appStoreConnect && "unsupported" in appStoreConnect).map(({ id }) => id))
+      .toEqual(["duo-inner", "duo-inner-landscape", "duo-outer", "duo-outer-landscape"]);
+
+    const misplaced = structuredClone(DEFAULT_STORE_SPECS);
+    misplaced.platforms.android.families.phone.targets[0]!.appStoreConnect = { displayType: "APP_IPHONE_67" };
+    expect(() => parseStoreSpecs(misplaced)).toThrow(/Only App Store targets declare appStoreConnect/);
+    const unknown = structuredClone(DEFAULT_STORE_SPECS) as unknown as {
+      platforms: { apple: { families: { iphone: { targets: Array<{ appStoreConnect: unknown }> } } } };
+    };
+    unknown.platforms.apple.families.iphone.targets[0]!.appStoreConnect = { displayType: "APP_IPHONE_69" };
+    expect(() => parseStoreSpecs(unknown)).toThrow(/Invalid/);
+  });
 });

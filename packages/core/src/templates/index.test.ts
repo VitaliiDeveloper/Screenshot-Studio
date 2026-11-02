@@ -5,6 +5,8 @@ import { describe, expect, it } from "vitest";
 import {
   buildBundleEntries,
   findStoreTarget,
+  leadStoreSizeId,
+  listStoreTargets,
   parseStoreSpecs,
   validateBundleArtboards,
 } from "@screenshot-studio/core/export";
@@ -12,12 +14,15 @@ import {
   ensureStoreTargetVariant,
   elementLeaves,
   isBuiltInFontIdentity,
+  mirrorGradientAngle,
   setScreenDirection,
   parseProject,
   projectScreenGroup,
+  rotatedElementBounds,
   setLocaleDirection,
   setOutputFamilyScreenSetMode,
   type Project,
+  type Screen,
 } from "@screenshot-studio/core/model";
 import { findBuiltInDesignPack } from "@screenshot-studio/core/themes";
 import {
@@ -91,6 +96,20 @@ function synchronizedAndroidProject(direction: "ltr" | "rtl" = "ltr"): Project {
 }
 
 describe("ScreenTemplate", () => {
+  it("refuses a standalone exact-size screen in a Sync sizes family with an actionable error", () => {
+    const target = listStoreTargets(storeSpecs, "android", "phone")
+      .find(({ id }) => id !== leadStoreSizeId(storeSpecs, "android", "phone"))!;
+    const exact: Template = {
+      ...template,
+      id: "exact",
+      targetId: target.id,
+      artboard: { width: target.width, height: target.height },
+    };
+    expect(() => createScreenFromTemplate(synchronizedAndroidProject(), "default", exact, "en", storeSpecs, {
+      exactTargetMode: "standalone",
+    })).toThrow(/Sync sizes.*Separate/);
+  });
+
   it("strictly validates platform/device and fields", () => {
     expect(ScreenTemplate.parse(template).id).toBe("feature-card");
     expect(() => ScreenTemplate.parse({ ...template, device: "ipad" })).toThrow();
@@ -503,10 +522,11 @@ const intersects = (a: Box, b: Box) => a.x < b.x + b.width && b.x < a.x + a.widt
 const STYLES = ["clean", "aurora", "midnight", "poster", "sunrise"];
 const styledPacks = () => listBuiltInTemplatePacks(storeSpecs).filter((pack) => STYLES.includes(pack.style));
 const isPanorama = (id: string) => id.includes("-panorama-");
+const isShowcase = (id: string) => id.includes("-showcase-");
 
 describe("styled template packs", () => {
   it("ships every style for phones and two for tablets and Mac, each with the full six-screen narrative", () => {
-    const packs = styledPacks().filter((pack) => !isPanorama(pack.id));
+    const packs = styledPacks().filter((pack) => !isPanorama(pack.id) && !isShowcase(pack.id));
     const largeScreens = [
       ["ipad", "apple", "ipad", ["clean", "aurora"]],
       ["android-tablet", "android", "tablet-7", ["clean", "aurora"]],
@@ -520,7 +540,7 @@ describe("styled template packs", () => {
       expect(findBuiltInDesignPack(pack.style), pack.id).toBeDefined();
       expect(pack.screens.map((screen) => screen.name)).toEqual(["Hero", "Feature 1", "Feature 2", "Feature 3", "Social proof", "Call to action"]);
     }
-    expect(listBuiltInTemplatePackMetadata().filter((pack) => STYLES.includes(pack.style) && !isPanorama(pack.id)).map((pack) => [pack.platform, pack.device, pack.screenCount]))
+    expect(listBuiltInTemplatePackMetadata().filter((pack) => STYLES.includes(pack.style) && !isPanorama(pack.id) && !isShowcase(pack.id)).map((pack) => [pack.platform, pack.device, pack.screenCount]))
       .toEqual([
         ...STYLES.flatMap(() => [["apple", "iphone", 6], ["android", "phone", 6]]),
         ...largeScreens.flatMap(([, platform, device, styles]) => styles.map(() => [platform, device, 6])),
@@ -539,14 +559,23 @@ describe("styled template packs", () => {
         } as Project["layouts"][number]["screens"][number], direction);
         const { width, height } = screen.artboard;
         expect(screen.artboard, label).toEqual({ width: target.width, height: target.height });
-        expect(screen.background, label).toEqual(style.background);
+        expect(screen.background, label).toEqual(
+          direction === "rtl" && style.background.type === "linear-gradient"
+            ? { ...style.background, angle: mirrorGradientAngle(style.background.angle) }
+            : style.background,
+        );
         const leaves = screen.elements.flatMap(elementLeaves);
-        const device = leaves.find((leaf) => leaf.type === "device-frame")!;
-        expect(device.x, label).toBeGreaterThanOrEqual(0);
-        expect(device.y, label).toBeGreaterThanOrEqual(0);
-        expect(device.x + device.width, label).toBeLessThanOrEqual(width);
-        expect(device.y + device.height - height, label).toBeLessThanOrEqual(device.height * 0.15);
-        expect(device.width / width, label).toBeGreaterThan(0.35);
+        // Showcase screens tilt and pair devices, so every frame is judged by the box it covers.
+        const devices = leaves.filter((leaf) => leaf.type === "device-frame").map((device) => {
+          const { minX, minY, maxX, maxY } = rotatedElementBounds(device);
+          expect(minX, label).toBeGreaterThanOrEqual(0);
+          expect(minY, label).toBeGreaterThanOrEqual(0);
+          expect(maxX, label).toBeLessThanOrEqual(width);
+          expect(maxY - height, label).toBeLessThanOrEqual(device.height * 0.15);
+          expect(device.width / width, label).toBeGreaterThan(0.35);
+          return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+        });
+        expect(devices.length, label).toBe(template.id.includes("-showcase-") && template.id.endsWith("-feature-1") ? 2 : 1);
 
         for (const text of leaves.filter((leaf) => leaf.type === "text")) {
           const where = `${label} ${text.id}`;
@@ -555,7 +584,7 @@ describe("styled template packs", () => {
           expect(text.x, where).toBeGreaterThanOrEqual(0);
           expect(text.x + text.width, where).toBeLessThanOrEqual(width);
           expect(text.y + text.height, where).toBeLessThanOrEqual(height);
-          expect(intersects(text, device), where).toBe(false);
+          for (const device of devices) expect(intersects(text, device), where).toBe(false);
           const minimumLines = text.role === "heading" || text.role === "body" ? 3 : 1;
           expect(text.height, where).toBeGreaterThanOrEqual(Math.floor(text.size * text.lineHeight * minimumLines));
           // The themes test proves these role pairs readable for every styled pack.
@@ -588,9 +617,45 @@ describe("styled template packs", () => {
   });
 });
 
+describe("showcase template packs", () => {
+  it("ships tilted, paired, and stat-led phone screens for the bold styles", () => {
+    const showcases = styledPacks().filter((pack) => isShowcase(pack.id));
+    expect(showcases.map((pack) => pack.id)).toEqual([
+      "midnight-showcase-iphone", "midnight-showcase-android-phone", "poster-showcase-iphone", "poster-showcase-android-phone",
+    ]);
+    for (const pack of showcases) {
+      const [hero, pair, , , proof] = pack.screens;
+      const frames = (template: typeof hero) => template!.elements.flatMap(elementLeaves).filter((leaf) => leaf.type === "device-frame");
+      expect(frames(hero).map((frame) => frame.rotation), pack.id).toEqual([-6]);
+      expect(frames(pair).map((frame) => [frame.id, frame.rotation]), pack.id).toEqual([["mockup-back", -7], ["mockup", 5]]);
+      expect(proof!.elements.find((element) => element.id === "headline"), pack.id).toMatchObject({ content: "4.9" });
+    }
+  });
+});
+
 describe("panorama template packs", () => {
   const PANORAMA_STYLES = ["clean", "midnight", "poster", "sunrise"];
   const panoramas = () => styledPacks().filter((pack) => isPanorama(pack.id));
+
+  it("mirrors each pack's art across the whole strip in an RTL locale", () => {
+    const artSpans = (direction: "ltr" | "rtl") => panoramas().map((pack) => {
+      const source = project();
+      source.layouts[0]!.screens[0] = pack.platform === "apple"
+        ? { ...source.layouts[0]!.screens[0]!, direction }
+        : { ...source.layouts[0]!.screens[0]!, platform: "android", device: "phone", direction } as Screen;
+      const { project: next, screens } = createScreensFromTemplatePack(source, "default", pack, "en", storeSpecs);
+      const strip = projectScreenGroup(next, "default", screens[0]!.id);
+      const total = strip.reduce((sum, { screen }) => sum + screen.artboard.width, 0);
+      return strip.flatMap(({ screen, x }) => screen.elements
+        .filter((element) => element.type === "shape" && element.name !== "Quote card" && element.name !== "Action button")
+        .map((element) => ({ start: x + element.x, end: x + element.x + element.width, total })));
+    });
+    const rtl = artSpans("rtl");
+    artSpans("ltr").forEach((spans, pack) => spans.forEach((span, index) => {
+      expect(rtl[pack]![index]!.start).toBeCloseTo(span.total - span.end, 6);
+      expect(rtl[pack]![index]!.end).toBeCloseTo(span.total - span.start, 6);
+    }));
+  });
 
   it("ships the seam-safe styles for iPhone and Android phone with the six-screen narrative", () => {
     expect(panoramas().map((pack) => pack.id))

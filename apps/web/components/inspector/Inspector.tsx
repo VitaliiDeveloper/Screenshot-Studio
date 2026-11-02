@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import { Fragment, useId, useState } from "react";
+import { Fragment, useId, useRef, useState } from "react";
 import { useStore } from "zustand";
 import {
   AlignCenterHorizontal,
@@ -24,19 +24,14 @@ import {
 import { findStoreTarget, leadStoreSizeId, type StoreSpecs } from "@screenshot-studio/core/export";
 import { getScreen, type Element } from "@screenshot-studio/core/model";
 import type { ProjectIssue } from "@screenshot-studio/core/validation";
-import type { ApplyScope } from "@web/lib/editor/editor-apply-scope";
-import { editorStore, type ElementPatchFor } from "@web/lib/editor/editor-store";
+import { editorStore, selectApplyScope, type ElementPatchFor } from "@web/lib/editor/editor-store";
 import { mutateAndSave, mutateAndScheduleSave } from "@web/lib/editor/mutate-and-save";
 import { flushScheduledSave } from "@web/lib/editor/debounced-save";
 import { typeCountLabel } from "@web/lib/panel-helpers";
 import type { MediaAssetTarget } from "@web/lib/editor/editor-workspace";
 import { cx, editorUi } from "@web/components/editor-ui";
-import {
-  ApplyScopeFooter,
-  ApplyScopeSelect,
-  resolveApplyScope,
-  type ApplyScopeChoice,
-} from "./ApplyScopeControl";
+import { useFocusRescue } from "@web/components/editor-ui/use-focus-rescue";
+import { ApplyScopeFooter, ApplyScopeSelect } from "./ApplyScopeControl";
 import { percentToUnit, SliderNumberField, unitToPercent } from "./inspector-fields";
 import { ElementTypeInspectorSections } from "./ElementTypeInspectorSections";
 import { TextSizeStatusSection } from "./TextSizeStatusSection";
@@ -92,11 +87,15 @@ export function Inspector({
   const activeScreenId = useStore(editorStore, (state) => state.activeScreenId);
   const selectedItems = useStore(editorStore, (state) => state.selectedItems);
   const [tabChoice, setTabChoice] = useState<InspectorTabChoice | null>(null);
-  const [scopeChoice, setScopeChoice] = useState<ApplyScopeChoice | null>(null);
+  const applyScope = useStore(editorStore, selectApplyScope);
   const idPrefix = useId();
+  const asideRef = useRef<HTMLElement>(null);
+  const focusRescue = useFocusRescue(
+    () => asideRef.current?.querySelector<HTMLElement>("[role='tab'][aria-selected='true']"),
+  );
 
   if (!project || !activeLayoutId || !activeScreenId) {
-    return <aside className={cx("w-72 shrink-0 border-l border-slate-200 bg-white", className)} />;
+    return <aside className={cx("w-72 shrink-0 border-l border-[var(--editor-color-border)] bg-[var(--editor-color-surface)]", className)} />;
   }
   const {
     screen,
@@ -115,9 +114,7 @@ export function Inspector({
     sharedOpacity,
   } = deriveInspectorSelection(project, activeLayoutId, activeScreenId, selectedItems);
   const selectionKey = inspectorSelectionKey(selectedItems);
-  const scopeKey = `${activeScreenId}|${selectionKey}`;
-  const applyScope = resolveApplyScope(scopeChoice, scopeKey);
-  const setApplyScope = (scope: ApplyScope) => setScopeChoice({ scope, key: scopeKey });
+  const { setApplyScope } = editorStore.getState();
   const tab = resolveInspectorTab(selectionKey, tabChoice);
   const activeScreen = getScreen(project, activeLayoutId, activeScreenId);
   const [title, subtitle] = inspectorHeading({
@@ -157,22 +154,25 @@ export function Inspector({
   ) : null;
   return (
     <aside
+      ref={asideRef}
       className={cx(
-        "flex h-full w-[min(18rem,calc(100vw-3.75rem))] editor-scroll-area shrink-0 flex-col overflow-y-auto overflow-x-hidden border-l border-slate-200 bg-white shadow-xl shadow-slate-950/10 xl:w-72 xl:shadow-[-1px_0_0_rgba(15,23,42,0.02)]",
+        "flex h-full w-[min(18rem,calc(100vw-3.75rem))] editor-scroll-area shrink-0 flex-col overflow-y-auto overflow-x-hidden border-l border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] shadow-xl shadow-slate-950/10 xl:w-72 xl:shadow-[-1px_0_0_rgba(15,23,42,0.02)]",
         className,
       )}
+      onFocusCapture={focusRescue.onFocusCapture}
       onBlurCapture={() => {
+        focusRescue.onBlurCapture();
         editorStore.getState().endHistoryGroup();
         void flushScheduledSave().catch(() => undefined);
       }}
     >
-      <header className="sticky top-0 z-10 border-b border-slate-200 bg-white">
+      <header className="sticky top-0 z-10 border-b border-[var(--editor-color-border)] bg-[var(--editor-color-surface)]">
         <div className="flex min-h-14 items-center justify-between gap-2 px-4">
           <div className="min-w-0">
             <h2 className="sr-only">Inspector</h2>
-            <p className="truncate text-sm font-medium tracking-tight text-slate-950">{title}</p>
+            <p className="truncate text-sm font-medium tracking-tight text-[color:var(--editor-color-text-strong)]">{title}</p>
             {tab === "layer" && selectionTypeGroups.length > 1 ? (
-              <p className="truncate text-[10px] text-slate-600">
+              <p className="truncate text-[10px] text-[color:var(--editor-color-text-muted)]">
                 {selectionTypeGroups.map(({ type, items }, index) => {
                   const label = typeCountLabel(type, items.length);
                   return (
@@ -182,7 +182,7 @@ export function Inspector({
                         type="button"
                         aria-label={`Select only ${label}`}
                         title={`Select only ${label}`}
-                        className="rounded-sm underline decoration-slate-300 decoration-dotted underline-offset-2 hover:text-blue-700 hover:decoration-solid hover:decoration-current focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/70"
+                        className="rounded-sm underline decoration-[color:var(--editor-color-border-strong)] decoration-dotted underline-offset-2 hover:text-[color:var(--editor-color-accent-text-strong)] hover:decoration-solid hover:decoration-current focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--editor-color-focus)]"
                         onClick={() => editorStore.getState().setSelection(items)}
                       >
                         {label}
@@ -192,7 +192,7 @@ export function Inspector({
                 })}
               </p>
             ) : (
-              <p className="truncate text-[10px] text-slate-600">{subtitle}</p>
+              <p className="truncate text-[10px] text-[color:var(--editor-color-text-muted)]">{subtitle}</p>
             )}
           </div>
           {onClose ? (
@@ -229,19 +229,19 @@ export function Inspector({
           <>
             <Section title="Selection bounds">
               {aggregate ? (
-                <dl className="flex flex-col gap-1.5 rounded-lg border border-slate-100 bg-slate-50/70 px-2.5 py-2 text-xs">
+                <dl className="flex flex-col gap-1.5 rounded-lg border border-[var(--editor-color-border-subtle)] bg-[var(--editor-color-surface-subtle-translucent)] px-2.5 py-2 text-xs">
                   {([
                     ["Position", [["X", aggregate.minX], ["Y", aggregate.minY]]],
                     ["Size", [["W", aggregate.maxX - aggregate.minX], ["H", aggregate.maxY - aggregate.minY]]],
                   ] as const).map(([label, axes]) => (
                     <div key={label} className="flex gap-2">
-                      <dt className="w-16 shrink-0 text-slate-500">{label}</dt>
-                      <dd className="grid flex-1 grid-cols-2 gap-3 tabular-nums text-slate-900">
+                      <dt className="w-16 shrink-0 text-[color:var(--editor-color-text-secondary)]">{label}</dt>
+                      <dd className="grid flex-1 grid-cols-2 gap-3 tabular-nums text-[color:var(--editor-color-text-strong)]">
                         {axes.map(([axis, value]) => (
                           <span key={axis}>
-                            <span className="mr-1 text-slate-400">{axis}</span>
+                            <span className="mr-1 text-[color:var(--editor-color-text-subtle)]">{axis}</span>
                             {Math.round(value)}
-                            <span className="ml-0.5 text-slate-400">px</span>
+                            <span className="ml-0.5 text-[color:var(--editor-color-text-subtle)]">px</span>
                           </span>
                         ))}
                       </dd>
@@ -249,7 +249,7 @@ export function Inspector({
                   ))}
                 </dl>
               ) : null}
-              <p className="text-[11px] leading-4 text-slate-500">Drag on the canvas to move unlocked layers.</p>
+              <p className="text-[11px] leading-4 text-[color:var(--editor-color-text-secondary)]">Drag on the canvas to move unlocked layers.</p>
             </Section>
             <Section title="Shared actions">
               <div className="flex flex-col gap-1.5">
@@ -367,7 +367,7 @@ export function Inspector({
               </div>
             </Section>
             <Section title="Hidden">
-              <p className="text-[11px] leading-4 text-slate-500">
+              <p className="text-[11px] leading-4 text-[color:var(--editor-color-text-secondary)]">
                 Resize, rotation, and type-specific fields such as text, fill, and media edit one layer
                 at a time. Select a single layer to change them.
               </p>
@@ -422,7 +422,7 @@ export function Inspector({
             ) : null}
           </>
         ) : (
-          <p className="px-4 py-4 text-xs leading-5 text-slate-500">
+          <p className="px-4 py-4 text-xs leading-5 text-[color:var(--editor-color-text-secondary)]">
             Select a layer on the canvas or in the Layers list to edit it.
           </p>
         )}

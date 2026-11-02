@@ -26,9 +26,15 @@
     "access": "public"
   },
   "bin": {
-    "screenshots": "./bin/screenshots.mjs"
+    "screenshots": "./bin/screenshots.mjs",
+    "ss-studio": "./bin/screenshots.mjs"
   },
   "exports": {
+    "./app-store-connect-client": "./src/app-store-connect-client.ts",
+    "./app-store-connect-test-support": "./src/app-store-connect-test-support.ts",
+    "./app-store-upload": "./src/app-store-upload-command.ts",
+    "./check-command": "./src/check-command.ts",
+    "./export-command": "./src/export-command.ts",
     "./export": "./src/export.ts",
     "./project-image-service": "./src/project-image-service.ts",
     "./font-service": "./src/font-service.ts",
@@ -38,7 +44,10 @@
     "./capture-import-recovery": "./src/capture-import-recovery.ts",
     "./capture-import-transaction": "./src/capture-import-transaction.ts",
     "./render-driver": "./src/render-driver.ts",
-    "./server": "./src/server.ts"
+    "./safe-file-publisher": "./src/safe-file-publisher.ts",
+    "./server": "./src/server.ts",
+    "./store-upload-plan": "./src/store-upload-plan.ts",
+    "./upload": "./src/upload-command.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

@@ -12,7 +12,7 @@ import {
 import { ArrowLeftRight, ChevronDown, Image as ImageIcon, RotateCcw } from "lucide-react";
 import type { Background } from "@screenshot-studio/core/model";
 import { resolveActiveProjectAssetUrl } from "@web/lib/clients/save-project";
-import { editorUi, SegmentedControl } from "@web/components/editor-ui";
+import { ColorInput, editorUi, SegmentedControl } from "@web/components/editor-ui";
 import { NumberField } from "@web/components/inspector/inspector-fields";
 
 const GRADIENT_DIRECTION_AXES = [
@@ -69,18 +69,12 @@ function BackgroundColorField({
   return (
     <label className="flex items-center justify-between gap-3 text-xs">
       <span className="shrink-0 whitespace-nowrap text-[color:var(--editor-color-text-secondary)]">{label}</span>
-      <span className="relative inline-flex h-8 w-36 min-w-0 items-center gap-2 rounded-[var(--editor-radius-control)] border border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] px-2 shadow-[var(--editor-shadow-control)] transition-colors duration-[var(--editor-motion-fast)] ease-[var(--editor-motion-ease)] hover:border-[var(--editor-color-border-strong)] focus-within:border-[var(--editor-color-focus-border)] focus-within:ring-[length:var(--editor-focus-width)] focus-within:ring-[var(--editor-color-focus-subtle)]">
-        <input
-          type="color"
+      <span className="relative inline-flex h-8 cursor-pointer w-36 min-w-0 items-center gap-2 rounded-[var(--editor-radius-control)] border border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] px-2 shadow-[var(--editor-shadow-control)] transition-colors duration-[var(--editor-motion-fast)] ease-[var(--editor-motion-ease)] hover:border-[var(--editor-color-border-strong)] focus-within:border-[var(--editor-color-focus-border)] focus-within:ring-[length:var(--editor-focus-width)] focus-within:ring-[var(--editor-color-focus-subtle)]">
+        <ColorInput
           aria-label={label}
           value={value}
-          onChange={(event) => onChange(event.currentTarget.value)}
-          className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
-        />
-        <span
-          aria-hidden="true"
-          className="size-5 shrink-0 rounded-md ring-1 ring-inset ring-[var(--editor-color-swatch-outline)]"
-          style={{ backgroundColor: value }}
+          onChange={onChange}
+          className="size-5 rounded-md ring-1 ring-inset ring-[var(--editor-color-swatch-outline)]"
         />
         <span className="min-w-0 flex-1 truncate text-right font-medium uppercase tabular-nums text-[color:var(--editor-color-text)]">
           {value}
@@ -103,18 +97,12 @@ function CompactBackgroundColorField({
   return (
     <label className="flex min-w-0 flex-col gap-1.5 text-xs">
       <span className="text-[color:var(--editor-color-text-secondary)]">{label}</span>
-      <span className="relative inline-flex h-8 min-w-0 items-center gap-1.5 rounded-[var(--editor-radius-control)] border border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] px-2 shadow-[var(--editor-shadow-control)] transition-colors duration-[var(--editor-motion-fast)] ease-[var(--editor-motion-ease)] hover:border-[var(--editor-color-border-strong)] focus-within:border-[var(--editor-color-focus-border)] focus-within:ring-[length:var(--editor-focus-width)] focus-within:ring-[var(--editor-color-focus-subtle)]">
-        <input
-          type="color"
+      <span className="relative inline-flex h-8 cursor-pointer min-w-0 items-center gap-1.5 rounded-[var(--editor-radius-control)] border border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] px-2 shadow-[var(--editor-shadow-control)] transition-colors duration-[var(--editor-motion-fast)] ease-[var(--editor-motion-ease)] hover:border-[var(--editor-color-border-strong)] focus-within:border-[var(--editor-color-focus-border)] focus-within:ring-[length:var(--editor-focus-width)] focus-within:ring-[var(--editor-color-focus-subtle)]">
+        <ColorInput
           aria-label={label}
           value={value}
-          onChange={(event) => onChange(event.currentTarget.value)}
-          className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
-        />
-        <span
-          aria-hidden="true"
-          className="size-5 shrink-0 rounded-md ring-1 ring-inset ring-[var(--editor-color-swatch-outline)]"
-          style={{ backgroundColor: value }}
+          onChange={onChange}
+          className="size-5 rounded-md ring-1 ring-inset ring-[var(--editor-color-swatch-outline)]"
         />
         <span className="min-w-0 flex-1 truncate text-right text-[10px] font-medium uppercase tabular-nums text-[color:var(--editor-color-text)]">
           {value}
@@ -277,7 +265,7 @@ export function BackgroundInspectorFields({
                         title={direction.label}
                         aria-pressed={selected}
                         className={`flex h-6 min-w-0 flex-1 items-center justify-center rounded-[var(--editor-radius-compact)] text-sm leading-none transition-colors duration-[var(--editor-motion-fast)] ease-[var(--editor-motion-ease)] focus-visible:outline-none focus-visible:ring-[length:var(--editor-focus-width)] focus-visible:ring-[var(--editor-color-focus)] ${selected
-                          ? "bg-[var(--editor-color-surface)] font-semibold text-[color:var(--editor-color-accent-hover)] shadow-[var(--editor-shadow-control)]"
+                          ? "bg-[var(--editor-color-surface)] font-semibold text-[color:var(--editor-color-accent-text-strong)] shadow-[var(--editor-shadow-control)]"
                           : "text-[color:var(--editor-color-text-secondary)] hover:bg-[var(--editor-color-surface-translucent)] hover:text-[color:var(--editor-color-text)]"
                         }`}
                         onClick={() => onChange({
@@ -296,7 +284,7 @@ export function BackgroundInspectorFields({
                     title="Reverse direction"
                     aria-pressed={gradientDirectionReversed}
                     className={`flex size-6 shrink-0 items-center justify-center rounded-[var(--editor-radius-compact)] transition-colors duration-[var(--editor-motion-fast)] ease-[var(--editor-motion-ease)] focus-visible:outline-none focus-visible:ring-[length:var(--editor-focus-width)] focus-visible:ring-[var(--editor-color-focus)] ${gradientDirectionReversed
-                      ? "bg-[var(--editor-color-accent-subtle)] text-[color:var(--editor-color-accent-hover)]"
+                      ? "bg-[var(--editor-color-accent-subtle)] text-[color:var(--editor-color-accent-text-strong)]"
                       : "text-[color:var(--editor-color-text-subtle)] hover:bg-[var(--editor-color-surface-translucent)] hover:text-[color:var(--editor-color-text)]"
                     }`}
                     onClick={() => onChange({

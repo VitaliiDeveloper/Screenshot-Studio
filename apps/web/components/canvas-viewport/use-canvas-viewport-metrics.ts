@@ -11,9 +11,9 @@ import {
   OVERVIEW_GAP,
   OVERVIEW_ROW_GAP,
   OUTPUT_FAMILY_LABEL_HEIGHT,
-  type WorkspaceOutputFamily,
   type WorkspaceView,
 } from "@web/lib/editor/editor-workspace";
+import { type WorkspaceOutputFamily } from "@web/lib/editor/workspace-output-rows";
 
 export interface CanvasViewportMetricsInput {
   viewportRef: RefObject<HTMLDivElement | null>;

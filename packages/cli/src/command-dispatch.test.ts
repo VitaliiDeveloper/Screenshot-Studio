@@ -1,13 +1,45 @@
 // SPDX-License-Identifier: Apache-2.0
+import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { BrowserSetupDependencies } from "./browser-setup.js";
 import { dispatchCommand } from "./command-dispatch.js";
+import type { LaunchDependencies } from "./launch-command.js";
 
-const UNKNOWN_COMMAND_MESSAGE =
-  "Unknown command: wat\nUsage: screenshots <init|export|screen|dev|import|font|theme|locale|asset|layout|setup|template|element> [flags]";
+const USAGE = [
+  "Usage: screenshots [./project-folder] [--port <port>] [--no-open] [--app]",
+  "       screenshots <init|export|check|screen|dev|import|font|theme|locale|asset|layout|setup|template|element|copy|publishing|upload> [flags]",
+  "       screenshots -h, --help | -v, --version",
+  "ss-studio is another name for screenshots.",
+].join("\n");
+const UNKNOWN_COMMAND_MESSAGE = `Unknown command: wat. To open a folder, write ./wat\n${USAGE}`;
+
+const tempDirs: string[] = [];
+
+function launchDeps(cwd = "/work"): LaunchDependencies {
+  return {
+    env: {},
+    cwd,
+    interactive: false,
+    probe: vi.fn(async () => "studio" as const),
+    ensureBrowsers: vi.fn(async () => {}),
+    startServer: vi.fn(),
+    confirm: vi.fn(async () => false),
+    createProject: vi.fn(async () => {}),
+    openProject: vi.fn(async (baseUrl: string) => `${baseUrl}/editor/recent_1`),
+    serve: vi.fn(async () => {}),
+    open: vi.fn(),
+    openApp: vi.fn(async () => {}),
+    log: vi.fn(),
+    warn: vi.fn(),
+  };
+}
 
 describe("command dispatch", () => {
-  afterEach(() => {
+  afterEach(async () => {
     vi.restoreAllMocks();
+    await Promise.all(tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
   });
 
   it("rejects unknown commands without owning terminal output or process exit", async () => {
@@ -20,5 +52,113 @@ describe("command dispatch", () => {
       .rejects.toThrow(UNKNOWN_COMMAND_MESSAGE);
     expect(consoleError).not.toHaveBeenCalled();
     expect(exit).not.toHaveBeenCalled();
+  });
+
+  it.each(["--help", "-h"])("prints the usage for %s without launching", async (flag) => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const launch = launchDeps();
+
+    await dispatchCommand(flag, [], { storeSpecsPath: "/store-specs.json", launch });
+
+    expect(log).toHaveBeenCalledExactlyOnceWith(USAGE);
+    expect(launch.probe).not.toHaveBeenCalled();
+  });
+
+  it.each(["--version", "-v"])("prints the package version for %s without launching", async (flag) => {
+    const { version } = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8")) as {
+      version: string;
+    };
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const launch = launchDeps();
+
+    await dispatchCommand(flag, [], { storeSpecsPath: "/store-specs.json", launch });
+
+    expect(log).toHaveBeenCalledExactlyOnceWith(version);
+    expect(launch.probe).not.toHaveBeenCalled();
+  });
+
+  it("launches the editor when no command is given", async () => {
+    const launch = launchDeps();
+    await dispatchCommand(undefined, [], { storeSpecsPath: "/store-specs.json", launch });
+    expect(launch.probe).toHaveBeenCalledWith(4747);
+  });
+
+  it("reads launcher flags given in place of a command", async () => {
+    const launch = launchDeps();
+    await dispatchCommand("--port", ["4800"], { storeSpecsPath: "/store-specs.json", launch });
+    expect(launch.probe).toHaveBeenCalledWith(4800);
+  });
+
+  it("opens an app window with --app", async () => {
+    const launch = { ...launchDeps(), interactive: true };
+    await dispatchCommand("--app", [], { storeSpecsPath: "/store-specs.json", launch });
+    expect(launch.openApp).toHaveBeenCalledWith("http://localhost:4747");
+    expect(launch.open).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [["--port", "4800", "wat"], "Unknown command: wat. To open a folder, write ./wat"],
+    [["--wat"], "Unknown option --wat"],
+    [[".", "./other"], "Open one project folder at a time, not ./other"],
+  ])("rejects %j with the usage instead of launching", async ([command, ...argv], message) => {
+    const launch = launchDeps();
+    await expect(dispatchCommand(command, argv, { storeSpecsPath: "/store-specs.json", launch }))
+      .rejects.toThrow(`${message}\n${USAGE}`);
+    expect(launch.probe).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [["."], 4747],
+    [["--no-open", "."], 4747],
+    [["--port", "4800", "."], 4800],
+  ])("opens the project in the folder given as %j", async (argv, port) => {
+    const dir = await mkdtemp(join(tmpdir(), "launch-dispatch-"));
+    tempDirs.push(dir);
+    await writeFile(join(dir, "app-store-screenshots.json"), "{}");
+    const launch = launchDeps(dir);
+    const [command, ...rest] = argv;
+
+    await dispatchCommand(command, rest, { storeSpecsPath: "/store-specs.json", launch });
+
+    expect(launch.probe).toHaveBeenCalledWith(port);
+    expect(launch.openProject).toHaveBeenCalledWith(`http://localhost:${port}`, join(dir, "app-store-screenshots.json"));
+  });
+
+  describe("inside an editor run", () => {
+    function insideRun(): { inbox: Promise<string> } {
+      const inbox = mkdtemp(join(tmpdir(), "dispatch-inbox-")).then((dir) => {
+        tempDirs.push(dir);
+        vi.stubEnv("SCREENSHOT_STUDIO_RENDER_INBOX", dir);
+        return dir;
+      });
+      return { inbox };
+    }
+
+    afterEach(() => vi.unstubAllEnvs());
+
+    it.each([
+      ["export", ["--project", "./app-store-screenshots.json"]],
+      ["check", ["--render", "--project", "./app-store-screenshots.json"]],
+    ])("routes %s to the editor before any local browser check", async (command, argv) => {
+      await insideRun().inbox;
+      const detect = vi.fn(() => { throw new Error("probed the browser install"); });
+      await expect(dispatchCommand(command, argv, {
+        storeSpecsPath: "/store-specs.json",
+        browserSetup: { detect } as unknown as BrowserSetupDependencies,
+      })).rejects.toThrow("--project is not available inside an editor run");
+      expect(detect).not.toHaveBeenCalled();
+    });
+
+    it("keeps a plain check local, because it does not render", async () => {
+      await insideRun().inbox;
+      await expect(dispatchCommand("check", ["--project", "/does/not/exist.json"], { storeSpecsPath: "/store-specs.json" }))
+        .rejects.not.toThrow("editor run");
+    });
+
+    it("never routes upload", async () => {
+      const inbox = await insideRun().inbox;
+      await expect(dispatchCommand("upload", ["--store", "google"], { storeSpecsPath: "/store-specs.json" })).rejects.toThrow();
+      expect(await readdir(inbox)).toEqual([]);
+    });
   });
 });

@@ -1,25 +1,34 @@
 // SPDX-License-Identifier: Apache-2.0
 import {
+  applyMatchingElementPatch,
+  type DesignLayout,
+  type Element,
+  type ElementPatch,
+  type ElementPatchRequest,
   findElementLocation,
   fitElementsToArtboard,
   isPrimaryScreen,
+  type Screen,
   slotCounterpart,
   slotScreens,
-  type DesignLayout,
-  type Element,
-  type Screen,
 } from "@screenshot-studio/core/model";
-import {
-  applyMatchingElementPatch,
-  type ElementPatch,
-  type ElementPatchRequest,
-} from "./editor-element-patch.js";
 
 /**
  * Which exact-size screens one edit writes to (Apply to): this screen, every size of its slot in
  * this destination, or that slot in every destination. Editor UI state only; never persisted.
  */
 export type ApplyScope = "screen" | "family" | "destinations";
+
+export interface ApplyScopeChoice {
+  scope: ApplyScope;
+  /** The selection (or, with nothing selected, the screen) the scope was chosen on. */
+  key: string;
+}
+
+/** A wider scope holds only while the layer or screen it was chosen on stays selected. */
+export function resolveApplyScope(choice: ApplyScopeChoice | null, key: string): ApplyScope {
+  return choice?.key === key ? choice.scope : "screen";
+}
 
 export interface ScopedElementPatch {
   screenId: string;

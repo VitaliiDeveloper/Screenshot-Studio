@@ -30,7 +30,7 @@ export function OutputIdentityHeader({
       >
         <span className={constrained ? "min-w-0 truncate" : undefined}>{label}</span>
         {editing ? (
-          <span className="shrink-0 rounded-full bg-[var(--editor-color-accent-subtle)] px-2 py-0.5 text-[9px] tracking-normal text-[color:var(--editor-color-accent-hover)]">
+          <span className="shrink-0 rounded-full bg-[var(--editor-color-accent-subtle)] px-2 py-0.5 text-[9px] tracking-normal text-[color:var(--editor-color-accent-text-strong)]">
             Editing
           </span>
         ) : null}

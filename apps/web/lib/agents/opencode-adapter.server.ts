@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { dirname } from "node:path";
 import { isRecord } from "@web/lib/json-guards.js";
 import {
   failedRun,
@@ -10,7 +11,7 @@ import {
   type CliFailure,
 } from "./agent-adapter.server.js";
 import { OPENCODE_GO_MODELS } from "./agents.server.js";
-import type { AgentAdapter, AgentEvent, AgentStep } from "./agent-session.server.js";
+import type { AgentAdapter, AgentEvent, AgentRunRequest, AgentStep } from "./agent-session.server.js";
 
 // Provisional: OpenCode documents neither text; patterns follow its provider-auth and Go limit wording.
 const FAILURE: CliFailure = {
@@ -24,16 +25,25 @@ const FAILURE: CliFailure = {
   },
 };
 
-// The last matching rule wins, so the bash rules go from broad to narrow.
-const PERMISSION = {
-  edit: "deny",
-  bash: { "*": "deny", "screenshots *": "allow", "screenshots dev*": "deny" },
-  webfetch: "deny",
-  websearch: "deny",
-  external_directory: "deny",
-  // Sub-agents are off for every other adapter too.
-  task: "deny",
-};
+// The last matching rule wins, so every rule set goes from broad to narrow.
+function permission({ context, attachments }: AgentRunRequest) {
+  // The guide, skill and images live outside the project; `edit` stays denied there too.
+  const readable = [context.bundledGuidePath, context.skillPath, attachments[0]].filter((path) => path != null);
+  return {
+    edit: "deny",
+    bash: { "*": "deny", "screenshots *": "allow", "screenshots dev*": "deny" },
+    webfetch: "deny",
+    websearch: "deny",
+    // shortcut: glob characters in these paths are not escaped, so a rule would miss; escape them once OpenCode documents how.
+    external_directory: {
+      "*": "deny",
+      ...Object.fromEntries(readable.map((path) => [`${dirname(path)}/**`, "allow"])),
+      [`${context.storeCredentialsDir}/**`]: "deny",
+    },
+    // Sub-agents are off for every other adapter too.
+    task: "deny",
+  };
+}
 
 function part(event: Record<string, unknown>): Record<string, unknown> {
   return isRecord(event.part) ? event.part : {};
@@ -77,10 +87,9 @@ export const opencodeAdapter: AgentAdapter = {
   },
   input(request) {
     // `run` reads piped stdin as the message, which keeps the user's text out of argv and `ps`.
-    // The skill lives outside the project, where `external_directory` is denied.
     return [
       projectInstructions(
-        { ...request, context: { ...request.context, skillPath: null } },
+        request,
         "Plan the work as a short todo list with the todowrite tool and keep each item's status current.",
       ),
       "",
@@ -88,11 +97,13 @@ export const opencodeAdapter: AgentAdapter = {
       request.message,
     ].join("\n");
   },
-  env() {
+  env(request) {
     return {
-      OPENCODE_PERMISSION: JSON.stringify(PERMISSION),
+      OPENCODE_PERMISSION: JSON.stringify(permission(request)),
       // Otherwise the user's ~/.claude/CLAUDE.md is loaded when no AGENTS.md is found.
       OPENCODE_DISABLE_CLAUDE_CODE: "1",
+      // An imported project's AGENTS.md and opencode.json are untrusted data, never instructions or config.
+      OPENCODE_DISABLE_PROJECT_CONFIG: "1",
     };
   },
   normalizer() {

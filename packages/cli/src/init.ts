@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { mkdir, writeFile, access, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { StoreSpecs } from "@screenshot-studio/core/export";
+import { parseStoreSpecs, type StoreSpecs } from "@screenshot-studio/core/export";
 import {
   createProjectScaffold,
   projectScaffoldFiles,
@@ -71,4 +71,12 @@ export async function runInit(
     writeFile(join(cwd, AGENT_GUIDE_FILE), agentGuide, { encoding: "utf8", flag: "wx" }),
     writeFile(join(cwd, CLAUDE_GUIDE_FILE), CLAUDE_GUIDE, { encoding: "utf8", flag: "wx" }),
   ]);
+}
+
+export async function initProjectFolder(
+  cwd: string,
+  projectName: string | undefined,
+  storeSpecsPath: string,
+): Promise<void> {
+  await runInit(cwd, projectName, parseStoreSpecs(JSON.parse(await readFile(storeSpecsPath, "utf8"))));
 }

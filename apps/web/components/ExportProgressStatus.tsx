@@ -12,6 +12,7 @@ function progressLabel(progress: ExportProgressSnapshot): string {
     case "rendering": return `Rendering ${progress.completed} of ${progress.total}`;
     case "packaging": return "Packaging";
     case "finalizing": return "Preparing download…";
+    case "uploading": return "Uploading to the store…";
     case "ready": return "Export ready";
     case "failed": return "Export failed";
   }
@@ -28,24 +29,25 @@ export function ExportProgressStatus({
   const renderProgressPercent = exportRenderProgressPercent(progress);
   const showPhaseActivity = progress.phase === "preparing"
     || progress.phase === "packaging"
-    || progress.phase === "finalizing";
+    || progress.phase === "finalizing"
+    || progress.phase === "uploading";
 
   return (
-    <div className="rounded-lg bg-slate-50 px-3 py-2.5 ring-1 ring-slate-200" role="status" aria-live="polite">
-      <p className="flex items-center gap-1.5 text-xs font-medium text-slate-700">
+    <div className="rounded-lg bg-[var(--editor-color-surface-subtle)] px-3 py-2.5 ring-1 ring-[var(--editor-color-border)]" role="status" aria-live="polite">
+      <p className="flex items-center gap-1.5 text-xs font-medium text-[color:var(--editor-color-text-default)]">
         {showPhaseActivity && (
           <LoaderCircle
             aria-hidden="true"
-            className="size-3.5 animate-spin text-blue-600 motion-reduce:animate-none"
+            className="size-3.5 animate-spin text-[color:var(--editor-color-accent-text)] motion-reduce:animate-none"
           />
         )}
         {progressLabel(progress)}
       </p>
       {progress.phase === "rendering" && currentPath ? (
-        <p className="mt-1 truncate font-mono text-[11px] text-slate-500" title={currentPath}>{currentPath}</p>
+        <p className="mt-1 truncate font-mono text-[11px] text-[color:var(--editor-color-text-secondary)]" title={currentPath}>{currentPath}</p>
       ) : null}
       <div
-        className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200"
+        className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--editor-color-track)]"
         role="progressbar"
         aria-label="Export rendering progress"
         aria-valuemin={0}
@@ -56,7 +58,7 @@ export function ExportProgressStatus({
           : "Waiting for rendering to start"}
       >
         <div
-          className="h-full rounded-full bg-blue-600 transition-[width]"
+          className="h-full rounded-full bg-[var(--editor-color-accent)] transition-[width]"
           style={{ width: `${renderProgressPercent}%` }}
         />
       </div>

@@ -16,7 +16,7 @@ import { ChevronLeft, ChevronRight, Pause, Play } from "lucide-react";
 import type { ImageCache } from "@screenshot-studio/core/assets";
 import type { StoreSpecs } from "@screenshot-studio/core/export";
 import { editorStore } from "@web/lib/editor/editor-store";
-import { compactStoreSizeLabel, storeOutputLabel } from "@web/lib/editor/editor-workspace";
+import { compactStoreSizeLabel, storeOutputLabel } from "@web/lib/editor/store-target-labels";
 import { cx, DialogShell, editorUi } from "@web/components/editor-ui";
 import { EditorStage } from "@web/components/EditorStage";
 import {

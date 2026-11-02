@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { chromium, type Page } from "playwright";
+import type { Page } from "playwright";
 import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -8,9 +8,11 @@ import { resolve } from "node:path";
 import { PNG } from "pngjs";
 import pixelmatch from "pixelmatch";
 import { startWebServer } from "@screenshot-studio/cli/server";
-import { stripAlpha } from "@screenshot-studio/core/export";
+import { stripAlpha } from "./support/strip-alpha.js";
 import {
   closeParityRenderHarness,
+  headedRunsWindowless,
+  launchHeadedChromium,
   startParityRenderHarness,
   type ParityRenderHarness,
 } from "./support/parity-render-harness.js";
@@ -48,7 +50,7 @@ beforeAll(async () => {
   process.env.PROJECT_PATH = fixturePath;
   harness = await startParityRenderHarness(
     () => startWebServer(undefined, { storeSpecsPath: resolve(repoRoot, "store-specs.json") }),
-    () => chromium.launch({ headless: false }),
+    () => launchHeadedChromium(),
   );
 }, 180_000);
 
@@ -82,6 +84,17 @@ async function editorCanvasPng(page: Page, screenId: string): Promise<Buffer> {
 }
 
 describe("device-frame parity", () => {
+  it("keeps the headed slot windowless on macOS and truly headed elsewhere", async () => {
+    if (!harness.interactive) throw new Error("Interactive browser is unavailable");
+    const page = await harness.interactive.newPage();
+    try {
+      const userAgent = await page.evaluate(() => navigator.userAgent);
+      expect(userAgent.includes("HeadlessChrome")).toBe(headedRunsWindowless);
+    } finally {
+      await page.close();
+    }
+  });
+
   it("matches the real editor canvas and CLI render for every representative recipe", async () => {
     if (!harness.interactive) throw new Error("Interactive browser is unavailable");
     const page = await harness.interactive.newPage({

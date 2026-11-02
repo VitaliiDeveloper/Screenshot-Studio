@@ -19,6 +19,7 @@ import {
   FontInUseError,
   FontValidationError,
   GoogleFontError,
+  MAX_FONT_BYTES,
   removeFont,
 } from "./font-service.js";
 import { loadProjectFile } from "./project-io.js";
@@ -99,6 +100,11 @@ function textElement(id: string) {
   };
 }
 
+// Deep equality walks a 320 KB font byte by byte and costs hundreds of milliseconds.
+const sameBytes = (expected: Buffer) => ({
+  asymmetricMatch: (actual: unknown) => Buffer.isBuffer(actual) && actual.equals(expected),
+});
+
 function registeredFont(path = "assets/fonts/inter-400.ttf") {
   return { family: "Inter", weight: 400, source: "uploaded", path };
 }
@@ -130,9 +136,45 @@ describe("font-service safety", () => {
     await expect(downloadGoogleFont("Inter", 400, fetch)).rejects.toBeInstanceOf(GoogleFontError);
     expect(fetch).toHaveBeenCalledWith(
       expect.stringContaining("fonts.googleapis.com/css2"),
-      { headers: { "user-agent": "ScreenshotStudio-FontIngest/1.0" } },
+      expect.objectContaining({ headers: { "user-agent": "ScreenshotStudio-FontIngest/1.0" } }),
     );
     expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  const fontCss = "@font-face { src: url(https://fonts.gstatic.com/s/inter/v1/inter.ttf); }";
+
+  it("downloads the font with a timeout and without following redirects", async () => {
+    const fetch = vi.fn()
+      .mockResolvedValueOnce(new Response(fontCss))
+      .mockResolvedValueOnce(new Response("font bytes"));
+
+    await expect(downloadGoogleFont("Inter", 400, fetch)).resolves.toMatchObject({ extension: ".ttf" });
+
+    for (const [, init] of fetch.mock.calls) expect(init.signal).toBeInstanceOf(AbortSignal);
+    expect(fetch.mock.calls[1]![1]).toMatchObject({ redirect: "error" });
+  });
+
+  it("rejects a font whose declared size exceeds the limit without reading it", async () => {
+    let cancelled = false;
+    const body = new ReadableStream({ cancel: () => { cancelled = true; } });
+    const fetch = vi.fn()
+      .mockResolvedValueOnce(new Response(fontCss))
+      .mockResolvedValueOnce(new Response(body, { headers: { "content-length": String(MAX_FONT_BYTES + 1) } }));
+
+    await expect(downloadGoogleFont("Inter", 400, fetch)).rejects.toThrow(/larger than/);
+    expect(cancelled).toBe(true);
+  });
+
+  it("stops reading an undeclared font body once it passes the limit", async () => {
+    const chunk = new Uint8Array(1024 * 1024);
+    let pulled = 0;
+    const body = new ReadableStream<Uint8Array>({ pull(controller) { pulled += 1; controller.enqueue(chunk); } });
+    const fetch = vi.fn()
+      .mockResolvedValueOnce(new Response(fontCss))
+      .mockResolvedValueOnce(new Response(body));
+
+    await expect(downloadGoogleFont("Inter", 400, fetch)).rejects.toThrow(/larger than/);
+    expect(pulled * chunk.byteLength).toBeLessThan(MAX_FONT_BYTES + 4 * chunk.byteLength);
   });
 
   it("validates upload bytes before publishing or mutating project JSON", async () => {
@@ -170,6 +212,17 @@ describe("font-service safety", () => {
     expect((await loadProjectFile(path)).fonts).toEqual([]);
   });
 
+  it("stores a family the project archive would drop under an archivable name", async () => {
+    const { path } = await projectFile();
+    const added = await addUploadedFont(path, {
+      family: "Secret Sans",
+      weight: 400,
+      filename: "font.ttf",
+      bytes: validTtf,
+    });
+    expect(added.fonts.map((font) => font.path)).toEqual(["assets/fonts/font-400.ttf"]);
+  });
+
   it("publishes a valid add, rejects a duplicate, and safely removes the unused font", async () => {
     const { dir, path } = await projectFile();
     const publishFontFile = vi.fn(publishFileSafelyWithOwnership);
@@ -185,7 +238,7 @@ describe("font-service safety", () => {
     expect(publishFontFile).toHaveBeenCalledWith({
       root: await realpath(dir),
       relativePath: "assets/fonts/inter-400.ttf",
-      bytes: validTtf,
+      bytes: sameBytes(validTtf),
     });
 
     await expect(addUploadedFont(path, {
@@ -239,7 +292,7 @@ describe("font-service safety", () => {
 
     expect(quarantineFontFile).not.toHaveBeenCalled();
     expect((await loadProjectFile(path)).fonts).toEqual([registeredFont()]);
-    expect(await readFile(join(dir, "assets/fonts/inter-400.ttf"))).toEqual(validTtf);
+    expect((await readFile(join(dir, "assets/fonts/inter-400.ttf"))).equals(validTtf)).toBe(true);
   });
 
   it("preserves JSON when managed-resource deletion policy rejects a symlink", async () => {
@@ -280,7 +333,7 @@ describe("font-service safety", () => {
     await removeFont(path, { family: "Inter", weight: 400 }, { quarantineFontFile });
 
     expect(quarantineFontFile).not.toHaveBeenCalled();
-    expect(await readFile(join(dir, sharedPath))).toEqual(validTtf);
+    expect((await readFile(join(dir, sharedPath))).equals(validTtf)).toBe(true);
   });
 
   it("rolls back a created resource when the project write fails", async () => {
@@ -405,7 +458,7 @@ describe("font-service safety", () => {
       fileDependencies: { openFile: async () => { throw failure; } },
     })).rejects.toBe(failure);
 
-    expect(await readFile(target)).toEqual(validTtf);
+    expect((await readFile(target)).equals(validTtf)).toBe(true);
     expect((await loadProjectFile(path)).fonts).toEqual([registeredFont()]);
   });
 });

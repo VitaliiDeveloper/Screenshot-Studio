@@ -251,6 +251,14 @@ describe("project-ops", () => {
     expect(() => cloneLocaleSet(project, "default", "en", "   ")).toThrow(/must not be empty/);
   });
 
+  it("cloneLocaleSet trims the target locale before comparing and storing it", () => {
+    const project = sampleProject();
+    const result = cloneLocaleSet(project, "default", "en", " uk ");
+
+    expect(new Set(result.layouts[0]!.screens.map((screen) => screen.locale))).toEqual(new Set(["en", "uk"]));
+    expect(() => cloneLocaleSet(project, "default", "en", "en ")).toThrow(/already exists/);
+  });
+
   it("removeLocaleSet removes the whole set and protects the last locale", () => {
     const project = cloneLocaleSet(sampleProject(), "default", "en", "uk");
     const result = removeLocaleSet(project, "default", "en");
@@ -302,21 +310,32 @@ describe("project-ops", () => {
       },
     ];
 
+    source.layouts[0]!.screens[0]!.background = {
+      type: "linear-gradient", from: "#000000", to: "#FFFFFF", angle: 30,
+    };
+
     const rtl = setLocaleDirection(source, "default", "en", "rtl");
     const [shot, headline] = rtl.layouts[0]!.screens[0]!.elements;
 
     expect(rtl.layouts[0]!.screens.every((screen) => screen.direction === "rtl")).toBe(true);
     expect(shot).toMatchObject({
       type: "screenshot",
-      x: 620,
-      y: 200,
+      x: expect.closeTo(625.84, 2),
+      y: expect.closeTo(283.5, 2),
       width: 600,
-      rotation: 8,
+      rotation: -8,
       assetUrl: "assets/hero.png",
     });
     expect(headline).toMatchObject({ type: "text", x: 440, align: "right", content: "Hello" });
+    expect(rtl.layouts[0]!.screens[0]!.background).toMatchObject({ angle: 150 });
     expect(setLocaleDirection(rtl, "default", "en", "rtl")).toEqual(rtl);
-    expect(setLocaleDirection(rtl, "default", "en", "ltr")).toEqual(source);
+
+    const restored = structuredClone(source);
+    Object.assign(restored.layouts[0]!.screens[0]!.elements[0]!, {
+      x: expect.closeTo(100, 9),
+      y: expect.closeTo(200, 9),
+    });
+    expect(setLocaleDirection(rtl, "default", "en", "ltr")).toEqual(restored);
     expect(() => setLocaleDirection(source, "default", "missing", "rtl")).toThrow(/Unknown locale/);
   });
 

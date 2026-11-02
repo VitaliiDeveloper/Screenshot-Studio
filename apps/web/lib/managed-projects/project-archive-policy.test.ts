@@ -17,6 +17,8 @@ describe("project archive policy", () => {
     "screenshots/apple/iphone/en/01.png",
     "themes/launch.json",
     "templates/hero.json",
+    "packs/house/screen-pack.json",
+    "packs/house/assets/bg.png",
   ])("includes supported project path %s", (path) => {
     expect(isSupportedProjectArchivePath(path)).toBe(true);
   });
@@ -36,6 +38,9 @@ describe("project archive policy", () => {
     "staging/file.png",
     "catalog.json",
     "notes.txt",
+    // A data root launched from the project folder still never enters its archive.
+    ".screenshot-studio/store-credentials/google-play-service-account.json",
+    ".screenshot-studio/store-credentials/app-store-connect.json",
   ])("excludes unsafe or unsupported project path %s", (path) => {
     expect(isSupportedProjectArchivePath(path)).toBe(false);
   });

@@ -26,7 +26,8 @@ import {
   requireCommittedDestination,
   requireOwnedStage,
 } from "./evidence.js";
-import { createOwnedStage, removeOwnedStage } from "./stage.js";
+import { createOwnedStage } from "./stage.js";
+import { removeOwnedStage } from "./stage-removal.js";
 
 async function createOnlyResultAfterCollision(
   destinationPath: string,

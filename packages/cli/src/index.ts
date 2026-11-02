@@ -3,7 +3,7 @@
 import { existsSync, realpathSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { dispatchCommand } from "./command-dispatch.js";
+import { dispatchCommand, isInfoFlag } from "./command-dispatch.js";
 import { startUpdateCheck } from "./update-check.js";
 
 /**
@@ -40,7 +40,7 @@ const invokedDirectly = invokedPath
 /** Runs the command in `process.argv`; the source-checkout launcher calls it after registering tsx. */
 export function runCli(): void {
   const [command, ...argv] = process.argv.slice(2);
-  const updateNotice = startUpdateCheck();
+  const updateNotice = isInfoFlag(command) ? undefined : startUpdateCheck();
   dispatchCommand(command, argv, { storeSpecsPath: DEFAULT_STORE_SPECS })
     .then(async () => {
       const notice = await updateNotice;
@@ -48,7 +48,8 @@ export function runCli(): void {
     })
     .catch((err) => {
       console.error(err instanceof Error ? err.message : err);
-      process.exit(1);
+      // check exits 1 for blockers, so a check that could not run needs its own code for CI.
+      process.exit(command === "check" ? 2 : 1);
     });
 }
 

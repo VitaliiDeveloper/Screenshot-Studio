@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { assertProjectFontsResolved } from "@screenshot-studio/core/model";
 import { COMMAND_FLAG_SPECS, parseCommandFlags } from "./command-flags.js";
 import {
@@ -7,9 +7,56 @@ import {
   resolveDevOptions,
   resolveExportMode,
   resolveImportOptions,
+  runCli,
   singleExportFilename,
   singleExportTargetId,
 } from "./index.js";
+import { startUpdateCheck } from "./update-check.js";
+
+vi.mock("./update-check.js", async (importOriginal) => ({
+  ...await importOriginal<typeof import("./update-check.js")>(),
+  startUpdateCheck: vi.fn(async () => undefined),
+}));
+
+describe("runCli", () => {
+  const argv = process.argv;
+  afterEach(() => {
+    process.argv = argv;
+    vi.restoreAllMocks();
+    vi.mocked(startUpdateCheck).mockClear();
+  });
+
+  it.each(["--help", "-h", "--version", "-v"])("prints %s without the network update check", async (flag) => {
+    process.argv = [argv[0]!, "screenshots", flag];
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+
+    runCli();
+
+    await vi.waitFor(() => expect(log).toHaveBeenCalledOnce());
+    expect(startUpdateCheck).not.toHaveBeenCalled();
+  });
+
+  it("starts the update check for a command", async () => {
+    process.argv = [argv[0]!, "screenshots", "wat"];
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const exit = vi.spyOn(process, "exit").mockImplementation((() => undefined) as never);
+
+    runCli();
+
+    await vi.waitFor(() => expect(exit).toHaveBeenCalledWith(1));
+    expect(startUpdateCheck).toHaveBeenCalledOnce();
+  });
+
+  it("exits 2 when check fails before producing a report, so CI can tell it from blockers", async () => {
+    process.argv = [argv[0]!, "screenshots", "check", "--project", "/missing/app-store-screenshots.json"];
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const exit = vi.spyOn(process, "exit").mockImplementation((() => undefined) as never);
+
+    runCli();
+
+    await vi.waitFor(() => expect(exit).toHaveBeenCalledWith(2));
+  });
+});
 
 describe("parseCommandFlags", () => {
   it("parses positional arguments plus declared value and boolean options", () => {
@@ -102,8 +149,12 @@ describe("resolveDevOptions", () => {
     });
   });
 
-  it("rejects a non-numeric port", () => {
-    expect(() => resolveDevOptions({ port: "abc" })).toThrow(/--port/);
+  it.each(["abc", "0", "65536", "0x10", "1e3", "80.0", " 80"])("rejects port %j", (port) => {
+    expect(() => resolveDevOptions({ port })).toThrow(/--port/);
+  });
+
+  it("accepts the highest port", () => {
+    expect(resolveDevOptions({ port: "65535" }).port).toBe(65535);
   });
 });
 
@@ -114,6 +165,12 @@ describe("resolveImportOptions", () => {
 
   it("resolves input and project paths", () => {
     expect(resolveImportOptions(["captures"], { project: "./deck.json" }).inputDir).toMatch(/captures$/);
+  });
+
+  it("accepts --refresh as a boolean import flag", () => {
+    const { args, flags } = parseCommandFlags(["captures", "--refresh"], COMMAND_FLAG_SPECS.import);
+    expect(resolveImportOptions(args, flags).refresh).toBe(true);
+    expect(resolveImportOptions(["captures"], {}).refresh).toBeUndefined();
   });
 });
 

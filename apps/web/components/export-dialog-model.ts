@@ -7,7 +7,7 @@ import {
   type StoreSpecs,
 } from "@screenshot-studio/core/export";
 import type { ProjectIssue } from "@screenshot-studio/core/validation";
-import { conciseStoreTargetLabel, outputFamilyEditorLabel } from "@web/lib/editor/editor-workspace";
+import { conciseStoreTargetLabel, outputFamilyEditorLabel } from "@web/lib/editor/store-target-labels";
 import { exportSizeKey, selectExportEntries, type ExportFileFailure } from "@web/lib/export-selection";
 
 const ARTIFACT_PATH = /^\/api\/export\/artifacts\/[A-Za-z0-9_-]{43}$/;

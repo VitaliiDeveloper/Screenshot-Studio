@@ -3,6 +3,7 @@ import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { listBuiltInDesignPacks } from "@screenshot-studio/core/themes";
 import { resolveThemeAction, runThemeCommand } from "./theme-commands.js";
 
 async function fixture() {
@@ -23,9 +24,9 @@ async function fixture() {
 describe("resolveThemeAction", () => {
   it("accepts list and set with a slug id", () => {
     expect(resolveThemeAction(["list"])).toEqual({ kind: "list" });
-    expect(resolveThemeAction(["set", "midnight"])).toEqual({ kind: "set", id: "midnight", builtIn: false });
+    expect(resolveThemeAction(["set", "midnight"])).toEqual({ kind: "set", id: "midnight", source: "project" });
     expect(resolveThemeAction(["set", "neutral-default"], { "built-in": "true" }))
-      .toEqual({ kind: "set", id: "neutral-default", builtIn: true });
+      .toEqual({ kind: "set", id: "neutral-default", source: "built-in" });
   });
 
   it("rejects traversal and incomplete commands", () => {
@@ -57,6 +58,20 @@ describe("runThemeCommand", () => {
       ].join("\n"));
   });
 
+  it("lists a malformed or misnamed theme as an error line beside the valid ones", async () => {
+    const { dir, projectPath } = await fixture();
+    await writeFile(join(dir, "themes/broken.json"), "{");
+    await writeFile(join(dir, "themes/wrong.json"), await readFile(join(dir, "themes/midnight.json")));
+
+    const lines = (await runThemeCommand(projectPath, ["list"])).split("\n");
+
+    expect(lines).toContain("project midnight Midnight");
+    expect(lines.filter((line) => line.startsWith("invalid-theme "))).toEqual([
+      expect.stringMatching(/^invalid-theme themes\/broken\.json: Invalid theme/),
+      'invalid-theme themes/wrong.json: Theme file wrong.json must match its id "midnight"',
+    ]);
+  });
+
   it("applies a built-in design pack only when --built-in is explicit", async () => {
     const { projectPath } = await fixture();
     await expect(runThemeCommand(projectPath, ["set", "neutral-default"])).rejects.toThrow(/not found/);
@@ -72,5 +87,24 @@ describe("runThemeCommand", () => {
     await writeFile(join(dir, "themes/midnight.json"), "{}");
     await expect(runThemeCommand(projectPath, ["set", "midnight"])).rejects.toThrow(/Invalid theme/);
     expect(await readFile(projectPath, "utf8")).toBe(before);
+  });
+
+  it("lists and applies a project design pack only with --pack, reporting broken packs", async () => {
+    const { dir, projectPath } = await fixture();
+    const clean = listBuiltInDesignPacks().find((pack) => pack.id === "clean")!;
+    await mkdir(join(dir, "packs/house"), { recursive: true });
+    await writeFile(join(dir, "packs/house/design-pack.json"), JSON.stringify({ ...clean, id: "house", name: "House", palette: { ...clean.palette, heading: "#123456" } }));
+    await mkdir(join(dir, "packs/broken"));
+
+    const lines = (await runThemeCommand(projectPath, ["list"])).split("\n");
+    expect(lines).toContain("project-pack house House");
+    expect(lines.at(-1)).toBe("invalid-pack packs/broken: expected exactly one of screen-pack.json or design-pack.json");
+    await expect(runThemeCommand(projectPath, ["set", "house"])).rejects.toThrow(/not found/);
+    expect(() => resolveThemeAction(["set", "house"], { pack: "true", "built-in": "true" })).toThrow(/either --built-in or --pack/);
+    await expect(runThemeCommand(projectPath, ["set", "house"], { pack: "true" }))
+      .resolves.toBe('Applied project design pack "House" (house)');
+    const saved = JSON.parse(await readFile(projectPath, "utf8"));
+    expect(saved.layouts[0].screens[0].elements[0]).toMatchObject({ color: "#123456", fontFamily: clean.typography.heading.family });
+    await expect(runThemeCommand(projectPath, ["set", "broken"], { pack: "true" })).rejects.toThrow("packs/broken: expected exactly one");
   });
 });

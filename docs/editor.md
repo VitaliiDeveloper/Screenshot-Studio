@@ -37,7 +37,19 @@ library. Reuse them before introducing one-off controls:
 `apps/web/components/editor-ui/tokens.css` is the token source for editor color roles, spacing,
 radii, control typography, shadows, focus treatment, and motion. Prefer semantic token names such as
 surface, text, accent, warning, danger, and focus over literal colors or ad-hoc spacing. Reuse
-`editorUi` styles so controls share disabled treatment, focus rings, and transition timing.
+`editorUi` styles so controls share disabled treatment, focus rings, and transition timing. The
+palette follows the Turn 6 handoff (accent `#2547F0`). The dark theme (mockup 6q) follows the system
+`prefers-color-scheme` with no in-app switch; it only overrides token values in `tokens.css`, so the
+canvas sits darker than the panels and artboards keep their ring. Artboard pixels and exports never
+change with the theme. Components use no raw Tailwind palette classes. A `*-text` token colors only
+text and icons, a `*-hover` token is only the hover fill of a filled button, and `badge`/`on-badge`
+invert together, because a theme gives these roles different values. `tokens-contrast.test.ts` holds
+body-text pairs at 4.5:1 and focus/selection lines at 3:1 in both themes; `text-subtle` hints and
+placeholders are a known exception held at 3:1. Konva cannot read CSS variables, so canvas
+overlays (selection, screen boundaries, snap guides, marquee, overflow marks) resolve their colors
+from the tokens through `useStageColors`. The interface font is Instrument Sans, loaded under the
+private family `Screenshot Studio UI` so a project font of the same name never restyles the UI; it is
+not a renderer font (`apps/web/public/fonts/ui/README.md`).
 Shared dialogs animate their backdrop and panel on entry and retain the panel through exit; reduced
 motion removes both transitions. Async resource pickers reserve their body geometry while loading so
 replacing progress with results does not move or resize the dialog.
@@ -92,6 +104,38 @@ its screen. **Stop** packages the files already rendered into the download; a st
 file reports `Stopped: 0 of N files exported` and downloads nothing. While an export runs,
 Esc, the backdrop, and Close do not dismiss the dialog. The CLI keeps failing the whole export on the
 first file that cannot render.
+
+After a store-bundle export writes at least one file, **Upload to store** replaces the Export dialog
+with the upload review. It flushes pending saves, asks the server for the plan of the active layout,
+and shows per store language and image slot which screens are uploaded and that each touched slot is
+replaced as a whole, the slots and languages left as they are, the screens with no store slot, the
+slot limits, and preflight warnings. The plan covers every Android screen of the layout, not only the
+sizes and locales checked for export, and says so. **Upload N images** sends the plan's hash; while it
+runs the dialog shows rendering progress, then an indeterminate upload phase, and cannot be closed.
+The result lists what was uploaded and replaced per language and slot, or the store error. A refused
+or failed attempt needs **Review again**, because each confirmation allows one attempt. When the
+project has no store identifier or the store has no key, the review says what is missing and **Open
+Stores** opens the Stores dialog; closing it returns to the review. The store menu lists only stores
+the CLI can upload to: Google Play and App Store Connect.
+
+For App Store Connect the review is grouped per App Store platform and localization and lists each
+display type with the screens it uploads, their size, and that each touched set is replaced as a
+whole; the entries without a display type with the catalog's reason, grouped like the CLI's dry run;
+and the 10-per-set limit. The plan request also reads the editable versions of each touched platform
+with the stored key. A platform with one editable version shows it; a platform with several shows
+an **App Store version** menu, and picking one requests a new plan, so the choice is part of what is
+confirmed; a platform with none explains that a version has to be created in App Store Connect first
+and the upload stays disabled. The CLI takes one version string for every platform with several
+versions, so the menu offers only strings all of them list. Without a key the review is offline and
+says the versions are read once a key is in Stores. The result lists each set as `replaced`,
+`partial`, `failed`, or `untouched`; when a set is partial or failed, one sentence explains that App
+Store Connect has no atomic commit, so earlier sets stay replaced and later ones untouched.
+
+**Stores** in the tool rail edits the project's `publishing` identifiers (Google Play package name,
+Apple ID) with the schema's own validation, saved through the regular project save, and manages the
+upload key per store: its status (`Key configured · updated …` or `No key configured`), a file picker
+for the Google Play service-account `.json` or the App Store Connect key id, issuer id, and `.p8`, and
+**Remove key**. Stored key values are never shown or read back.
 
 The Layers panel presents one **Screens → Layers** tree for the current exact-size scope. The active screen
 expands to its layers, front-most first; layer reorder applies only to the active screen, and every
@@ -195,7 +239,10 @@ It shows every size of the layout for the active locale, grouped by output famil
 (`App Store · iPhone`) in layout order with the master first, so in isolated layouts its chips read
 left to right in the order `[` and `]` step. A chip names the store slot (`Dynamic Island · Medium`; ` · Portrait` is left
 out as the default), its pixels when the slot does not already name them, and its **Master** or
-**Variant** role; its tooltip lists the devices. A family's sizes stay listed when another compatible
+**Variant** role. Its tooltip spells out the App Store Connect group
+(`iPhone with Dynamic Island (medium display)`), the device range with its model count
+(`iPhone 14 Pro – 18 Pro · 8 models`), the full device list, and the pixels; a size the catalog lists
+no devices for shows only its pixels. A family's sizes stay listed when another compatible
 master screen is selected. A chip opens the active slot's screen when that size holds one, else the
 size's first screen, and the current size is marked without a redundant `Current` action.
 **Add size** lists each family's missing sizes under that family and the families the layout lacks
@@ -215,7 +262,7 @@ device list is the tooltip. The sizes bar, Export, Overview rows, the Screens he
 the artboard caption keep the slot name, because they describe what is exported and uploaded.
 
 **Issues** lists pre-export problems in the active layout. It reads the core validation engine
-(`@screenshot-studio/core/validation`), the single source the Export dialog is meant to share; issues
+(`@screenshot-studio/core/validation`), the single source the Export dialog and `screenshots check` share; issues
 are derived on demand and never persisted. Blockers come first, and every row names its screen and
 size and offers **Go to** and a fix:
 
@@ -236,6 +283,10 @@ size and offers **Go to** and a fix:
   load. It is reported per screen and layer once the image cache has loaded, and the row names the
   project path. **Replace** goes to the screen and opens the existing picker for that background or
   layer. Project Home's missing-asset readiness reads the same check across every layout.
+- *Screen size differs from its connected strip* (warning) flags a connected screen whose artboard
+  differs from the first screen of its exact strip, because seams would then mix scales and heights.
+  **Match strip** resizes every screen of that strip that differs and fits its composition, as one
+  undo step.
 
 Export folders apply only to the CLI (`--out`, or `export/` next to the project); UI export renders
 into a private staging folder and hands the bundle to the browser as a download, so Issues has no
@@ -340,7 +391,9 @@ It runs an official agent CLI that the user installed and signed in to with thei
 the model and effort on the next, from `/api/agents`; each agent lists its sign-in state and version.
 The model trigger names the exact model (**Sonnet 5.5** by default) and the effort trigger the level
 (**High effort** by default, from Low to Max); an agent without listed models shows
-`CLI default model` and no effort picker. Changing the agent returns both to that agent's defaults. When the selected agent cannot run, the panel says why and what
+`CLI default model` and no effort picker. Changing the agent returns both to that agent's defaults. The browser remembers the last agent, model,
+and effort the user picked for the next page load while the registry still offers them; **Start with
+agent** overrides them. When the selected agent cannot run, the panel says why and what
 to do: **No agent found** when no CLI is installed (each links to its official setup page; the
 editor works without an agent), **Not signed in** or **Signed in with an API key** with the CLI's
 own Terminal sign-in command, **Update needed** below the verified version, and **Unavailable**
@@ -358,7 +411,11 @@ the message shows as a failed turn with **Retry** instead of being sent.
 
 The composer sends with Enter; Shift+Enter adds a line. Each message starts one run with only that
 text, so the CLI does not remember earlier messages; the history is editor memory that **New chat**
-clears and is never written to the project. A pending edit is saved before the run starts. While
+clears and is never written to the project. The browser tab keeps the latest 30 turns of each
+project's chat text in session storage, so a page reload brings them back under a **Restored after
+the page reloaded** divider; closing the tab drops them. Restored turns keep only a count of their
+images (`2 images not kept after reload`); a turn that had images shows no **Retry** or **Ask agent
+to fix**, since those would resend it without them. A run the reload cut off reads as failed. A pending edit is saved before the run starts. While
 the run lasts, its message shows the agent's plan as steps (`Running · step 2 of 3`), whether it is
 `Thinking` or `Changing the project`, the last command it ran, and **Stop**, and a canvas banner
 says `{agent} is editing this project`. Editing pauses for the run: the canvas, Layers, and
@@ -397,6 +454,16 @@ validation passed, and the Issues count with **Issues**). **Keep changes** drops
 snapshot; **Undo run** restores it as one write and is refused once the project changed after the
 run. Undo run covers only `app-store-screenshots.json`, and ⌘Z history starts fresh after the
 reload. A review survives an editor reload while the server still holds the snapshot.
+
+An empty chat shows **Suggestions**: **Make it sell**, **Write store copy**, and **Match a
+reference** prefill the composer with an editable request and never send it; **Critique my set**
+starts a critic run. After **Keep changes**, the chat asks once whether to get a second opinion:
+**Run critic** starts a critic run and **Not now** dismisses the offer; sending anything else, Undo
+run, or New chat drops it. A critic run uses the selected agent under read-only rules: it exports the
+set, reviews the PNGs, and reports findings in its message. Its message ends with **Apply findings**,
+which prefills the composer with the report as an ordinary edit request, so the user deletes the
+findings to skip before sending. A critic that changed the project is rolled back and its message
+says so with **Retry**.
 
 Whenever a run changed files in the project folder outside `app-store-screenshots.json` (an agent's
 own edits, or the CLI's imported images, fonts, themes, and templates), the finished message and the
@@ -455,17 +522,19 @@ Projects) that its accessible name contains, and active items get the light acce
 source was moved or deleted, an app-owned confirmation may offer an explicit `Close without saving`
 recovery action; Workspace must never discard the active client state automatically.
 The Workspace top bar starts with a `Screenshot Studio / project / layout` breadcrumb whose product-name
-button is the same Projects home action; Focus / Overview stay centered; undo, redo, the locale menu,
-Issues with its count, Inspect, and Export sit on the right; Issues moves into the toolbar overflow
+button is the same Projects home action; Focus / Overview stay centered; the locale menu, Issues with its
+count, Inspect, and Export sit on the right; Issues moves into the toolbar overflow
 menu with Inspect at narrow widths. Export shows how many files a store-bundle export with the
 dialog's default filters writes, computed by the same bundle builder the export route uses, and
 shows no number when that bundle cannot be built.
 The 44 px sizes bar sits directly under the top bar and stays visible at every width (see §3).
-A 34 px **status bar** closes the Workspace under the canvas and panels. It shows the save state,
+A 34 px **status bar** closes the Workspace under the canvas and panels. It starts with the Undo
+and Redo buttons, visible at every width and disabled when there is nothing to undo or redo, then
+shows the save state,
 the active screen, the current layer selection, and that screen's size, as in
 `Save Fast · Save fast headline · iPhone Dynamic Island · Medium` (`No layer selected` or
 `3 layers (2 text · 1 shape)` take the layer's place), then the key hints `[ ] Size`,
-`O Focus/Overview`, `⌘K Find`, and `⌘Z Undo`, which hide below the medium width. The save state
+`O Focus/Overview`, `⌘K Find`, `⌘Z Undo`, and `⇧⌘Z Redo`, which hide below the medium width. The save state
 reads `Saving…`, `Saved ·` with the time of the last successful save, or `Save failed · last saved`
 with that time (`nothing saved yet` when no save has succeeded since the project opened), so a
 failure still says how far the work is durable. The save cell is plain text, not a live region, so
@@ -504,8 +573,13 @@ a panel.
 
 All interactive controls have accessible names, visible focus, disabled semantics, and keyboard use.
 Menus support predictable focus movement and dismissal. Dialogs use `DialogShell`'s configured initial
-focus: the heading when context must be announced, otherwise the first actionable control. They trap
-focus while open, return focus to a live trigger, and allow Escape only when cancellation is safe.
+focus: the heading when context must be announced, otherwise the body control that already took focus
+or the first actionable one in the body, with the header Close button as the last resort. They trap
+focus while open, return focus to a live trigger (a menu action focuses its menu's trigger before it
+opens one), fall back to the Select tool when that trigger is gone or disabled, and allow Escape only
+when cancellation is safe.
+When a commit removes the focused control, focus moves to its replacement or a nearby live control,
+because focus on `<body>` hands arrows and Delete to the canvas selection.
 Errors use alert semantics and identify a recoverable action; progress is announced without pretending
 that a durable operation is complete.
 
@@ -558,6 +632,10 @@ an arbitrary local filesystem path.
 - The same dialog lists built-in **Screen packs** for the active screen's output family. **Add screens
   from pack** appends each pack screen as an ordinary editable screen in the active layout and
   locale, then selects the first one.
+- Packs from the project's `packs/` folder list after the built-ins with a **Project** badge, design
+  packs with the built-in Design packs and screen packs with the built-in Screen packs, and apply
+  through the same actions. A pack that fails validation does not hide the others: the dialog shows
+  one warning line per broken file with its project-relative path and reason.
 - An empty project presents **Create your first screen** with relevant family starters, capture
   import, and blank-screen paths instead of relying on an unexplained empty canvas.
 - **Add device mockup** creates a presentation frame with a visible empty drop target. **Place

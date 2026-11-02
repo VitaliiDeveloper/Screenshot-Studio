@@ -4,7 +4,7 @@
 import { destinationLabel, type StoreSize, type StoreSpecs } from "@screenshot-studio/core/export";
 import type { DesignLayout, Screen } from "@screenshot-studio/core/model";
 import { screenTargetLabel } from "@web/lib/editor/editor-issues";
-import { outputFamilyEditorLabel } from "@web/lib/editor/editor-workspace";
+import { outputFamilyEditorLabel } from "@web/lib/editor/store-target-labels";
 import { InspectorSection as Section } from "./InspectorSection";
 
 /** The identity a screen persists (Handoff 6c): read-only, because another locale or size is another screen. */

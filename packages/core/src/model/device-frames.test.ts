@@ -306,6 +306,16 @@ describe("device frame preset catalog", () => {
     }
   });
 
+  it("keeps the opaque shadow backing of transparent bezels fully covered by the slot", () => {
+    const backed = DEVICE_FRAME_PRESETS.filter(({ recipe }) =>
+      recipe.spec.bezelColor === "#00000000" && recipe.shadow !== undefined);
+    expect(backed.length).toBeGreaterThan(0);
+    for (const { id, recipe: { spec } } of backed) {
+      expect(spec.slotInset, id).toEqual({ top: 0, right: 0, bottom: 0, left: 0 });
+      expect(spec.slotCornerRadius, id).toBe(spec.frameCornerRadius);
+    }
+  });
+
   it("returns stable lookups and rejects unknown IDs predictably", () => {
     expect(deviceFramePreset("phone-modern-dark")).toBe(deviceFramePreset("phone-modern-dark"));
     expect(() => deviceFramePreset("not-a-preset" as DeviceFrameId)).toThrowError(

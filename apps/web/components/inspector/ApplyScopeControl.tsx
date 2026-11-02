@@ -6,7 +6,7 @@ import type { DesignLayout, Element, Screen } from "@screenshot-studio/core/mode
 import { MenuSelect } from "@web/components/editor-ui";
 import { applyScopeScreens, scopedElementPatches, type ApplyScope } from "@web/lib/editor/editor-apply-scope";
 import { screenTargetLabel } from "@web/lib/editor/editor-issues";
-import { outputFamilyEditorLabel } from "@web/lib/editor/editor-workspace";
+import { outputFamilyEditorLabel } from "@web/lib/editor/store-target-labels";
 
 interface ApplyScopeProps {
   layout: DesignLayout;
@@ -58,17 +58,6 @@ export function ApplyScopeSelect({ screen, specs, value, onChange }: Omit<ApplyS
   );
 }
 
-export interface ApplyScopeChoice {
-  scope: ApplyScope;
-  /** The selection (or, with nothing selected, the screen) the scope was chosen on. */
-  key: string;
-}
-
-/** A wider scope holds only while the layer or screen it was chosen on stays selected. */
-export function resolveApplyScope(choice: ApplyScopeChoice | null, key: string): ApplyScope {
-  return choice?.key === key ? choice.scope : "screen";
-}
-
 function plural(count: number, noun: string): string {
   return `${count} ${noun}${count === 1 ? "" : "s"}`;
 }
@@ -103,7 +92,7 @@ export function ApplyScopeFooter({ layout, screen, specs, value, onChange, eleme
   element?: Element;
 }) {
   return (
-    <footer className="sticky bottom-0 z-10 mt-auto flex flex-col gap-1.5 border-t border-[var(--editor-color-border)] bg-white px-4 py-2.5">
+    <footer className="sticky bottom-0 z-10 mt-auto flex flex-col gap-1.5 border-t border-[var(--editor-color-border)] bg-[var(--editor-color-surface)] px-4 py-2.5">
       <div className="flex items-center gap-2 text-xs">
         <span className="shrink-0 whitespace-nowrap text-[color:var(--editor-color-text-secondary)]">Apply to</span>
         <MenuSelect

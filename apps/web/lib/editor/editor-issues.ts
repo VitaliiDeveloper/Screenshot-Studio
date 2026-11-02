@@ -22,7 +22,7 @@ import {
   outputFamilyEditorLabel,
   screenStoreTarget,
   storeTargetDeviceCopy,
-} from "./editor-workspace.js";
+} from "./store-target-labels.js";
 import { elementLabel } from "@web/lib/panel-helpers.js";
 
 export interface IssueCounts {
@@ -148,6 +148,20 @@ export function issueRowCopy(
         ...(multipleLocales ? [target.screen.locale] : []),
       ].join(" · "),
       fixLabel: "Replace",
+    };
+  }
+  if (issue.kind === "unequal-connected-artboard") {
+    const screen = layout.screens.find((candidate) => candidate.id === issue.screenId);
+    if (!screen) return null;
+    return {
+      title: "Screen size differs from its connected strip",
+      detail: [
+        screen.name,
+        `${screen.artboard.width}×${screen.artboard.height}, strip ${issue.stripArtboard.width}×${issue.stripArtboard.height}`,
+        screenSizeLabel(screen, specs),
+        ...(multipleLocales ? [screen.locale] : []),
+      ].join(" · "),
+      fixLabel: "Match strip",
     };
   }
   const target = overflowTarget(project, issue);

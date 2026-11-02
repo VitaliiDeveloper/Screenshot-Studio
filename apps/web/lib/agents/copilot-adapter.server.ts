@@ -55,6 +55,8 @@ export const copilotAdapter: AgentAdapter = {
       "--allow-tool=shell(screenshots:*)",
       "--deny-tool=shell(screenshots dev)",
       "--deny-tool=shell(screenshots dev:*)",
+      `--deny-tool=read(${request.context.storeCredentialsDir})`,
+      `--deny-tool=read(${request.context.storeCredentialsDir}/*)`,
       // The built-in GitHub MCP server acts as the user's GitHub account.
       "--disable-builtin-mcps",
       "--disallow-temp-dir",
@@ -62,10 +64,12 @@ export const copilotAdapter: AgentAdapter = {
       "--no-remote-export",
       "--no-auto-update",
       "--sandbox",
-      // Drops the user's global instructions too; the project guide is named in the prompt instead.
+      // Drops the user's global instructions and the project's own, which an imported archive may
+      // ship; the bundled guide is named in the prompt instead.
       "--no-custom-instructions",
       // Never `--allow-all*`, `--yolo` or `--trust-folder`.
       ...(request.context.skillPath ? [`--add-dir=${dirname(request.context.skillPath)}`] : []),
+      ...(request.context.bundledGuidePath ? [`--add-dir=${dirname(request.context.bundledGuidePath)}`] : []),
       ...(request.attachments[0] ? [`--add-dir=${dirname(request.attachments[0])}`] : []),
       ...(request.model ? [`--model=${request.model}`] : []),
     ];

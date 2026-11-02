@@ -3,7 +3,7 @@
 import type { ImageCache } from "@screenshot-studio/core/assets";
 import type { StoreSpecs } from "@screenshot-studio/core/export";
 import type { ProjectIssue } from "@screenshot-studio/core/validation";
-import type { WorkspaceOutputFamily } from "@web/lib/editor/editor-workspace";
+import type { WorkspaceOutputFamily } from "@web/lib/editor/workspace-output-rows";
 import { EditorStage } from "@web/components/EditorStage";
 import { OutputFamilySection } from "./OutputFamilySection";
 import { ScreenPreviewMetadata, ScreenPreviewTitle } from "./ScreenPreviewLabels";
@@ -31,6 +31,7 @@ export function ConnectedOutputRow({
     ? activeScreenId
     : row.screens[0]!.id;
   const artworkWidth = row.screens.reduce((sum, screen) => sum + screen.artboard.width, 0) * zoom;
+  const labelRow = row.screens[0]!.direction === "rtl" ? "flex flex-row-reverse" : "flex";
 
   return (
     <OutputFamilySection
@@ -44,7 +45,7 @@ export function ConnectedOutputRow({
         className="w-fit"
         data-testid={row.editing ? "connected-artboards" : undefined}
       >
-        <div className="flex">
+        <div className={labelRow}>
           {row.screens.map((screen) => (
             <div
               key={screen.id}
@@ -58,7 +59,7 @@ export function ConnectedOutputRow({
             </div>
           ))}
         </div>
-        <div className="relative bg-white shadow-[0_8px_28px_rgba(15,23,42,0.12)] ring-1 ring-slate-300">
+        <div className="relative bg-[var(--editor-color-artboard)] shadow-[0_8px_28px_rgba(15,23,42,0.12)] ring-1 ring-[var(--editor-color-border-strong)]">
           <EditorStage
             images={images}
             zoom={zoom}
@@ -68,7 +69,7 @@ export function ConnectedOutputRow({
             interactive={row.editing}
           />
         </div>
-        <div className="flex">
+        <div className={labelRow}>
           {row.screens.map((screen) => (
             <ScreenPreviewMetadata
               key={screen.id}
