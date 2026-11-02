@@ -14,7 +14,7 @@ import {
   createTemplateScreen,
   exportLayoutPack,
   listBuiltInTemplates,
-  listTemplates,
+  listTemplatesWithErrors,
   loadProjectPackListing,
   templateId,
 } from "./template-service.js";
@@ -80,9 +80,9 @@ export async function runTemplateCommand(
   }
   const specs = await loadSpecs(storeSpecsPath);
   if (action.kind === "list") {
-    const [builtIns, templates, local] = await Promise.all([
+    const [builtIns, { definitions: templates, errors }, local] = await Promise.all([
       listBuiltInTemplates(projectPath, specs),
-      listTemplates(projectPath),
+      listTemplatesWithErrors(projectPath),
       loadProjectPackListing(projectPath),
     ]);
     const packs = [
@@ -96,7 +96,7 @@ export async function runTemplateCommand(
           ...templates.map((template) => ({ source: "project", ...templateSummary(template) })),
         ],
         packs: packs.map(({ source, pack }) => ({ source, ...pack })),
-        errors: local.errors,
+        errors: [...local.errors, ...errors.map(({ file, error }) => ({ file, message: error.message }))],
       });
     }
     return [
@@ -104,6 +104,7 @@ export async function runTemplateCommand(
       ...packs.map(({ source, pack }) => formatTemplatePack(source, pack)),
       ...templates.map((template) => formatTemplate("project", template)),
       ...local.errors.map((error) => `invalid-pack ${error.file}: ${error.message}`),
+      ...errors.map(({ file, error }) => `invalid-template ${file}: ${error.message}`),
     ].join("\n");
   }
   if (action.source === "pack") {

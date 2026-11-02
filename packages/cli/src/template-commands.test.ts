@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { cp, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import sharp from "sharp";
 import { DEFAULT_STORE_SPECS } from "@screenshot-studio/core/export";
@@ -70,6 +70,18 @@ describe("runTemplateCommand", () => {
     expect(lines).toContainEqual(expect.stringMatching(/^built-in iphone-starter apple\/iphone \S+ iPhone$/));
     expect(lines).toContain("built-in-pack neutral-iphone-basics apple/iphone neutral-default 2 Neutral basics · iPhone");
     expect(lines.at(-1)).toBe("project accent-card apple/iphone - Accent card");
+  });
+
+  it("lists a malformed template as an error beside the valid ones", async () => {
+    const { projectPath, specsPath } = await fixture();
+    await writeFile(join(dirname(projectPath), "templates/broken.json"), "{");
+
+    const lines = (await runTemplateCommand(projectPath, specsPath, ["list"], {})).split("\n");
+    const listed = JSON.parse(await runTemplateCommand(projectPath, specsPath, ["list"], { json: "true" }));
+
+    expect(lines).toContain("project accent-card apple/iphone - Accent card");
+    expect(lines.at(-1)).toMatch(/^invalid-template templates\/broken\.json: Invalid template/);
+    expect(listed.errors).toEqual([{ file: "templates/broken.json", message: expect.stringMatching(/^Invalid template/) }]);
   });
 
   it("adds every screen of a built-in pack and reports their ids", async () => {

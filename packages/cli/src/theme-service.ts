@@ -19,6 +19,7 @@ import { resolveMutationLayout } from "./layout-commands.js";
 import {
   createDefinitionStore,
   DEFINITION_ID,
+  type DefinitionListing,
   type DefinitionStoreDependencies,
 } from "./managed-definition-store.js";
 
@@ -74,6 +75,13 @@ export async function listThemes(
   dependencies: ThemeServiceDependencies = {},
 ): Promise<Theme[]> {
   return projectThemes.list(projectPath, dependencies);
+}
+
+export async function listThemesWithErrors(
+  projectPath: string,
+  dependencies: ThemeServiceDependencies = {},
+): Promise<DefinitionListing<Theme>> {
+  return projectThemes.listWithErrors(projectPath, dependencies);
 }
 
 export async function applyThemeFile(
