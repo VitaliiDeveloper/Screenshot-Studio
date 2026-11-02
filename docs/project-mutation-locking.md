@@ -253,7 +253,7 @@ direct JSON edit or a replaced file. Node has no compare-and-rename, so the chec
 writer's window but cannot close it.
 
 Use the unconditional `writeProjectAtomic()` only for a deliberate restore that must win over whatever
-is on disk, such as the agent-session rollback in `apps/web/lib/agents/agent-session.server.ts`.
+is on disk, such as the agent-session rollback in `apps/web/lib/agents/agent-run-verdict.server.ts`.
 
 ## Incorrect usage
 

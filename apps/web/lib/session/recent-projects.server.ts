@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { constants } from "node:fs";
 import { open, rename, type FileHandle } from "node:fs/promises";
 import { isAbsolute, join } from "node:path";
-import type { ActiveManagedProjectCatalogEntry } from "@web/lib/managed-projects/managed-project-catalog.server.js";
+import type { ActiveManagedProjectCatalogEntry } from "@web/lib/managed-projects/managed-project-catalog-document.server.js";
 import { ManagedProjectCatalogStore } from "@web/lib/managed-projects/managed-project-catalog.server.js";
 import type { ManagedProjectStorageConfig } from "@web/lib/managed-projects/managed-project-config.server.js";
 import { resolveManagedProjectStorageConfig } from "@web/lib/managed-projects/managed-project-config.server.js";

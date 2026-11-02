@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
 import { randomBytes as nodeRandomBytes } from "node:crypto";
-import { constants } from "node:fs";
 import {
   lstat,
   mkdir,
@@ -14,27 +13,24 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Readable } from "node:stream";
-import { noFollowFlags } from "@screenshot-studio/core/storage";
+import {
+  asArtifactStat,
+  closeHandles,
+  copyFileHandles,
+  identityOf,
+  isExpectedArtifact,
+  readFlags,
+  sameIdentity,
+  unlinkExpectedArtifact,
+  writeFlags,
+  type ArtifactIdentity,
+} from "./export-artifact-files.server.js";
 
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 const TOKEN_BYTES = 32;
 const DEFAULT_TTL_MS = 5 * 60_000;
 const DEFAULT_DOWNLOAD_PATH_PREFIX = "/api/export/artifacts";
 const DEFAULT_DOWNLOAD_FILENAME = "app-store-screenshots-bundle.zip";
-
-interface ArtifactIdentity {
-  device: bigint;
-  inode: bigint;
-  size: bigint;
-}
-
-interface ArtifactStat {
-  dev: bigint;
-  ino: bigint;
-  size: bigint;
-  nlink: bigint;
-  isFile(): boolean;
-}
 
 interface ArtifactRecord {
   path: string;
@@ -78,99 +74,16 @@ export interface ExportArtifactStoreDependencies {
   downloadFilename?: string;
 }
 
-function readFlags(): number {
-  return noFollowFlags(constants.O_RDONLY | constants.O_NONBLOCK);
-}
-
-function writeFlags(): number {
-  return noFollowFlags(constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL);
-}
-
 function assertSafeDownloadFilename(filename: string): void {
   if (!/^[A-Za-z0-9][A-Za-z0-9._-]*\.zip$/.test(filename)) {
     throw new Error("Export artifact download filename must be a safe ZIP filename");
   }
 }
 
-function asArtifactStat(value: unknown): ArtifactStat {
-  return value as ArtifactStat;
-}
-
-function identityOf(stat: ArtifactStat): ArtifactIdentity {
-  return { device: stat.dev, inode: stat.ino, size: stat.size };
-}
-
-function sameIdentity(left: ArtifactIdentity, right: ArtifactIdentity): boolean {
-  return left.device === right.device && left.inode === right.inode && left.size === right.size;
-}
-
-function sameBinding(left: ArtifactIdentity, right: ArtifactIdentity): boolean {
-  return left.device === right.device && left.inode === right.inode;
-}
-
-function isExpectedArtifact(stat: ArtifactStat, identity: ArtifactIdentity): boolean {
-  return stat.isFile() && stat.nlink === 1n && sameIdentity(identityOf(stat), identity);
-}
-
 function unrefTimer(timer: ReturnType<typeof setTimeout>): void {
   if (typeof timer === "object" && "unref" in timer) timer.unref();
 }
 
-async function unlinkExpectedArtifact(
-  path: string,
-  identity: ArtifactIdentity,
-  unlinkFile: (path: string) => Promise<void> = unlink,
-): Promise<void> {
-  try {
-    const current = asArtifactStat(await lstat(path, { bigint: true }));
-    if (current.isFile() && sameBinding(identityOf(current), identity)) await unlinkFile(path);
-  } catch (error) {
-    if (!(typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT")) {
-      throw error;
-    }
-  }
-}
-
-async function closeHandles(
-  handles: FileHandle[],
-  primaryError: { value: unknown } | null,
-): Promise<void> {
-  const closeResults = await Promise.allSettled(handles.map((handle) => handle.close()));
-  const closeErrors = closeResults.flatMap((result) => (
-    result.status === "rejected" ? [result.reason] : []
-  ));
-  if (primaryError !== null) {
-    if (closeErrors.length > 0) {
-      throw new AggregateError([primaryError.value, ...closeErrors], "Artifact staging and cleanup failed", {
-        cause: primaryError.value,
-      });
-    }
-    throw primaryError.value;
-  }
-  if (closeErrors.length === 1) throw closeErrors[0];
-  if (closeErrors.length > 1) throw new AggregateError(closeErrors, "Artifact handle cleanup failed");
-}
-
-async function copyFileHandles(source: FileHandle, destination: FileHandle): Promise<void> {
-  const buffer = Buffer.allocUnsafe(64 * 1024);
-  let position = 0;
-  while (true) {
-    const { bytesRead } = await source.read(buffer, 0, buffer.byteLength, position);
-    if (bytesRead === 0) return;
-    let written = 0;
-    while (written < bytesRead) {
-      const result = await destination.write(
-        buffer,
-        written,
-        bytesRead - written,
-        position + written,
-      );
-      if (result.bytesWritten === 0) throw new Error("Export artifact staging made no write progress");
-      written += result.bytesWritten;
-    }
-    position += bytesRead;
-  }
-}
 
 export function createExportArtifactStore(
   dependencies: ExportArtifactStoreDependencies = {},

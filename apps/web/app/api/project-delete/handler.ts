@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from "node:crypto";
-import type { ManagedProjectDeletionEvidence } from "@web/lib/managed-projects/managed-project-catalog.server.js";
+import type { ManagedProjectDeletionEvidence } from "@web/lib/managed-projects/managed-project-catalog-document.server.js";
 import {
   resolveManagedProjectStorageConfig,
   type ManagedProjectStorageConfig,
