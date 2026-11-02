@@ -111,6 +111,20 @@ describe("asset processing", () => {
     expect(await readFile(projectPath)).toEqual(projectBefore);
   });
 
+  it("renames images the project archive would drop", async () => {
+    const { projectPath } = await initializedProject("screenshot-studio-asset-import-archivable-");
+    const paths = [];
+    for (const [index, filename] of ["secret-sauce.png", "lock.png", "credentials-screen.png"].entries()) {
+      const bytes = await rgbaPng(1, 1, () => [index, 0, 0, 255]);
+      paths.push((await importProjectImageMutation(projectPath, { filename, bytes })).asset.path);
+    }
+    expect(paths).toEqual([
+      "assets/imported/asset.png",
+      "assets/imported/asset-2.png",
+      "assets/imported/asset-3.png",
+    ]);
+  });
+
   it("rejects invalid image bytes and stale revisions before publication", async () => {
     const { dir, projectPath } = await initializedProject("screenshot-studio-asset-import-invalid-");
     await expect(importProjectImageMutation(projectPath, {

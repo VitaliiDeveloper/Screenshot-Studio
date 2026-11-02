@@ -122,6 +122,18 @@ describe("ManagedProjectArchiveService", () => {
     await expect(artifact.dispose()).resolves.toBeUndefined();
   });
 
+  it("fails instead of omitting a referenced resource the archive policy excludes", async () => {
+    const { repository, imported } = await createFixture();
+    await writeFile(join(imported.projectDirectory, "assets", "secret-sauce.png"), "image");
+    await writeFile(
+      imported.projectPath,
+      projectJson().replace("screenshots/hero.png", "assets/secret-sauce.png"),
+    );
+
+    await expect(new ManagedProjectArchiveService(repository).create(imported.id))
+      .rejects.toThrow("would omit referenced resources: assets/secret-sauce.png");
+  });
+
   it("drains the project mutation lease before producing its immutable revision", async () => {
     const { repository, imported } = await createFixture();
     const writer = await acquireProjectMutationLock(imported.projectPath, {
