@@ -12,7 +12,13 @@ import {
   loadEditorResources,
 } from "@web/app/editor/editor-resources";
 import { clearProjectPersistenceIdentity } from "@web/lib/clients/save-project";
-import { cancelScheduledSave, saveLatestProject, scheduleSave } from "./debounced-save";
+import {
+  cancelScheduledSave,
+  saveLatestProject,
+  scheduleSave,
+  switchActiveProject,
+  withFlushedProject,
+} from "./debounced-save";
 import { editorStore } from "./editor-store";
 import {
   checkExternalProjectChange,
@@ -135,6 +141,15 @@ describe("external project changes", () => {
     });
     await saveLatestProject();
     expect(diskName()).toBe("Agent rename + editor");
+  });
+
+  it("runs resource operations and project switches without re-saving an unchanged copy", async () => {
+    await writeProjectAtomic(file, projectNamed("Agent rename"));
+
+    await expect(withFlushedProject(async () => "exported")).resolves.toBe("exported");
+    expect(editorStore.getState().saveStatus).toBe("idle");
+    await expect(switchActiveProject(async () => "opened")).resolves.toBe("opened");
+    expect(diskName()).toBe("Agent rename");
   });
 
   it("leaves a buffered edit alone so it saves or conflicts instead of being dropped", async () => {

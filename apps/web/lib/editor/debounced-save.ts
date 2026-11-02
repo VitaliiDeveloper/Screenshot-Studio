@@ -50,6 +50,8 @@ export function createProjectSaveCoordinator(
   getLatestProject: () => Project | undefined,
 ) {
   let tail: Promise<void> = Promise.resolve();
+  // Re-sending an unchanged copy would fail its If-Match after another writer and block the caller.
+  let persisted: Project | undefined;
 
   const runExclusive = <T>(operation: () => Promise<T>): Promise<T> => {
     const result = tail.then(operation);
@@ -57,24 +59,43 @@ export function createProjectSaveCoordinator(
     return result;
   };
 
+  const saveIfChanged = async (project: Project) => {
+    if (project === persisted) return;
+    await saveFn(project);
+    persisted = project;
+  };
+
   return {
     /** Enqueue a save that reads the latest store state only when it reaches the front. */
     saveLatest(): Promise<void> {
       return runExclusive(async () => {
         const project = getLatestProject();
-        if (project) await saveFn(project);
+        if (project) await saveIfChanged(project);
       });
     },
     runExclusive,
+    /** Save the latest project, then keep later saves queued behind the operation. */
+    runFlushed<T>(operation: () => Promise<T>): Promise<T> {
+      return runExclusive(async () => {
+        const project = getLatestProject();
+        if (!project) throw new Error("No project loaded");
+        await saveIfChanged(project);
+        return operation();
+      });
+    },
     /** Drain the latest project, activate the replacement, then clear state before queued saves run. */
     switchProject<T>(activate: () => Promise<T>, reset: () => void): Promise<T> {
       return runExclusive(async () => {
         const project = getLatestProject();
-        if (project) await saveFn(project);
+        if (project) await saveIfChanged(project);
         const result = await activate();
         reset();
         return result;
       });
+    },
+    /** Record the project the server holds after a load or reload. */
+    markPersisted(project: Project | undefined): void {
+      persisted = project;
     },
     whenIdle(): Promise<void> {
       return tail;
@@ -97,6 +118,11 @@ const projectSaves = createProjectSaveCoordinator(
   persistProject,
   () => editorStore.getState().project ?? undefined,
 );
+
+/** Mark a project just read from the server so an unchanged copy is never PUT back. */
+export function markProjectPersisted(project: Project): void {
+  projectSaves.markPersisted(project);
+}
 
 /** Persist the latest editor snapshot after all earlier saves/operations complete. */
 export function saveLatestProject(): Promise<void> {
@@ -127,6 +153,7 @@ export function cancelScheduledSave(): void {
 export function discardActiveProjectPersistence(): void {
   cancelScheduledSave();
   clearProjectPersistenceIdentity();
+  projectSaves.markPersisted(undefined);
   editorStore.getState().resetProjectState();
 }
 
@@ -147,12 +174,7 @@ export function switchActiveProject<T>(activate: () => Promise<T>): Promise<T> {
  */
 export function withFlushedProject<T>(operation: () => Promise<T>): Promise<T> {
   cancelScheduledSave();
-  return projectSaves.runExclusive(async () => {
-    const project = editorStore.getState().project;
-    if (!project) throw new Error("No project loaded");
-    await persistProject(project);
-    return operation();
-  });
+  return projectSaves.runFlushed(operation);
 }
 
 /**
