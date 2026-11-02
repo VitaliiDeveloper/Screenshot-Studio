@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import { PNG } from "pngjs";
 import pixelmatch from "pixelmatch";
-import { stripAlpha } from "@screenshot-studio/core/export";
+import { stripAlpha } from "./support/strip-alpha.js";
 import { startWebServer } from "@screenshot-studio/cli/server";
 import {
   closeParityRenderHarness,

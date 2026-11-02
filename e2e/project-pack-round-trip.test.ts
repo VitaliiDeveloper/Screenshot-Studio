@@ -9,7 +9,8 @@ import pixelmatch from "pixelmatch";
 import { createRenderBrowserSession, type RenderBrowserSession } from "@screenshot-studio/cli/render-driver";
 import { startWebServer, type RunningServer } from "@screenshot-studio/cli/server";
 import { createProjectTemplatePackScreens, exportLayoutPack } from "@screenshot-studio/cli/template-service";
-import { parseStoreSpecs, stripAlpha } from "@screenshot-studio/core/export";
+import { parseStoreSpecs } from "@screenshot-studio/core/export";
+import { stripAlpha } from "./support/strip-alpha.js";
 import { DEFAULT_TEXT_FONT, parseProject } from "@screenshot-studio/core/model";
 
 /**

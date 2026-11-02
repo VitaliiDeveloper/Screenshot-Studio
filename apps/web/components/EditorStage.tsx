@@ -327,7 +327,7 @@ export function EditorStage({
               <Group key={`owner-${screen.id}`} x={x + baseX} y={y}>
                 {screen.elements.map((element) => {
                   if (!element.visible) return null;
-                  const nc = elementToNodeConfig(element, { images, direction: screen.direction });
+                  const nc = elementToNodeConfig(element, { images, direction: screen.direction, zoom });
                   const key = nodeSelectionKey(screen.id, element.id);
                   const interaction = canEdit ? {
                     draggable: !element.locked,

@@ -4,6 +4,7 @@ import { lstat } from "node:fs/promises";
 import { errorText, noFollowFlags } from "@screenshot-studio/core/storage";
 import type {
   CapturedError,
+  OpenEvidence,
   PublicationDependencies,
   StageHandle,
   StageIdentity,
@@ -36,7 +37,7 @@ async function cleanupFailedOwnedStage(
   removeStage: NonNullable<PublicationDependencies["removeStage"]>,
   quarantineFile: NonNullable<PublicationDependencies["quarantineFile"]>,
   restoreLink: NonNullable<PublicationDependencies["restoreLink"]>,
-  openVerification: NonNullable<PublicationDependencies["openVerification"]>,
+  openVerification: OpenEvidence,
   revalidateBeforeRemoval: () => Promise<void>,
 ): Promise<void> {
   const quarantinePath = privateQuarantinePath(stagePath, "creation-quarantine");
@@ -114,7 +115,7 @@ export async function createOwnedStage(
   removeStage: NonNullable<PublicationDependencies["removeStage"]>,
   quarantineFile: NonNullable<PublicationDependencies["quarantineFile"]>,
   restoreLink: NonNullable<PublicationDependencies["restoreLink"]>,
-  openVerification: NonNullable<PublicationDependencies["openVerification"]>,
+  openVerification: OpenEvidence,
   revalidateBeforeRemoval: () => Promise<void>,
 ): Promise<StageIdentity> {
   let handle: StageHandle | undefined;

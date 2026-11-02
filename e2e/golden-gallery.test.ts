@@ -13,8 +13,8 @@ import {
   listStoreTargets,
   parseStoreSpecs,
   safeStoreSizePathToken,
-  stripAlpha,
 } from "@screenshot-studio/core/export";
+import { stripAlpha } from "./support/strip-alpha.js";
 import { ensureStoreTargetVariant, getLayout, parseProject, type Project, type Screen } from "@screenshot-studio/core/model";
 import { createScreensFromTemplatePack, listBuiltInTemplatePacks, type TemplatePack } from "@screenshot-studio/core/templates";
 import { listBuiltInDesignPacks } from "@screenshot-studio/core/themes";

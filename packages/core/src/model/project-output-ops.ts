@@ -276,9 +276,21 @@ export function removeStoreOutputFamily(
 }
 
 /**
+ * One exact-size row in slot order. A screen paired with a root keeps that slot; the rest fill the
+ * free slots in row order, and any that do not fit become extra slots. A slot nothing fills is empty.
+ */
+function rowInSlotOrder(row: readonly Screen[], roots: readonly Screen[]): (Screen | undefined)[] {
+  const paired = roots.map((root) => row.find((screen) => screen.variantOf === root.id));
+  const unpaired = row.filter((screen) => !paired.includes(screen));
+  const slots = paired.map((screen) => screen ?? unpaired.shift());
+  return [...slots, ...unpaired];
+}
+
+/**
  * Persist one output-family screen-slot policy. Enabling synchronization reconciles every
- * existing exact target and the primary size by persisted slot order before committing the
- * strict policy. Existing content is preserved; missing counterparts are fitted clones.
+ * existing exact target and the primary size before committing the strict policy: valid pairs
+ * stay, other exact screens fill the remaining slots in persisted order. Existing content is
+ * preserved; missing counterparts are fitted clones.
  */
 export function setOutputFamilyScreenSetMode(
   project: ProjectModel,
@@ -307,7 +319,10 @@ export function setOutputFamilyScreenSetMode(
       .map((screen) => screen.storeTargetId!)));
     const targetRows = new Map(targetIds.map((targetId) => [
       targetId,
-      screens.filter((screen) => sameOutputFamily(screen, source) && screen.storeTargetId === targetId),
+      rowInSlotOrder(
+        screens.filter((screen) => sameOutputFamily(screen, source) && screen.storeTargetId === targetId),
+        roots,
+      ),
     ]));
     const slotCount = Math.max(roots.length, ...Array.from(targetRows.values(), (row) => row.length));
 
@@ -336,7 +351,9 @@ export function setOutputFamilyScreenSetMode(
     const replacements = new Map<string, Screen>();
     const additions: Screen[] = [];
     for (const [targetId, row] of targetRows) {
-      const targetArtboard = row[0]!.artboard;
+      const targetArtboard = screens.find((screen) =>
+        sameOutputFamily(screen, source) && screen.storeTargetId === targetId
+      )!.artboard;
       roots.forEach((root, index) => {
         const existing = row[index];
         if (existing) {

@@ -7,7 +7,7 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PNG } from "pngjs";
 import pixelmatch from "pixelmatch";
-import { stripAlpha } from "@screenshot-studio/core/export";
+import { stripAlpha } from "./support/strip-alpha.js";
 import {
   DEVICE_FRAME_IDS,
   DEVICE_FRAME_SPECS,
