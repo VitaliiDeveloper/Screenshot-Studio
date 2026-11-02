@@ -334,7 +334,9 @@ the SHA-256 of the bytes. That filename is the persisted refresh identity, so it
 change: `import --refresh` repoints every raster reference in the selected layout (image backgrounds,
 screenshot, image, and device-frame leaves, including group children) whose `assetUrl` is exactly
 that key with any digest to the new bytes. Refresh never adds, removes, reorders, or resizes screens
-or elements; a capture nothing references is reported, not added. Replaced files stay on disk,
+or elements; a capture nothing references is reported, not added. Because a key has one owner, add
+mode refuses (`duplicate-capture-key`) a capture whose key repeats in the input or is already
+referenced in the layout. Replaced files stay on disk,
 unreferenced. Captures imported before the key naming (resources named after a suffixed screen id)
 are not matched.
 
