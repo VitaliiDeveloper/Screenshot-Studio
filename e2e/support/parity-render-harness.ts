@@ -23,12 +23,14 @@ async function closeResources(resources: Array<(() => Promise<void>) | undefined
   if (errors.length > 1) throw new AggregateError(errors, "Parity harness cleanup failed");
 }
 
-// Headed stays headed for parity; on macOS park its window off-screen so it does not cover the desktop.
+// macOS clamps a headed window onto the screen and activates it, whatever its launch flags or CDP bounds say.
+// Full Chrome in new headless mode is the same browser build without a window, so local runs leave the desktop alone.
+export const headedRunsWindowless = process.platform === "darwin" && !process.env.SCREENSHOTS_E2E_HEADED;
+
 export function launchHeadedChromium(options: LaunchOptions = {}): Promise<Browser> {
-  const args = process.platform === "darwin"
-    ? [...(options.args ?? []), "--window-position=-32000,-32000"]
-    : options.args;
-  return chromium.launch({ ...options, headless: false, args });
+  return chromium.launch(headedRunsWindowless
+    ? { channel: "chromium", ...options, headless: true }
+    : { ...options, headless: false });
 }
 
 export async function startParityRenderHarness(
