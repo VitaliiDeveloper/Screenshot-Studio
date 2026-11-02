@@ -51,8 +51,8 @@ browser download uses the machine or user cache and is not embedded in the packa
 
 Interactive runs make one optional request per 24 hours to
 `https://registry.npmjs.org/@screenshot-studio/cli/latest` and print a one-line notice when a newer
-version exists (the result is cached in the user cache directory). Any failure, including a 404 for
-an unpublished package, is ignored. Verify the opt-outs `SCREENSHOTS_NO_UPDATE_CHECK=1` and
+version exists (the result is cached in the user cache directory). Any network or registry failure
+is ignored. Verify the opt-outs `SCREENSHOTS_NO_UPDATE_CHECK=1` and
 `NO_UPDATE_NOTIFIER=1`; the check is also skipped when `CI` is set or output is not a terminal.
 
 ## Release gate
@@ -88,9 +88,9 @@ A green build or CI result grants no publication authority.
 After authorization, publish the already-hashed tarball rather than rebuilding it:
 
 ```bash
-npm publish ./artifacts/screenshot-studio-cli-0.1.0.tgz --access public
-npm view @screenshot-studio/cli@0.1.0 dist.integrity dist.tarball
-pnpm add --global @screenshot-studio/cli@0.1.0
+npm publish ./artifacts/screenshot-studio-cli-<version>.tgz --access public
+npm view @screenshot-studio/cli@<version> dist.integrity dist.tarball
+npm install --global @screenshot-studio/cli@<version>
 screenshots init --dir ./registry-install-smoke
 ```
 
@@ -108,10 +108,10 @@ needs the same explicit owner authorization. Point `url` at the registry tarball
 from that downloaded file, after checking the file against the registry integrity:
 
 ```bash
-curl -fsSLO https://registry.npmjs.org/@screenshot-studio/cli/-/cli-0.1.0.tgz
-shasum -a 256 cli-0.1.0.tgz
-echo "sha512-$(openssl dgst -sha512 -binary cli-0.1.0.tgz | base64)"
-npm view @screenshot-studio/cli@0.1.0 dist.integrity
+curl -fsSLO https://registry.npmjs.org/@screenshot-studio/cli/-/cli-<version>.tgz
+shasum -a 256 cli-<version>.tgz
+echo "sha512-$(openssl dgst -sha512 -binary cli-<version>.tgz | base64)"
+npm view @screenshot-studio/cli@<version> dist.integrity
 ```
 
 Before pushing, run `brew install --build-from-source`, `brew test`, and `brew audit --strict --online`
@@ -121,15 +121,14 @@ next Node.js LTS before Homebrew deprecates `node@24`.
 
 ## Upgrade or uninstall
 
-Install a newer reviewed tarball or registry version with the same global-add command. This
-pre-release candidate accepts only the complete strict schema v1 document; historical internal
-development formats are unsupported. Back up project JSON in Git and test future schema-changing
-versions against a copy before upgrading.
+Upgrade with `npm install --global @screenshot-studio/cli@latest` and remove the CLI with
+`npm uninstall --global @screenshot-studio/cli`, or use `brew upgrade screenshot-studio` and
+`brew uninstall screenshot-studio`. A candidate tarball installed for verification is removed with
+`pnpm remove --global @screenshot-studio/cli`.
 
-```bash
-pnpm add --global ./artifacts/screenshot-studio-cli-0.1.0.tgz
-pnpm remove --global @screenshot-studio/cli
-```
+The CLI accepts only the complete strict schema v1 document; historical internal development formats
+are unsupported. Back up project JSON in Git and test future schema-changing versions against a copy
+before upgrading.
 
 Uninstalling the CLI does not remove projects, exports, or Playwright's shared browser cache.
 
