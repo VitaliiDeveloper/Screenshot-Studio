@@ -15,6 +15,7 @@ import {
   evidenceMatchesIdentityAndBytes,
   evidenceWithLinks,
   expectedEvidence,
+  namedStageIdentity,
   readBoundRegularFileEvidence,
   requireCommittedDestination,
   requireCommittedDestinationLinkRange,
@@ -155,17 +156,21 @@ export async function createOwnedStage(
   }
 
   if (primaryError !== null) {
-    if (owned && identity) {
+    if (owned) {
       try {
-        await cleanupFailedOwnedStage(
-          stagePath,
-          identity,
-          removeStage,
-          quarantineFile,
-          restoreLink,
-          openVerification,
-          revalidateBeforeRemoval,
-        );
+        // The exclusive open created the stage even when handle.stat() failed before binding it.
+        const ownedIdentity = identity ?? await namedStageIdentity(stagePath, bytes);
+        if (ownedIdentity) {
+          await cleanupFailedOwnedStage(
+            stagePath,
+            ownedIdentity,
+            removeStage,
+            quarantineFile,
+            restoreLink,
+            openVerification,
+            revalidateBeforeRemoval,
+          );
+        }
       } catch (cleanupError) {
         throw errorWithCleanup(primaryError.value, cleanupError);
       }

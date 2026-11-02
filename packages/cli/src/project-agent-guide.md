@@ -167,7 +167,8 @@ screenshots screen list --project ./app-store-screenshots.json      # order, scr
 screenshots locale list --project ./app-store-screenshots.json      # locale, direction, screen count
 screenshots template list --project ./app-store-screenshots.json    # source, id, family, target, name
 # screen packs: built-in-pack or project-pack, id, family, style (a Design pack id), screen count, name
-# invalid-pack lines name a broken packs/ file and the reason
+# invalid-pack lines name a broken packs/ file and the reason; invalid-template and invalid-theme
+# lines name a broken templates/ or themes/ file
 screenshots theme list --project ./app-store-screenshots.json       # source, id, name (built-in, project-pack = Design packs)
 screenshots element list --locale en --project ./app-store-screenshots.json
 # screen id, locale, element id, type, role, then JSON-quoted text or the media path ("-" when empty)
@@ -255,8 +256,8 @@ issue with the commands above, then run `check` again.
 Even with `--render`, `textMeasured` is `false` while a font blocker remains: text is never measured
 on fallback fonts, so fix the fonts and run `check --render` again before trusting a pass. A failure
 that is not a report (missing project, unknown `--layout`, bad `--store-specs`, or a render-host
-error) also exits 1 but prints no JSON, only an error on stderr; treat stdout that does not parse
-as a tool error, not as a list of issues.
+error) exits 2 and prints no JSON, only an error on stderr; treat it as a tool error, not as a list
+of issues.
 
 ## Recipe: generate or refresh copy
 
@@ -273,7 +274,7 @@ as a tool error, not as a list of issues.
 
    The command changes only `content` and keeps ids, roles, font identities, and unrelated locales.
    Prefer `--all-sizes` so exact-size variants do not drift, and handle any reported skipped size.
-   If copy no longer fits, adjust that text element's literal box/typography in JSON and then
+   If copy no longer fits, adjust that text element's box or typography with `element set` and then
    visually inspect it; do not add an automatic runtime layout rule.
 4. Make adjacent slides visibly different in composition while keeping the deck's theme and type
    hierarchy consistent.
@@ -282,7 +283,6 @@ as a tool error, not as a list of issues.
    ```bash
    screenshots screen list --project ./app-store-screenshots.json
    screenshots check --render --project ./app-store-screenshots.json
-   screenshots dev --project ./app-store-screenshots.json
    screenshots export --locale en --project ./app-store-screenshots.json
    ```
 
@@ -370,7 +370,6 @@ as a tool error, not as a list of issues.
 
    ```bash
    screenshots screen list --project ./app-store-screenshots.json
-   screenshots dev --project ./app-store-screenshots.json
    screenshots export --locale ar --project ./app-store-screenshots.json
    ```
 

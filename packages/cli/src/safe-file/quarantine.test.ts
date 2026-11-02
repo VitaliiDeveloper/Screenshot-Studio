@@ -57,6 +57,18 @@ describe("quarantineRegularFileSafely", () => {
     expect(await readFile(destination, "utf8")).toBe("replacement bytes");
   });
 
+  it("returns null when the leaf vanishes just before its quarantine", async () => {
+    const root = await workspace("safe-file-transaction-vanished-");
+    await writeFile(join(root, "resource.txt"), "bytes");
+
+    await expect(quarantineWithDependencies(root, "resource.txt", undefined, {
+      quarantineFile: async (source, target) => {
+        await unlink(source);
+        await rename(source, target);
+      },
+    })).resolves.toBeNull();
+  });
+
   it("rejects a quarantine mutation that leaves the source entry in place", async () => {
     const root = await workspace("safe-file-transaction-source-retained-");
     const destination = await canonicalDestination(root, "resource.txt");

@@ -11,11 +11,12 @@ import {
   unlink,
   type FileHandle,
 } from "node:fs/promises";
-import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import JSZip from "jszip";
 import type { BundleEntry } from "@screenshot-studio/core/export";
 import { isProjectRelativePath } from "@screenshot-studio/core/model";
 import { errorText, noFollowFlags } from "@screenshot-studio/core/storage";
+import { resolveOrCreateRootBoundary } from "./safe-file/paths.js";
 
 export interface RenderedBundleEntry {
   entry: BundleEntry;
@@ -149,41 +150,6 @@ async function preflightOutputPath(outDir: string, outputPath: string): Promise<
   const outputStats = await lstatIfExists(outputPath);
   if (outputStats) assertRegularOutput(outputPath, outputStats);
   return outputStats;
-}
-
-async function ensureSafeRootDirectory(outDir: string): Promise<void> {
-  const root = resolve(outDir);
-  const missingSegments: string[] = [];
-  let cursor = root;
-  let stats: Stats | null = null;
-
-  while (!stats) {
-    try {
-      stats = await lstat(cursor);
-    } catch (error) {
-      if (!hasCode(error, "ENOENT") && !hasCode(error, "ENOTDIR")) throw error;
-      const parent = dirname(cursor);
-      if (parent === cursor) {
-        throw new Error("Bundle output root has no existing directory ancestor", { cause: error });
-      }
-      missingSegments.unshift(basename(cursor));
-      cursor = parent;
-    }
-  }
-  assertDirectoryNotSymlink(cursor, stats);
-
-  let current = cursor;
-  for (const segment of missingSegments) {
-    assertDirectoryNotSymlink(current, await lstat(current));
-    current = join(current, segment);
-    try {
-      await mkdir(current);
-    } catch (error) {
-      if (!hasCode(error, "EEXIST")) throw error;
-    }
-    const currentStats = await lstat(current);
-    assertDirectoryNotSymlink(current, currentStats);
-  }
 }
 
 async function ensureSafeOutputDirectory(outDir: string, directory: string): Promise<void> {
@@ -545,7 +511,7 @@ export async function writeBundleOutputs({
   }
   const zipBytes = await zip.generateAsync({ type: "nodebuffer" });
 
-  await ensureSafeRootDirectory(outDir);
+  await resolveOrCreateRootBoundary(outDir);
   for (const outputPath of preflightPaths) {
     await preflightOutputPath(outDir, outputPath);
   }

@@ -70,8 +70,8 @@ that are not portable, Android tablet screen counts). It prints one line per iss
 any blocker; `--strict` also fails on warnings. `--render` needs the same Chromium builds as
 `export` and fails the same way without them; while a font blocker remains it skips text
 measurement and reports `"textMeasured": false`. A failure that is not a report (missing project,
-unknown `--layout`, bad `--store-specs`, render-host error) also exits 1 but prints no `--json`
-report, only an error on stderr, so scripts should treat stdout that does not parse as a tool error.
+unknown `--layout`, bad `--store-specs`, render-host error) exits 2 and prints no `--json` report,
+only an error on stderr, so CI can tell a check that could not run from a project with blockers.
 
 `dev`, `screen`, `check`, and `export` accept `--store-specs <path>` to override the packaged
 `store-specs.json`. Bundle export writes every locale root at its device lead target plus its
@@ -143,7 +143,7 @@ PNGs, and commits the edit once. Any failure before the commit abandons the edit
 unchanged. Each request times out after 60 seconds and nothing is retried; every step only changes
 the uncommitted edit, so running the command again after a failure starts cleanly. If the commit
 request gets no response, the command says the outcome is unknown; check Play Console before running
-it again. Failures exit 1 with an error on stderr and no `--json` report, like `check`.
+it again. Failures exit 1 with an error on stderr and no `--json` report.
 
 Add `--changes-not-sent-for-review` when Play rejects the commit because the app's changes cannot be
 sent for review automatically, which typically follows an earlier review rejection. The edit is then

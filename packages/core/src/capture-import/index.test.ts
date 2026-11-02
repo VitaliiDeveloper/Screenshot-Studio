@@ -1,10 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
+import { crc32, deflateSync } from "node:zlib";
 import { PNG } from "pngjs";
-import { describe, expect, it } from "vitest";
-import { DEFAULT_STORE_SPECS } from "@screenshot-studio/core/export";
-import { Project, type Project as ProjectModel } from "@screenshot-studio/core/model";
+import { describe, expect, it, vi } from "vitest";
+import { DEFAULT_STORE_SPECS, findStoreTarget } from "@screenshot-studio/core/export";
+import {
+  Project,
+  ensureStoreTargetVariant,
+  setOutputFamilyScreenSetMode,
+  type Project as ProjectModel,
+} from "@screenshot-studio/core/model";
 import {
   applyCaptureImportPlan,
   assertCaptureImportConfirmation,
@@ -257,6 +263,36 @@ describe("discoverCaptureImport", () => {
     }]);
   });
 
+  it("rejects a capture over the image pixel limit before decoding it", () => {
+    const chunk = (type: string, data: Buffer) => {
+      const body = Buffer.concat([Buffer.from(type, "latin1"), data]);
+      const length = Buffer.alloc(4);
+      length.writeUInt32BE(data.length);
+      const crc = Buffer.alloc(4);
+      crc.writeUInt32BE(crc32(body));
+      return Buffer.concat([length, body, crc]);
+    };
+    const side = 9_000;
+    const header = Buffer.alloc(13);
+    header.writeUInt32BE(side, 0);
+    header.writeUInt32BE(side, 4);
+    header[8] = 1;
+    // 1-bit grayscale zero rows deflate to a few KB but decode to ~324 MB of RGBA.
+    const huge = Buffer.concat([
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      chunk("IHDR", header),
+      chunk("IDAT", deflateSync(Buffer.alloc((1 + Math.ceil(side / 8)) * side))),
+      chunk("IEND", Buffer.alloc(0)),
+    ]);
+    const decode = vi.spyOn(PNG.sync, "read");
+
+    const discovery = discoverCaptureImport({ files: [file("apple/iphone/en/01.png", huge)] });
+
+    expect(discovery.invalidEntries.map(({ code }) => code)).toEqual(["invalid-png"]);
+    expect(decode).not.toHaveBeenCalled();
+    decode.mockRestore();
+  });
+
   it("rejects the whole input when configured file or byte limits are exceeded", () => {
     expect(() => discoverCaptureImport({
       files: [file("apple/iphone/en/01.png"), file("apple/iphone/en/02.png")],
@@ -302,6 +338,24 @@ describe("planCaptureImport", () => {
     expect(() => assertCaptureImportConfirmation(plan, plan.confirmationFingerprint)).not.toThrow();
     expect(() => assertCaptureImportConfirmation(plan, "0".repeat(64))).toThrow(/preview changed/i);
     expect(() => assertCaptureImportConfirmation(plan, undefined)).toThrow(/preview changed/i);
+  });
+
+  it("confirms a re-planned preview that adds exact-size variants to a synchronized family", () => {
+    const synchronized = setOutputFamilyScreenSetMode(sampleProject(), "default", "apple-iphone-en-01", "synchronized");
+    const target = findStoreTarget(DEFAULT_STORE_SPECS, "apple", "iphone", "6.5");
+    const project = ensureStoreTargetVariant(synchronized, "default", "apple-iphone-en-01", target).project;
+    const discovery = discoverCaptureImport({ files: [file("apple/iphone/en/home.png")] });
+    const plan = () => planCaptureImport({
+      project, layoutId: "default", destinationKind: "current-project", discovery,
+    });
+
+    const preview = plan();
+    const replanned = plan();
+
+    expect(replanned.project.layouts[0]!.screens.filter(({ variantOf }) => variantOf === "apple-iphone-en-home"))
+      .toHaveLength(1);
+    expect(() => assertCaptureImportConfirmation(replanned, preview.confirmationFingerprint)).not.toThrow();
+    expect(() => applyCaptureImportPlan(project, replanned)).not.toThrow();
   });
 
   it("previews the explicit receiver with deterministic fresh IDs, paths, and a strict Project", () => {
@@ -664,6 +718,40 @@ describe("planCaptureImport refresh mode", () => {
     expect(plan.invalidEntries.map(({ code }) => code)).toEqual(["duplicate-capture-key"]);
     expect(plan.canApply).toBe(false);
     expect(plan.project).toEqual(project);
+  });
+
+  it.each([
+    ["apple/iphone/uk/Головна.png", "apple/iphone/uk/Налаштування.png"],
+    ["apple/iphone/en/Hero_1.png", "apple/iphone/en/hero-1.png"],
+  ])("refuses to add %s and %s under one capture key", (first, second) => {
+    const plan = planCaptureImport({
+      project: sampleProject(),
+      layoutId: "default",
+      destinationKind: "current-project",
+      discovery: discoverCaptureImport({ files: [file(first, shot(10)), file(second, shot(20))] }),
+    });
+
+    expect(plan.invalidEntries.map(({ code }) => code)).toEqual(["duplicate-capture-key"]);
+    expect(plan.canApply).toBe(false);
+  });
+
+  it("refuses to add a capture whose key the layout already uses, so refresh keeps one owner", () => {
+    const project = imported([file("apple/iphone/uk/Головна.png", shot(10))]);
+
+    const added = planCaptureImport({
+      project,
+      layoutId: "default",
+      destinationKind: "current-project",
+      discovery: discoverCaptureImport({ files: [file("apple/iphone/uk/Налаштування.png", shot(20))] }),
+    });
+
+    expect(added.invalidEntries).toMatchObject([{
+      code: "duplicate-capture-key",
+      path: "apple/iphone/uk/Налаштування.png",
+    }]);
+    expect(added.canApply).toBe(false);
+    expect(refresh(project, [file("apple/iphone/uk/Головна.png", shot(30))]).refreshes[0]!.references)
+      .toEqual([{ screenId: "apple-iphone-uk", elementId: "apple-iphone-uk-screenshot" }]);
   });
 
   it("matches capture keys exactly, never a legacy suffixed resource", () => {

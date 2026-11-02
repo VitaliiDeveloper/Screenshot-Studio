@@ -4,12 +4,13 @@ import { join } from "node:path";
 import { errorText } from "@screenshot-studio/core/storage";
 import type {
   CapturedError,
+  QuarantineOutcome,
   RemovalDependencies,
   SafeFileOwnership,
   SafeRegularFileQuarantine,
   TrackedFileEvidence,
 } from "./types.js";
-import { lstatBigIntIfExists, lstatIfExists, removalTargetError } from "./fs-basics.js";
+import { hasCode, lstatBigIntIfExists, lstatIfExists, removalTargetError } from "./fs-basics.js";
 import {
   assertCanonicalContainment,
   assertPortableRelativePath,
@@ -33,6 +34,13 @@ import {
   requireExactEvidence,
   restoreQuarantinedEntryNoReplace,
 } from "./quarantine.js";
+
+/** A leaf that disappears before its quarantine needs no removal; any other failure is surfaced. */
+async function throwUnlessLeafVanished(outcome: QuarantineOutcome, leafPath: string): Promise<void> {
+  if (outcome.error === null) return;
+  if (hasCode(outcome.error.value, "ENOENT") && !await lstatIfExists(leafPath)) return;
+  throw outcome.error.value;
+}
 
 /**
  * Atomically moves the current regular leaf to a private sibling path, then returns the bytes and
@@ -84,7 +92,7 @@ export async function quarantineRegularFileSafely(
     revalidateMutationBoundary,
   );
   if (!quarantine.captured) {
-    if (quarantine.error !== null) throw quarantine.error.value;
+    await throwUnlessLeafVanished(quarantine, destinationPath);
     return null;
   }
 
@@ -360,7 +368,7 @@ export async function removeRegularFileSafely(
     () => revalidateAncestors(boundary, ancestors),
   );
   if (!quarantine.captured) {
-    if (quarantine.error !== null) throw quarantine.error.value;
+    await throwUnlessLeafVanished(quarantine, destinationPath);
     return false;
   }
 

@@ -276,7 +276,7 @@ keeps each original as a `<previous-size>` variant.
 sizes, artboards that cannot scale) for the layout `export` would ship, or `--layout`. Without
 `--render` it needs no browser and skips text overflow; `--render` measures text in the export's
 render host. It exits 1 on any blocker, and `--strict` also fails on warnings, so CI can gate on it;
-`--json` prints a stable report for scripts and agents.
+it exits 2 when the check itself cannot run. `--json` prints a stable report for scripts and agents.
 
 The full command and export reference lives in
 [`packages/cli/README.md`](packages/cli/README.md).
