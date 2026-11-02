@@ -276,6 +276,11 @@ must never render a different cookie-selected project as a fallback. A local ses
 The legacy `/editor` route remains a session-based compatibility entry and may canonicalize only
 when the active selection already exposes an exact managed entry identity.
 
+Every `/api/*` request first passes `apps/web/proxy.ts`: it answers `403` to a non-loopback `Host`
+(DNS rebinding) and to any non-GET/HEAD request whose `Origin` host differs from `Host` or whose
+`Sec-Fetch-Site` is `cross-site` or `same-site`. Requests without `Origin` (CLI, Playwright) pass.
+Route-level loopback checks stay as defense in depth.
+
 The installed CLI opens a project folder (`ss-studio .`) through `POST /api/instance/open`, the one
 route that takes a filesystem path from a client. It refuses with `403` a request that carries an
 `Origin` header (every browser POST does), lacks `X-Screenshot-Studio-CLI: 1`, or has a non-loopback
