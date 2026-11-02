@@ -69,6 +69,11 @@ function scopedRequest(
   });
 }
 
+function explicitRequest(path: string, host = "127.0.0.1:3000"): Request {
+  const query = new URLSearchParams({ project: projectFile, path });
+  return new Request(`http://${host}/api/asset?${query}`);
+}
+
 async function activeRequest(path: string | null): Promise<Request> {
   const session = await projectSessionRegistry.openLocal(projectFile);
   return scopedRequest(session.projectId, session.descriptor.sessionId, path);
@@ -136,13 +141,51 @@ describe("GET /api/asset", () => {
   it("keeps the explicit project override for headless rendering", async () => {
     delete process.env.PROJECT_PATH;
 
-    const response = await GET(new Request(
-      `http://x/api/asset?project=${encodeURIComponent(projectFile)}&path=assets/shot.png`,
-    ));
+    const response = await GET(explicitRequest("assets/shot.png"));
 
     expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("image/png");
     expect(response.headers.get("cache-control")).toBe("private, no-store");
     expect(new Uint8Array(await response.arrayBuffer())[0]).toBe(0x89);
+  });
+
+  it("rejects the explicit project override from a non-loopback Host", async () => {
+    const response = await GET(explicitRequest("assets/shot.png", "evil.example:3000"));
+
+    expect(response.status).toBe(403);
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+  });
+
+  it("does not serve a project file that is not an image or font", async () => {
+    writeFileSync(join(dir, "assets", "notes.txt"), "secret");
+
+    const response = await GET(explicitRequest("assets/notes.txt"));
+
+    expect(response.status).toBe(404);
+    await expect(response.text()).resolves.not.toContain("secret");
+    expect((await GET(explicitRequest("app-store-screenshots.json"))).status).toBe(404);
+  });
+
+  it("does not serve a non-image file behind an image-named symlink", async () => {
+    writeFileSync(join(dir, "assets", "notes.txt"), "secret");
+    symlinkSync(join(dir, "assets", "notes.txt"), join(dir, "assets", "alias.png"));
+
+    expect((await GET(explicitRequest("assets/alias.png"))).status).toBe(404);
+  });
+
+  it("does not serve a directory with an image extension", async () => {
+    mkdirSync(join(dir, "assets", "folder.png"));
+
+    expect((await GET(explicitRequest("assets/folder.png"))).status).toBe(404);
+  });
+
+  it("rejects explicit-project traversal and symlink escapes", async () => {
+    const outside = join(outsideDir, "outside.png");
+    writeFileSync(outside, "outside");
+    symlinkSync(outside, join(dir, "assets", "escape.png"));
+
+    expect((await GET(explicitRequest("../../etc/passwd"))).status).toBe(400);
+    expect((await GET(explicitRequest("assets/escape.png"))).status).toBe(400);
   });
 
   it("serves a scoped file under the project dir with private no-store semantics", async () => {

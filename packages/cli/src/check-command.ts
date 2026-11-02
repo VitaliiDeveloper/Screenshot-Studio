@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { readFile, realpath, stat } from "node:fs/promises";
-import { dirname, isAbsolute, resolve } from "node:path";
+import { dirname, extname, isAbsolute, resolve } from "node:path";
 import {
   bundlePreflightWarnings,
   bundleRelativePath,
@@ -79,12 +79,18 @@ function message(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-/** Mirrors `/api/asset`: a path that escapes the project folder or is not a regular file never loads. */
+const SERVED_ASSET_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp", ".ttf", ".otf", ".woff", ".woff2"]);
+
+/**
+ * Mirrors `/api/asset`: a path that escapes the project folder, has an unserved extension, or is not
+ * a regular file never loads.
+ */
 async function projectFileMissing(root: string, path: string): Promise<boolean> {
   if (isAbsolute(path)) return true;
   try {
     const target = await realpath(resolve(root, path));
     assertInside(root, target, "Project file");
+    if (!SERVED_ASSET_EXTENSIONS.has(extname(target).toLowerCase())) return true;
     return !(await stat(target)).isFile();
   } catch {
     return true;
