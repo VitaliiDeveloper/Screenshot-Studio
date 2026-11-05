@@ -46,8 +46,8 @@ export function launchRun(
   });
   const child = spawnAgentProcess(definition.binary, adapter.args(request), {
     cwd: options.projectDir,
-    env: options.env,
-    input: request.message,
+    env: { ...options.env, ...adapter.env?.(request) },
+    input: adapter.input?.(request) ?? request.message,
   });
 
   function close(next: AgentEvent[]): void {

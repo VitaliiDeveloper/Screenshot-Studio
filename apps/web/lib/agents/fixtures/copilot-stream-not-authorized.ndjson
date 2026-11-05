@@ -1,0 +1,2 @@
+{"type":"session.error","data":{"errorType":"authentication","message":"Error: No authentication information found."}}
+{"type":"result","timestamp":"2026-10-24T12:00:00.000Z","sessionId":"00000000-0000-4000-8000-000000000003","exitCode":1,"usage":{"premiumRequests":0,"totalApiDurationMs":0,"sessionDurationMs":240,"codeChanges":{"linesAdded":0,"linesRemoved":0,"filesModified":[]}}}
