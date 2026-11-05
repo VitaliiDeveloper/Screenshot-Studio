@@ -141,7 +141,7 @@ only when exactly one exists; in multi-layout projects pass `--layout <id-or-ful
 
 `screenSetPolicies` records the authoring behavior for one platform/device/locale output family.
 Missing policy rows retain `independent` behavior; `synchronized` is the persisted form of the
-editor's **Keep 1:1** mode and requires every exact-size target to match the root screen count and
+editor's **Sync sizes** mode and requires every exact-size target to match the root screen count and
 order. The policy changes structural screen operations, not rendered pixels.
 
 `isolated` clips every screen independently. In `connected`, each exact

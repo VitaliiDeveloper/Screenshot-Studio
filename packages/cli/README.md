@@ -225,7 +225,7 @@ ambiguous families and is a no-op once nothing is left to move. `screen rm <id>`
 primary. Under the default independent policy it preserves paired exact-size screens as standalone;
 add `--cascade` to explicitly remove a primary together with its paired variants. Screen mutations
 use the core persisted slot policy: independent exact-size rows remain
-independent, while `Keep 1:1` mirrors logical add/delete/order across created sizes without sharing
+independent, while **Sync sizes** mirrors logical add/delete/order across created sizes without sharing
 screen content.
 
 Templates, themes, copy, and media have their own commands, so an agent or script can work without
@@ -238,8 +238,9 @@ Project before an atomic write:
   back to a built-in one, or the other way round. `template list` also prints built-in screen packs
   as `built-in-pack <id> <platform>/<device> <style> <screen count> <name>`, where style is the id of
   the Design pack the screens were baked from. `--pack` and `--built-in` are mutually exclusive.
-- `theme list` and `theme set <id> [--built-in]` apply a project-local `themes/<id>.json` theme or
-  a built-in Design Pack. A Design Pack also replaces every screen background in the layout.
+- `theme list` and `theme set <id> [--built-in|--pack]` apply a project-local `themes/<id>.json`
+  theme, a built-in Design Pack, or with `--pack` a project Design pack. A Design Pack also replaces
+  every screen background in the layout.
 - `element list [--screen <id>] [--locale <locale>]` prints every leaf with its id, type, role,
   JSON-quoted text, or media path. It prints nothing when no screen matches.
 - `element text <screen> <element> [--all-sizes] [--] <content>` replaces one text leaf's content.
@@ -250,10 +251,12 @@ Project before an atomic write:
   file to a screenshot, image, or device-frame leaf. On a device frame this is the screenshot inside
   the frame; the frame preset and geometry stay unchanged.
 - `element get <screen> <element>` and `screen show <id> [--json]` print the full element or screen as JSON.
-- `element set <screen> <element> --json '<patch>'` applies the same per-type field patch as the
+- `element set <screen> <element> [--all-sizes] --json '<patch>'` applies the same per-type field patch as the
   editor inspector, including nested group children. Unknown fields are rejected, `null` removes
   `role`, `shadow`, `gradient`, `stroke`, `crop`, `blur`, or a device frame's `assetUrl`, text fonts must be registered, and `assetUrl` must name
   an existing project image. Resizing a group scales its children like the editor does.
+  With `--all-sizes` the patch may hold only `x`, `y`, `width`, `height`, `rotation`, and `opacity`,
+  and it also applies to the matching layer on every other exact size of the slot.
 - `element add <screen> --type <text|shape|screenshot|image|icon|device-frame> [--json '<props>']`
   appends a core-default element on top of the stack, then applies the props as a patch.
   Screenshot and image elements need an `assetUrl`.
