@@ -636,8 +636,9 @@ an arbitrary local filesystem path.
   packs with the built-in Design packs and screen packs with the built-in Screen packs, and apply
   through the same actions. A pack that fails validation does not hide the others: the dialog shows
   one warning line per broken file with its project-relative path and reason.
-- An empty project presents **Create your first screen** with relevant family starters, capture
-  import, and blank-screen paths instead of relying on an unexplained empty canvas.
+- A layout whose only screen has no layers presents **Your blank screen is ready** with **Create from
+  template**, **Import capture folder**, and **Keep blank screen** instead of relying on an
+  unexplained empty canvas.
 - **Add device mockup** creates a presentation frame with a visible empty drop target. **Place
   screenshot in mockup** is a separate action; an assigned local screenshot can be replaced or
   removed later. The inspector exposes project-image Choose, Replace, and Remove actions rather

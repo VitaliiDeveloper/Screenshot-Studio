@@ -398,6 +398,7 @@ copy the editor shows, so open the project in place as in step 2.
 | Sunrise | Design pack | `sunrise` | A warm peach gradient with a generated sun and light editorial type. |
 | `<style>` · iPhone, `<style>` · Android phone | Screen packs (6 screens each) | `<style>-iphone`, `<style>-android-phone` | For each style above: hero, three features, social proof, and a call to action, laid out for iPhone 6.3″ or Android phone portrait. |
 | `<style>` panorama · iPhone, `<style>` panorama · Android phone | Panorama screen packs (6 connected screens each) | `<style>-panorama-iphone`, `<style>-panorama-android-phone` | The same six screens over art that crosses every screen edge: Clean (one stage and a timeline), Midnight (orbit rings on each seam), Poster (a bold stripe and split discs), and Sunrise (one horizon, rolling hills, and a sun between the first two screens). Panorama layouts only. |
+| Clean · iPad, Aurora · iPad, Clean · Android tablet, Aurora · Android tablet, Clean · macOS, Poster · macOS | Screen packs (6 screens each) | `clean-ipad`, `aurora-ipad`, `clean-android-tablet`, `aurora-android-tablet`, `clean-macos`, `poster-macos` | The same six screens laid out for iPad 13″, Android tablet 9:16 portrait, or Mac 2880×1800. |
 | `<style>` showcase · iPhone, `<style>` showcase · Android phone | Screen packs (6 screens each) | `midnight-showcase-iphone`, `midnight-showcase-android-phone`, `poster-showcase-iphone`, `poster-showcase-android-phone` | The same six screens with a different composition on each: a large tilted hero device, two overlapping devices, copy under the device, a big-number rating proof, and tilted devices on the rest. Midnight and Poster only. |
 
 Styled packs set type in the built-in Studio Display family, which covers Latin, Cyrillic, and Greek.
@@ -475,7 +476,8 @@ my-app-screenshots/
 ├── assets/                      # screenshots, images, fonts, and processed assets
 ├── screenshots/                 # organized PNG captures for import
 ├── templates/<id>.json          # project-local screen templates
-├── themes/<id>.json             # project-local design packs
+├── themes/<id>.json             # project-local themes
+├── packs/<id>/                  # project-local screen packs and Design packs
 └── export/                      # generated outputs
 ```
 
@@ -484,9 +486,8 @@ not become hidden project state. Applying a starter, template, or pack materiali
 project fields that remain editable. Project-local resources stay beside the document and can travel
 with its portable project archive.
 
-Four living starter workflows cover isolated, connected, RTL/multi-locale, and capture-import paths.
-The self-contained projects under [`examples/`](examples/README.md) are also validated and exported
-as part of the repository's release surfaces.
+The self-contained projects under [`examples/`](examples/README.md), a connected launch deck and an
+RTL multi-locale delivery, are validated and exported as part of the repository's release surfaces.
 
 ## Installed CLI
 
@@ -501,8 +502,8 @@ at `http://localhost:4747` and opens the project library in your browser; runnin
 the editor that is already running. `ss-studio .` opens the project in the current folder in that
 editor, starting it first when needed, and offers to create one (in `./screenshot-studio` inside a
 non-empty folder) when there is none. `--port <port>` and `--no-open` change that, `--app` opens a
-Chrome or Edge window without tabs or an address bar instead of a tab (that browser keeps its own
-editor settings), and Ctrl+C in its terminal stops it (closing the tab does not). The installed CLI
+Chrome, Edge, Chromium, or Brave window without tabs or an address bar instead of a tab (that
+browser keeps its own editor settings), and Ctrl+C in its terminal stops it (closing the tab does not). The installed CLI
 keeps managed projects, recent projects, and store keys in the per-user data folder
 (`~/Library/Application Support/screenshot-studio` on macOS) unless `SCREENSHOT_STUDIO_DATA_ROOT` is
 set. `screenshots dev --project` still starts an editor pinned to one project.
