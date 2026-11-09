@@ -16,6 +16,21 @@ packages/cli   → project management and headless render-host orchestration
 apps/web       → Next.js editor, API routes, and the shared browser render target
 ```
 
+```mermaid
+flowchart TB
+    WEB["apps/web<br/>Next.js editor · /api routes · /render"]
+    CLI["packages/cli<br/>commands · render-host orchestration · store upload"]
+    CORE["packages/core<br/>model · engine · validation · export · fonts · assets · storage"]
+    SPECS[("store-specs.json")]
+    WEB -->|"@screenshot-studio/core/&lt;domain&gt;"| CORE
+    CLI -->|"@screenshot-studio/core/&lt;domain&gt;"| CORE
+    WEB -->|"export, upload, capture import, fonts"| CLI
+    CLI -.->|"runtime: starts the web host, drives /render with Playwright"| WEB
+    SPECS --> CORE
+```
+
+Solid arrows are package imports; the dashed arrow is a runtime process relationship, not an import.
+
 `core` is framework-agnostic and does not depend on Next.js, HTTP, or a particular project picker.
 The web shell owns selection and UI; the CLI owns command parsing and process orchestration. Both
 surfaces use core model and rendering helpers rather than maintaining parallel implementations.
@@ -154,6 +169,24 @@ Render/export parity is the primary invariant. The editor preview, static render
 and CLI export all traverse the same core mapping and browser Konva stage. The CLI launches the
 packaged web render host with Playwright; it never substitutes a Node canvas, Cairo, or a second text
 layout path.
+
+```mermaid
+flowchart LR
+    P["Project snapshot"] --> ENG["core engine<br/>renderScreen · elementToNodeConfig"]
+    S[("store-specs.json<br/>exact target size")] --> ENG
+    ENG --> ED["Editor preview<br/>EditorStage"]
+    ENG --> RR["/render route<br/>RenderStage"]
+    UIX["Editor export<br/>POST /api/export"] -->|"pinned Chromium"| RR
+    CX["screenshots export / check --render"] -->|"Playwright"| RR
+    RR -->|"Stage.toDataURL(pixelRatio)"| PNG["Opaque PNG per target"]
+    PNG --> BUNDLE["Store bundle"]
+    BUNDLE --> WS["web-share profile"]
+    BUNDLE --> FL["fastlane profile (CLI only)"]
+    BUNDLE --> UP["screenshots upload<br/>Google Play · App Store Connect"]
+```
+
+Every Konva stage in this picture runs in a browser and gets its node configs from the same core
+mapping. Profiles and upload package or send finished PNGs; none of them renders pixels.
 
 Every output is rendered at the selected exact target with `Stage.toDataURL({ pixelRatio })` and
 flattened to an opaque PNG. Equivalent files need not be byte-identical because metadata and
@@ -300,6 +333,18 @@ A missing revision returns `428`, a malformed ETag returns `400`, and a revision
 with the current ETag. Routes use request-fence helpers or equivalent direct validation. Identity-only
 lifecycle operations, such as Close project, require the project identity but not a revision. A failed
 open or save preserves the last known-good active state rather than silently targeting another project.
+
+```mermaid
+flowchart LR
+    BR["Editor in browser"] --> PX["apps/web/proxy.ts<br/>loopback Host · same-origin writes"]
+    PX --> FENCE["Request fence<br/>X-Project-Id: 428 / 409<br/>If-Match: 428 / 400 / 412"]
+    FENCE --> SES["Project session<br/>source adapter → snapshot + revision"]
+    SES --> LOCK["Mutation lock<br/>read → calculate → atomic write"]
+    CLIW["CLI or agent in the project folder"] --> LOCK
+    LOCK --> DOC[("app-store-screenshots.json")]
+    GEN["Exports and imported files"] --> PUB["Safe file publication"]
+    BR -.->|"GET /api/project + If-None-Match<br/>every 2 s and on focus"| DOC
+```
 
 Other writers, such as the CLI or an agent the user runs in the project folder, change the file
 without telling the editor. While its Workspace is visible, the editor sends `GET /api/project` with
@@ -522,6 +567,26 @@ the CLI as the workflow contract and call every project file, `AGENTS.md` and `C
 untrusted data, since a project can come from someone else's archive; Claude Code runs with
 `CLAUDE_CODE_DISABLE_CLAUDE_MDS=1` and Codex with `project_doc_max_bytes=0`, so neither loads them.
 
+```mermaid
+flowchart LR
+    subgraph ACCOUNT["User account: the trust boundary"]
+        HUMAN["Human in the editor"]
+        AGENT["Editor-started agent<br/>allowlisted env · SCREENSHOT_STUDIO_AGENT=1"]
+        PROJECT[("Project folder")]
+        KEYS[("store-credentials/<br/>0600 key files")]
+    end
+    HUMAN -->|"review plan, confirm planHash"| UPAPI["/api/upload/plan → /api/upload"]
+    UPAPI -->|"key file path"| KEYS
+    UPAPI --> RUN["CLI upload command"]
+    RUN --> STORES["Google Play · App Store Connect"]
+    AGENT -->|"edits"| PROJECT
+    AGENT -.->|"423 while the run is active"| UPAPI
+    AGENT -.->|"refused by the agent marker"| CMD["screenshots upload"]
+```
+
+Dashed arrows are refused paths. The marker is an accident guard, not a security boundary, and the
+key store never sits inside the project folder or its archive.
+
 Codex runs as `codex exec --json` in a permission profile that extends the built-in `:workspace` one
 (writes only to the project folder and temp directories, no network) with approvals set to `never`.
 `--sandbox` would override the profile, so the adapter does not pass it, and Codex below the version
@@ -666,6 +731,7 @@ workspace dev dependencies (`pnpm install`); the installed package's bin is the 
 ## 7. Change rules
 
 - Preserve one Project schema and one browser rendering path.
+- A change that alters a flow drawn in a diagram here updates that diagram in the same change.
 - Put durable data/render/persistence constraints here; put UI semantics and component conventions in
   [`docs/editor.md`](editor.md).
 - Keep store sizes in `store-specs.json` and validate new outputs against it.
