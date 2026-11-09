@@ -168,13 +168,13 @@
       .sort((a, b) => (b.data("weight") || 0) - (a.data("weight") || 0))
       .map((e) => {
         const n = byId.get(e.data(other));
-        const how = e.data("kind") === "import" ? `${e.data("weight")} file${e.data("weight") === 1 ? "" : "s"}` : esc(e.data("label"));
+        const how = e.data("kind") === "import" ? `≈ ${e.data("weight")} file${e.data("weight") === 1 ? "" : "s"}` : esc(e.data("label"));
         return `<li><button type="button" class="linklike" data-go="${esc(n.id)}">${esc(n.label)}</button> <span class="muted">· ${how}</span></li>`;
       }).join("") + "</ul>";
   }
   function legend() {
     return `<h2>How to read it</h2>
-      <p class="muted">Each box is an area: a folder or group of files with one job. Solid arrows are imports; thicker means more files. Dashed arrows are runtime links no import shows: HTTP calls, Playwright, the agent render inbox, store uploads.</p>
+      <p class="muted">Each box is an area: a folder or group of files with one job. Solid arrows are imports; thicker means more importing files (approximate, refreshed on regeneration). Dashed arrows are runtime links no import shows: HTTP calls, Playwright, the agent render inbox, store uploads.</p>
       <div class="legend">
         <span><i class="swatch" style="border:2px solid var(--web)"></i> apps/web</span>
         <span><i class="swatch" style="border:2px solid var(--cli)"></i> packages/cli</span>

@@ -567,6 +567,20 @@ export function buildGraph(root = repoRoot) {
   return { nodes, edges, unmapped, ambiguous, unresolved };
 }
 
+// The freshness test compares this projection, so ordinary import changes that only move a
+// file count do not fail CI; counts refresh whenever the graph is regenerated.
+export function graphStructure({ nodes, edges }) {
+  return {
+    nodes: nodes.map(({ id, label, kind, parent, description, paths, doc }) => ({ id, label, kind, parent, description, paths, doc })),
+    edges: edges.map(({ id, source, target, kind, label, evidence }) => ({ id, source, target, kind, label, evidence })),
+  };
+}
+
+export function parseGraphData(text) {
+  const start = text.indexOf("{");
+  return JSON.parse(text.slice(start, text.lastIndexOf("}") + 1));
+}
+
 export function renderGraphData(graph) {
   const data = { blobUrl: BLOB_URL, nodes: graph.nodes, edges: graph.edges };
   return (

@@ -11,7 +11,8 @@ import {
   RUNTIME_EDGES,
   areasOf,
   buildGraph,
-  renderGraphData,
+  graphStructure,
+  parseGraphData,
   repoRoot,
 } from "./architecture-graph.mjs";
 
@@ -41,8 +42,10 @@ describe("architecture graph", () => {
     }
   });
 
-  it("keeps the committed graph data current", () => {
-    const committed = readFileSync(join(repoRoot, OUTPUT_PATH), "utf8");
-    expect(committed, `${OUTPUT_PATH} is stale; run \`${REGENERATE_COMMAND}\``).toBe(renderGraphData(graph));
+  it("keeps the committed areas and links current", () => {
+    const committed = parseGraphData(readFileSync(join(repoRoot, OUTPUT_PATH), "utf8"));
+    expect(graphStructure(committed), `${OUTPUT_PATH} is stale; run \`${REGENERATE_COMMAND}\``).toEqual(
+      graphStructure(graph),
+    );
   });
 });

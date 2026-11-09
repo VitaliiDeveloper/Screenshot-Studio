@@ -8,8 +8,9 @@ responsibility, not individual files.
 [`graph/index.html`](graph/index.html) shows the same areas as an interactive graph with the imports
 and runtime links between them. Its areas are defined in `scripts/architecture-graph.mjs`, which must
 assign every source file to exactly one area; `scripts/architecture-graph.test.ts` fails when a file
-has no area or the committed `docs/graph/graph-data.js` is stale. Run `pnpm graph:architecture` after
-moving code between areas.
+has no area or the committed `docs/graph/graph-data.js` misses an area or link. File counts on the
+edges are not checked and refresh whenever the graph is regenerated. Run `pnpm graph:architecture`
+after moving code between areas.
 
 ```mermaid
 flowchart TB
