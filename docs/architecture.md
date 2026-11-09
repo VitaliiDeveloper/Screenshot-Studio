@@ -30,6 +30,7 @@ flowchart TB
 ```
 
 Solid arrows are package imports; the dashed arrow is a runtime process relationship, not an import.
+Where each folder sits inside these packages is in the [Architecture map](architecture-map.md).
 
 `core` is framework-agnostic and does not depend on Next.js, HTTP, or a particular project picker.
 The web shell owns selection and UI; the CLI owns command parsing and process orchestration. Both

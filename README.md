@@ -174,7 +174,8 @@ flowchart LR
 core and the same browser render stage; Web Share packages those rendered PNGs and never substitutes
 another pixel path.
 
-For contributors, [`docs/architecture.md`](docs/architecture.md) has diagrams of the package
+For contributors, [`docs/architecture-map.md`](docs/architecture-map.md) shows where each part of
+the codebase lives, and [`docs/architecture.md`](docs/architecture.md) has diagrams of the package
 structure, render/export parity, sessions and persistence, and trust boundaries.
 
 ### Destinations, output families, sizes, and frames
@@ -566,6 +567,7 @@ or announcement. Publication requires explicit owner authorization under
 ## Documentation
 
 - [Architecture](docs/architecture.md) — model, sources, sessions, rendering, export, and CLI.
+- [Architecture map](docs/architecture-map.md) — where each package, folder, and area lives.
 - [Editor UI and UX](docs/editor.md) — durable interaction, navigation, and accessibility semantics.
 - [Testing](docs/testing.md) — test ownership, focused browser groups, and CI policy.
 - [Project mutation locking](docs/project-mutation-locking.md) — concurrent write and recovery contract.
