@@ -5,6 +5,12 @@ contracts live in [`architecture.md`](architecture.md), which also has the flow 
 parity, persistence, trust boundaries). Nodes are folders or groups of files with one
 responsibility, not individual files.
 
+[`graph/index.html`](graph/index.html) shows the same areas as an interactive graph with the imports
+and runtime links between them. Its areas are defined in `scripts/architecture-graph.mjs`, which must
+assign every source file to exactly one area; `scripts/architecture-graph.test.ts` fails when a file
+has no area or the committed `docs/graph/graph-data.js` is stale. Run `pnpm graph:architecture` after
+moving code between areas.
+
 ```mermaid
 flowchart TB
     subgraph REPO["Repository root"]
@@ -49,10 +55,12 @@ flowchart TB
         direction TB
         subgraph WSRV["Server lib: lib/"]
             direction LR
+            GUARD["proxy.ts · api-request-guard<br/>JSON and ETag helpers"]
             SESS["session/<br/>sessions, request fence"]
             MANAGED["managed-projects/<br/>catalog, lifecycle"]
             AGSRV["agents/<br/>registry, adapters, run guard,<br/>render broker"]
             OUTSRV["export-* · store-upload<br/>store-credentials"]
+            SRVRES["project-asset(s) · system-fonts<br/>storage-lock"]
         end
         subgraph WAPI["API: app/api/ + proxy.ts"]
             direction LR
@@ -74,6 +82,7 @@ flowchart TB
             INSP["inspector/"]
             DIALOGS["*Dialog.tsx<br/>export, upload, fonts, themes…"]
             AGUI["agent-panel/"]
+            LAUNCH["project-launcher/"]
             PRIM["editor-ui/<br/>local primitives"]
         end
         subgraph WPAGES["Pages: app/"]
@@ -123,12 +132,14 @@ The map shows placement only. How the packages depend on each other is in
 | Area | Paths | Owns |
 |---|---|---|
 | Pages | `app/home/`, `app/editor/`, `app/render/` | Launcher, Workspace route, shared render target |
-| UI | `components/` | Editor shell, canvas, inspector, dialogs, agent panel, primitives ([editor.md](editor.md)) |
+| UI | `components/` | Editor shell, canvas, inspector, dialogs, agent panel, project launcher, primitives ([editor.md](editor.md)) |
 | Client state | `lib/editor/`, `lib/clients/` | Zustand store and history, typed API callers |
 | API | `app/api/`, `proxy.ts` | Loopback-only routes for projects, resources, export, upload, agents |
+| Request guard | `proxy.ts`, `lib/api-request-guard.server.ts`, `lib/api-error-response.server.ts`, `lib/json-*.ts`, `lib/http-etag.ts` | Loopback and same-origin guard, JSON and ETag helpers ([§4](architecture.md#4-project-sources-sessions-and-persistence)) |
 | Sessions | `lib/session/` | Active session, request fence, Project Library, recents ([§4](architecture.md#4-project-sources-sessions-and-persistence)) |
 | Managed projects | `lib/managed-projects/` | Managed catalog, lifecycle, archive, import |
-| Agents | `lib/agents/` | Agent registry, adapters, run guard, render broker ([§6](architecture.md#6-interfaces-for-people-and-tools)) |
+| Server resources | `lib/project-asset*.server.ts`, `lib/system-fonts.server.ts`, `lib/storage-lock.server.ts`, `lib/private-json-document.server.ts` | Asset serving, system fonts, storage lock, private JSON documents |
+| Agents | `lib/agents/`, `instrumentation.ts` | Agent registry, adapters, run guard, render broker ([§6](architecture.md#6-interfaces-for-people-and-tools)) |
 | Output | `lib/export-*.ts`, `lib/store-upload*.ts`, `lib/store-credentials.server.ts`, `lib/store-key-folder.server.ts` | Export artifacts and progress, upload plan, key store |
 
 ### Repository root

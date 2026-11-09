@@ -178,6 +178,12 @@ For contributors, [`docs/architecture-map.md`](docs/architecture-map.md) shows w
 the codebase lives, and [`docs/architecture.md`](docs/architecture.md) has diagrams of the package
 structure, render/export parity, sessions and persistence, and trust boundaries.
 
+[`docs/graph/index.html`](docs/graph/index.html) is an interactive graph of the same areas with the
+imports and runtime links between them, generated from the code by `pnpm graph:architecture`. Open
+it in a browser from a clone. The image below is a snapshot and may lag behind the code.
+
+![Snapshot of the Screenshot Studio architecture graph](docs/images/readme/architecture-graph.png)
+
 ### Destinations, output families, sizes, and frames
 
 These concepts are independent:
@@ -568,6 +574,7 @@ or announcement. Publication requires explicit owner authorization under
 
 - [Architecture](docs/architecture.md) — model, sources, sessions, rendering, export, and CLI.
 - [Architecture map](docs/architecture-map.md) — where each package, folder, and area lives.
+- [Architecture graph](docs/graph/index.html) — interactive graph of areas, imports, and runtime links.
 - [Editor UI and UX](docs/editor.md) — durable interaction, navigation, and accessibility semantics.
 - [Testing](docs/testing.md) — test ownership, focused browser groups, and CI policy.
 - [Project mutation locking](docs/project-mutation-locking.md) — concurrent write and recovery contract.

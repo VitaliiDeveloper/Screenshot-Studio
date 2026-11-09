@@ -1,0 +1,233 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Architecture Graph</title>
+<style>
+  :root {
+    --bg: #f7f7f5; --panel: #ffffff; --text: #1f2328; --muted: #59636e; --border: #d8dee4;
+    --web: #2f6fdb; --cli: #1a7f5a; --core: #8250df; --root: #6e7781; --external: #c4511a;
+    --import: #8c959f; --runtime: #c4511a; --group-fill: #8c959f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0d1117; --panel: #161b22; --text: #e6edf3; --muted: #9198a1; --border: #30363d;
+      --web: #6ca4ff; --cli: #3fb98a; --core: #b28cff; --root: #9198a1; --external: #f0884a;
+      --import: #6e7681; --runtime: #f0884a; --group-fill: #6e7681;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; }
+  h1 { font-size: 16px; margin: 0; }
+  header p { margin: 0; color: var(--muted); }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin-left: auto; }
+  .controls label { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+  button { font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--web); outline-offset: 2px; }
+  main { display: grid; grid-template-columns: 1fr 340px; height: calc(100vh - 57px); min-height: 480px; }
+  #graph { min-width: 0; }
+  aside { border-left: 1px solid var(--border); background: var(--panel); padding: 16px; overflow-y: auto; }
+  aside h2 { font-size: 15px; margin: 0 0 4px; }
+  aside h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 16px 0 6px; }
+  aside ul { margin: 0; padding-left: 18px; }
+  aside li { margin: 2px 0; }
+  .muted { color: var(--muted); }
+  a { color: var(--web); }
+  .linklike { background: none; border: 0; padding: 0; color: var(--web); text-decoration: underline; cursor: pointer; }
+  .legend { display: grid; gap: 6px; }
+  .legend span { display: inline-flex; align-items: center; gap: 8px; }
+  .swatch { width: 14px; height: 14px; border-radius: 3px; display: inline-block; }
+  .line { width: 22px; height: 0; border-top: 2px solid var(--import); display: inline-block; }
+  .line.runtime { border-top: 2px dashed var(--runtime); }
+  @media (max-width: 760px) {
+    main { grid-template-columns: 1fr; grid-template-rows: 70vh auto; height: auto; }
+    aside { border-left: 0; border-top: 1px solid var(--border); }
+    .controls { margin-left: 0; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Screenshot Studio architecture graph</h1>
+  <p>Generated from the code by <code>scripts/architecture-graph.mjs</code>. Hover or click an area to follow its links.</p>
+  <div class="controls">
+    <label><input type="checkbox" id="show-imports" checked> Imports</label>
+    <label><input type="checkbox" id="show-runtime" checked> Runtime links</label>
+    <label>Min files <input type="range" id="min-weight" min="1" max="10" value="1"> <output id="min-weight-value">1</output></label>
+    <button type="button" id="fit">Fit</button>
+  </div>
+</header>
+<main>
+  <div id="graph" role="img" aria-label="Interactive graph of Screenshot Studio areas and the links between them; the side panel lists the same links as text."></div>
+  <aside id="panel" aria-live="polite"></aside>
+</main>
+<script src="graph-data.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.30.2/cytoscape.min.js" integrity="sha512-EY3U1MWdgKx0P1dqTE4inlKz2cpXtWpsR1YUyD855Hs6RL/A0cyvrKh60EpE8wDZ814cTe1KgRK+sG0Rn792vQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script>
+(() => {
+  const data = window.ARCH_GRAPH;
+  const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const byId = new Map(data.nodes.map((n) => [n.id, n]));
+  const topGroup = (id) => { let n = byId.get(id); while (n && n.parent) n = byId.get(n.parent); return n ? n.id : id; };
+  const treeUrl = data.blobUrl.replace("/blob/", "/tree/");
+  const pathUrl = (p) => {
+    if (p.endsWith("/")) return treeUrl + p;
+    if (p.includes("*")) return treeUrl + p.slice(0, p.lastIndexOf("/") + 1);
+    return data.blobUrl + p;
+  };
+
+  // Columns read left to right: what the user sees, then the CLI, then the shared core.
+  const columns = [["web-pages"], ["web-ui"], ["web-client", "web-api"], ["web-server"], ["cli"], ["core"], ["root", "external"]];
+  const positions = {};
+  columns.forEach((groups, col) => {
+    let row = 0;
+    for (const group of groups) {
+      for (const node of data.nodes.filter((n) => n.parent === group && n.kind !== "group")) {
+        positions[node.id] = { x: col * 250, y: row * 74 };
+        row += 1;
+      }
+      row += 1.2;
+    }
+  });
+
+  const maxWeight = Math.max(...data.edges.filter((e) => e.kind === "import").map((e) => e.weight));
+  const slider = document.getElementById("min-weight");
+  slider.max = String(Math.min(maxWeight, 20));
+
+  const cy = cytoscape({
+    container: document.getElementById("graph"),
+    elements: [
+      ...data.nodes.map((n) => ({ data: { ...n, top: topGroup(n.id) }, position: positions[n.id] })),
+      ...data.edges.map((e) => ({ data: { ...e, width: e.kind === "import" ? 1 + 2.2 * Math.log2(e.weight) : 2 } })),
+    ],
+    layout: { name: "preset", padding: 30 },
+    wheelSensitivity: 0.3,
+    minZoom: 0.15,
+    maxZoom: 3,
+    style: [
+      { selector: "node", style: {
+        "label": "data(label)", "font-size": 12, "color": css("--text"), "text-wrap": "wrap", "text-max-width": 150,
+        "text-valign": "center", "text-halign": "center", "shape": "round-rectangle", "width": 170, "height": 44,
+        "background-color": css("--panel"), "border-width": 2, "transition-property": "opacity", "transition-duration": "120ms" } },
+      ...["web", "cli", "core", "root", "external"].map((g) => ({ selector: `node[top = "${g}"][kind != "group"]`, style: { "border-color": css(`--${g}`) } })),
+      { selector: 'node[kind = "group"]', style: {
+        "label": "data(label)", "text-valign": "top", "text-halign": "center", "font-size": 13, "font-weight": 600,
+        "background-color": css("--group-fill"), "background-opacity": 0.07, "border-width": 1, "border-color": css("--border"),
+        "border-style": "dashed", "padding": 18, "color": css("--muted") } },
+      { selector: 'node[kind = "external"]', style: { "shape": "round-tag", "border-style": "dashed" } },
+      { selector: "edge", style: {
+        "curve-style": "bezier", "width": "data(width)", "line-color": css("--import"), "target-arrow-color": css("--import"),
+        "target-arrow-shape": "triangle", "arrow-scale": 0.8, "opacity": 0.22 } },
+      { selector: 'edge[kind = "runtime"]', style: {
+        "line-style": "dashed", "line-color": css("--runtime"), "target-arrow-color": css("--runtime"), "opacity": 0.75 } },
+      { selector: ".faded", style: { "opacity": 0.08 } },
+      { selector: "node.focus", style: { "border-width": 4 } },
+      { selector: "edge.lit", style: { "opacity": 0.95, "z-index": 10 } },
+      { selector: 'edge.lit[kind = "runtime"]', style: {
+        "label": "data(label)", "font-size": 11, "color": css("--runtime"), "text-background-color": css("--bg"),
+        "text-background-opacity": 1, "text-background-padding": 2, "text-rotation": "autorotate" } },
+      { selector: 'edge.lit[kind = "import"]', style: {
+        "label": "data(weight)", "font-size": 10, "color": css("--muted"), "text-background-color": css("--bg"), "text-background-opacity": 1 } },
+      { selector: ".hidden", style: { "display": "none" } },
+    ],
+  });
+
+  const showImports = document.getElementById("show-imports");
+  const showRuntime = document.getElementById("show-runtime");
+  function applyFilters() {
+    const min = Number(slider.value);
+    document.getElementById("min-weight-value").textContent = String(min);
+    cy.edges().forEach((e) => {
+      const hide = e.data("kind") === "import" ? !showImports.checked || e.data("weight") < min : !showRuntime.checked;
+      e.toggleClass("hidden", hide);
+    });
+  }
+  [showImports, showRuntime, slider].forEach((el) => el.addEventListener("input", applyFilters));
+  document.getElementById("fit").addEventListener("click", () => cy.fit(undefined, 30));
+
+  let selected = null;
+  function highlight(node) {
+    cy.elements().removeClass("faded lit focus");
+    if (!node) return;
+    const edges = node.connectedEdges().not(".hidden");
+    const keep = edges.connectedNodes().union(node);
+    cy.nodes('[kind != "group"]').not(keep).addClass("faded");
+    cy.edges().not(edges).addClass("faded");
+    edges.addClass("lit");
+    node.addClass("focus");
+  }
+
+  const panel = document.getElementById("panel");
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  function linkList(edges, other) {
+    if (!edges.length) return '<p class="muted">None</p>';
+    return "<ul>" + edges
+      .sort((a, b) => (b.data("weight") || 0) - (a.data("weight") || 0))
+      .map((e) => {
+        const n = byId.get(e.data(other));
+        const how = e.data("kind") === "import" ? `${e.data("weight")} file${e.data("weight") === 1 ? "" : "s"}` : esc(e.data("label"));
+        return `<li><button type="button" class="linklike" data-go="${esc(n.id)}">${esc(n.label)}</button> <span class="muted">· ${how}</span></li>`;
+      }).join("") + "</ul>";
+  }
+  function legend() {
+    return `<h2>How to read it</h2>
+      <p class="muted">Each box is an area: a folder or group of files with one job. Solid arrows are imports; thicker means more files. Dashed arrows are runtime links no import shows: HTTP calls, Playwright, the agent render inbox, store uploads.</p>
+      <div class="legend">
+        <span><i class="swatch" style="border:2px solid var(--web)"></i> apps/web</span>
+        <span><i class="swatch" style="border:2px solid var(--cli)"></i> packages/cli</span>
+        <span><i class="swatch" style="border:2px solid var(--core)"></i> packages/core</span>
+        <span><i class="swatch" style="border:2px solid var(--root)"></i> repository root</span>
+        <span><i class="swatch" style="border:2px dashed var(--external)"></i> outside the repository</span>
+        <span><i class="line"></i> import</span>
+        <span><i class="line runtime"></i> runtime link</span>
+      </div>
+      <h3>Also</h3>
+      <ul>
+        <li><a href="${data.blobUrl}docs/architecture-map.md">Architecture map</a></li>
+        <li><a href="${data.blobUrl}docs/architecture.md">Architecture contract and flow diagrams</a></li>
+      </ul>`;
+  }
+  function show(node) {
+    if (!node || node.data("kind") === "group") { panel.innerHTML = legend(); return; }
+    const d = node.data();
+    const visible = node.connectedEdges().not(".hidden");
+    const out = visible.filter((e) => e.data("source") === d.id);
+    const inn = visible.filter((e) => e.data("target") === d.id);
+    const parent = byId.get(d.parent);
+    panel.innerHTML = `
+      <h2>${esc(d.label)}</h2>
+      <p class="muted">${esc(parent ? parent.label : "")}${parent && parent.parent ? " · " + esc(byId.get(parent.parent).label) : ""}</p>
+      <p>${esc(d.description || "")}</p>
+      ${d.paths ? `<h3>Files</h3><ul>${d.paths.map((p) => `<li><a href="${pathUrl(p)}"><code>${esc(p)}</code></a></li>`).join("")}</ul>` : ""}
+      ${d.doc ? `<p><a href="${esc(d.doc)}">Contract section</a></p>` : ""}
+      <h3>Uses (${out.length})</h3>${linkList(out, "target")}
+      <h3>Used by (${inn.length})</h3>${linkList(inn, "source")}
+      <p><button type="button" id="clear">Clear selection</button></p>`;
+  }
+  panel.addEventListener("click", (event) => {
+    const go = event.target.closest("[data-go]");
+    if (go) { select(cy.getElementById(go.dataset.go)); return; }
+    if (event.target.id === "clear") select(null);
+  });
+  function select(node) {
+    selected = node && node.length ? node : null;
+    highlight(selected);
+    show(selected);
+    if (selected) cy.animate({ center: { eles: selected }, duration: 200 });
+  }
+
+  cy.on("mouseover", 'node[kind != "group"]', (e) => { if (!selected) highlight(e.target); });
+  cy.on("mouseout", "node", () => { if (!selected) highlight(null); });
+  cy.on("tap", 'node[kind != "group"]', (e) => select(e.target));
+  cy.on("tap", (e) => { if (e.target === cy) select(null); });
+
+  applyFilters();
+  show(null);
+  cy.fit(undefined, 30);
+})();
+</script>
+</body>
+</html>
