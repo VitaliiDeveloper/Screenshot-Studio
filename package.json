@@ -26,6 +26,7 @@
     "check:release-candidate": "pnpm audit:release && node scripts/check-release-candidate.mjs",
     "check:community": "node scripts/check-community.mjs",
     "check:spdx": "node scripts/check-spdx.mjs",
+    "graph:architecture": "node scripts/architecture-graph.mjs",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "screenshots": "node packages/cli/bin/screenshots.mjs",
