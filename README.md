@@ -174,6 +174,9 @@ flowchart LR
 core and the same browser render stage; Web Share packages those rendered PNGs and never substitutes
 another pixel path.
 
+For contributors, [`docs/architecture.md`](docs/architecture.md) has diagrams of the package
+structure, render/export parity, sessions and persistence, and trust boundaries.
+
 ### Destinations, output families, sizes, and frames
 
 These concepts are independent:
