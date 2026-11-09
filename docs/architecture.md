@@ -30,6 +30,7 @@ flowchart TB
 ```
 
 Solid arrows are package imports; the dashed arrow is a runtime process relationship, not an import.
+Where each folder sits inside these packages is in the [Architecture map](architecture-map.md).
 
 `core` is framework-agnostic and does not depend on Next.js, HTTP, or a particular project picker.
 The web shell owns selection and UI; the CLI owns command parsing and process orchestration. Both
@@ -732,6 +733,8 @@ workspace dev dependencies (`pnpm install`); the installed package's bin is the 
 
 - Preserve one Project schema and one browser rendering path.
 - A change that alters a flow drawn in a diagram here updates that diagram in the same change.
+- A change that adds, moves, or removes an area shown in the [Architecture map](architecture-map.md)
+  updates the map in the same change.
 - Put durable data/render/persistence constraints here; put UI semantics and component conventions in
   [`docs/editor.md`](editor.md).
 - Keep store sizes in `store-specs.json` and validate new outputs against it.
