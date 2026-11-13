@@ -121,6 +121,8 @@ function readCodexAuth(result: AgentProbeResult): AuthReading {
 }
 
 function readAuth(definition: AgentDefinition, result: AgentProbeResult): AuthReading {
+  // Without a status command sign-in is only observable in a run, which then fails as `not-authorized`.
+  if (definition.authStatusArgs === undefined) return { state: "ready", authMode: null };
   if (definition.id === "claude-code") return readClaudeAuth(result);
   if (definition.id === "codex") return readCodexAuth(result);
   return NOT_SIGNED_IN;

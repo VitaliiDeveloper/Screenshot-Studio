@@ -1,0 +1,1 @@
+{"type":"error","timestamp":1792843200000,"sessionID":"","error":{"type":"unknown","message":"ProviderAuthError: no API key for opencode-go. Run `opencode auth login`."}}

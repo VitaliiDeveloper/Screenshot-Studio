@@ -130,7 +130,7 @@ describe.skipIf(process.platform === "win32")("/api/agents", () => {
 
     const { agents } = await detect();
 
-    expect(Object.keys(agents)).toEqual(["claude-code", "codex", "agy", "gemini-cli"]);
+    expect(Object.keys(agents)).toEqual(["claude-code", "codex", "copilot", "opencode", "agy", "gemini-cli"]);
     expect(agents["claude-code"]).toEqual({
       id: "claude-code", name: "Claude Code", installed: true, version: "2.1.296",
       minVersion: "2.1.268", state: "ready", authMode: "subscription",
@@ -159,6 +159,27 @@ describe.skipIf(process.platform === "win32")("/api/agents", () => {
       policy: { level: "unavailable", reason: expect.stringMatching(/individual subscriptions/) },
     });
     expect(JSON.stringify(consoleCalls.map((call) => call.mock.calls))).not.toMatch(/example\.com|org-7f3c/);
+  });
+
+  it("reports CLIs without an auth-status command as ready from the version alone", async () => {
+    await writeFake("copilot", "echo 'GitHub Copilot CLI 1.0.100.'");
+    await writeFake("opencode", "echo '2.1.4'");
+
+    const { agents } = await detect();
+
+    expect(agents.copilot).toMatchObject({ installed: true, version: "1.0.100", state: "ready", authMode: null, models: [] });
+    expect(agents.opencode).toMatchObject({
+      installed: true, version: "2.1.4", state: "ready", authMode: null,
+      models: expect.arrayContaining([expect.objectContaining({ id: "opencode-go/kimi-k3" })]),
+    });
+  });
+
+  it("rejects OpenCode 1, which ships the same binary with an incompatible CLI", async () => {
+    await writeFake("opencode", "echo '1.14.2'");
+
+    const { agents } = await detect();
+
+    expect(agents.opencode).toMatchObject({ installed: true, version: "1.14.2", state: "unsupported-version" });
   });
 
   it("reports absent CLIs as not installed instead of failing", async () => {
@@ -271,7 +292,8 @@ describe.skipIf(process.platform === "win32")("/api/agents", () => {
     expect(response.status).toBe(200);
     const { agents } = await response.json() as { agents: AgentStatus[] };
     expect(agents.map(({ id, state }) => [id, state])).toEqual([
-      ["claude-code", "not-installed"], ["codex", "not-installed"], ["agy", "no-adapter"], ["gemini-cli", "unavailable"],
+      ["claude-code", "not-installed"], ["codex", "not-installed"],
+      ["copilot", "not-installed"], ["opencode", "not-installed"], ["agy", "no-adapter"], ["gemini-cli", "unavailable"],
     ]);
   });
 });

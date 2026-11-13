@@ -61,11 +61,13 @@ describe("agent consent", () => {
       agents: { id: string; consented: boolean | null }[];
     }).agents.map(({ id, consented: value }) => [id, value]);
 
-    expect(await consented()).toEqual([["claude-code", null], ["codex", null], ["agy", false], ["gemini-cli", null]]);
+    expect(await consented()).toEqual([
+      ["claude-code", null], ["codex", null], ["copilot", null], ["opencode", null], ["agy", false], ["gemini-cli", null],
+    ]);
     await consent.grant(agy);
-    expect((await consented())[2]).toEqual(["agy", true]);
+    expect((await consented())[4]).toEqual(["agy", true]);
     await consent.revoke("agy");
-    expect((await consented())[2]).toEqual(["agy", false]);
+    expect((await consented())[4]).toEqual(["agy", false]);
   });
 
   it("refuses a grant for an agent without an adapter, but still lets its consent be revoked", async () => {

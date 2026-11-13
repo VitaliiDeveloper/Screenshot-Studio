@@ -115,6 +115,10 @@ export interface AgentOutputNormalizer {
 export interface AgentAdapter {
   agentId: string;
   args(request: AgentRunRequest): string[];
+  /** What the CLI reads on stdin; the user's message when omitted. */
+  input?(request: AgentRunRequest): string;
+  /** Variables set over the `agentEnv` reduction; never credentials. */
+  env?(request: AgentRunRequest): Record<string, string>;
   normalizer(): AgentOutputNormalizer;
 }
 

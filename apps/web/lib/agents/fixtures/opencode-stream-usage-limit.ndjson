@@ -1,0 +1,2 @@
+{"type":"step_start","timestamp":1792843200000,"sessionID":"ses_0002","part":{"id":"prt_01","sessionID":"ses_0002","messageID":"msg_01","type":"step-start","snapshot":"b1"}}
+{"type":"error","timestamp":1792843200900,"sessionID":"ses_0002","error":{"name":"APIError","data":{"message":"You have reached your OpenCode Go usage limit. Your 5-hour limit resets in 2 hours.","statusCode":429,"isRetryable":false,"retryAfterMs":7200000}}}
