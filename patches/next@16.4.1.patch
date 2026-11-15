@@ -1,8 +1,8 @@
 diff --git a/dist/server/dev/hot-middleware.js b/dist/server/dev/hot-middleware.js
-index ca34718ed9d9d95b3a78c5b91bbc63a4fdfe30c2..82d31faec4797bec02fefe1dfe702926512e0a55 100644
+index ea2b4cb078921f63924cd2f5e8342d954ceca1a7..fcf743d530a743a15b17431c47e39c28bceafe82 100644
 --- a/dist/server/dev/hot-middleware.js
 +++ b/dist/server/dev/hot-middleware.js
-@@ -155,7 +155,9 @@ class WebpackHotMiddleware {
+@@ -163,7 +163,9 @@ class WebpackHotMiddleware {
                  if (_devindicatorserverstate.devIndicatorServerState.disabledUntil < Date.now()) {
                      _devindicatorserverstate.devIndicatorServerState.disabledUntil = 0;
                  }
