@@ -224,6 +224,9 @@ pnpm screenshots init --dir ./my-app-screenshots
 # Open its visual editor
 pnpm screenshots dev --project ./my-app-screenshots/app-store-screenshots.json
 
+# Print the project file's JSON Schema for editors and agents; it misses cross-field rules, so check stays authoritative
+pnpm screenshots schema
+
 # Check the preferred layout for Issues without exporting; exits 1 on any blocker
 pnpm screenshots check --render --project ./my-app-screenshots/app-store-screenshots.json
 
@@ -251,6 +254,11 @@ pnpm screenshots element set <screen-id> <element-id> --json '{"rotation":-6,"x"
 pnpm screenshots copy export --locale de,ar --out ./copy.csv --project ./my-app-screenshots/app-store-screenshots.json
 pnpm screenshots copy import ./copy.csv --project ./my-app-screenshots/app-store-screenshots.json
 ```
+
+To get completion and inline errors while editing the JSON, save the schema to a file
+(`pnpm screenshots schema > screenshots.schema.json`) and map it to `app-store-screenshots.json` in
+your editor, for example with VS Code's `json.schemas` setting. Never add a `$schema` key to the
+project document: the strict schema rejects it as an unknown key.
 
 `copy export` writes one row per text layer of the base locale (the first locale in screen order):
 `screen`, `element`, `source`, then one column per target locale. `--locale` takes a comma list

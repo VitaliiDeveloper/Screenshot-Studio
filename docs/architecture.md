@@ -496,6 +496,11 @@ project, manages layouts/screens/locales/fonts/themes/imports, starts the editor
 bundles. Layout-aware mutations require an explicit layout when a project has more than one; export
 otherwise uses `preferredExportLayoutId`.
 
+`screenshots schema` prints a JSON Schema of the project file that core's `projectJsonSchema`
+generates from the strict `Project` in input form, so defaulted fields stay optional. It is derived,
+never hand-maintained, and not a second authority: zod drops refinements, so cross-field and
+cross-reference rules and portable paths are enforced only by `parseProject` and `screenshots check`.
+
 `screenshots template add <pack-id> --pack` appends a built-in screen pack through the shared
 `createBuiltInTemplatePackScreens`, the same function the editor API uses.
 

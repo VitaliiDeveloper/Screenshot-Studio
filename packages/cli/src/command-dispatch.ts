@@ -16,6 +16,7 @@ import { runLayoutCommand } from "./layout-commands.js";
 import { runLocaleCommand } from "./locale-commands.js";
 import { resolveProjectPath } from "./project-io.js";
 import { runPublishingCommand } from "./publishing-commands.js";
+import { runSchemaCommand } from "./schema-command.js";
 import { runScreenCommand } from "./screen-commands.js";
 import { runTemplateCommand } from "./template-commands.js";
 import { runThemeCommand } from "./theme-commands.js";
@@ -75,7 +76,7 @@ async function runEditorRender(command: EditorRenderCommand, flags: Record<strin
 
 const USAGE = [
   "Usage: screenshots [./project-folder] [--port <port>] [--no-open] [--app]",
-  "       screenshots <init|export|check|screen|dev|import|font|theme|locale|asset|layout|setup|template|element|copy|publishing|upload> [flags]",
+  "       screenshots <init|export|check|screen|dev|import|font|theme|locale|asset|layout|setup|template|element|copy|publishing|schema|upload> [flags]",
   "       screenshots -h, --help | -v, --version",
   "ss-studio is another name for screenshots.",
 ].join("\n");
@@ -201,6 +202,9 @@ export async function dispatchCommand(
     }
     case "publishing":
       console.log(await runPublishingCommand(resolveProjectPath(flags), args, flags));
+      break;
+    case "schema":
+      console.log(runSchemaCommand(args, flags));
       break;
   }
 }

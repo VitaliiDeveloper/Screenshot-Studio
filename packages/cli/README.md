@@ -73,6 +73,15 @@ measurement and reports `"textMeasured": false`. A failure that is not a report 
 unknown `--layout`, bad `--store-specs`, render-host error) exits 2 and prints no `--json` report,
 only an error on stderr, so CI can tell a check that could not run from a project with blockers.
 
+`screenshots schema` prints the JSON Schema (draft 2020-12) of `app-store-screenshots.json` to
+stdout for editors and agents that edit the JSON directly. It is generated from the same strict schema
+the CLI enforces and rejects unknown keys, but JSON Schema cannot express the cross-field and
+cross-reference rules (unique ids, layout and variant references, screen set policies, one direction
+per locale, portable paths); `screenshots schema --help` lists them. `screenshots check` remains the
+authoritative validation. Attach it through an editor-side mapping, for example VS Code's
+`json.schemas` pointing at a file written by `screenshots schema > screenshots.schema.json`. Never add
+a `$schema` key to the project document: the strict schema rejects it as an unknown key.
+
 `dev`, `screen`, `check`, and `export` accept `--store-specs <path>` to override the packaged
 `store-specs.json`. Bundle export writes every locale root at its device lead target plus its
 explicit persisted variants. A single-screen export resolves an explicit `--size` first, then the
