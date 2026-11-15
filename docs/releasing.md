@@ -21,6 +21,11 @@ and public documentation. The retained artifact is
 `artifacts/screenshot-studio-cli-0.1.0.tgz`. The final command is inspection-only: its JSON reports
 the exact retained tarball’s npm SHA-512 SRI and packed size without publishing it.
 
+`pnpm check:vulnerabilities` runs `pnpm audit --prod --audit-level high` against the lockfile and
+fails on any high or critical advisory in production dependencies. It queries the npm registry, so it
+needs network access and is a separate command from the offline-capable `check:release-candidate`.
+Treat a failure as a release blocker; resolving it (upgrade or override) is an owner decision.
+
 ## Verify a clean local installation
 
 ```bash
@@ -62,8 +67,8 @@ For the exact commit and artifact proposed for publication:
 1. Confirm the workspace/package versions, release notes, `SECURITY.md`, and intended Git tag agree.
 2. Install with `pnpm install --frozen-lockfile`; do not change dependency resolutions during the
    release gate.
-3. Run `pnpm test`, `pnpm lint`, `pnpm typecheck`, `pnpm check:community`, `pnpm check:spdx`, and
-   `pnpm check:release-candidate`.
+3. Run `pnpm test`, `pnpm lint`, `pnpm typecheck`, `pnpm check:community`, `pnpm check:spdx`,
+   `pnpm check:vulnerabilities`, and `pnpm check:release-candidate`.
 4. Run `pnpm test:e2e:package`. Let the `dev` to `main` integration CI own the complete browser gate,
    and require the package matrix on the exact candidate SHA to pass the supported OS/Node matrix.
 5. Record the tarball’s SHA-512 SRI (`sha512-…`) and size from the pack result, then install that
