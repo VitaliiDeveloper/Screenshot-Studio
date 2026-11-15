@@ -17,7 +17,7 @@ walks them byte by byte.
 | Browser leaf group | one user-visible workflow or renderer/export contract | one command from the matrix below |
 | Full browser gate | GitHub CI for the integration PR from `dev` into `main` | `pnpm test:e2e` |
 | Release surfaces | cross-browser, packed CLI, optional skill, and living examples | `pnpm test:e2e:release-surfaces` |
-| Release policy | SPDX headers, required community surfaces, and public status text | `pnpm check:spdx` and `pnpm check:community` |
+| Release policy | SPDX headers, required community surfaces, public status text, and high-severity advisories in production dependencies | `pnpm check:spdx`, `pnpm check:community`, and `pnpm check:vulnerabilities` |
 | Release candidate | exact packed archive, metadata, integrity, and public release contract | `pnpm check:release-candidate` |
 
 ## Project mutation lock ownership
@@ -231,8 +231,8 @@ The full browser command composes the leaf groups as separate Vitest processes, 
 coverage without leaking mutable `PROJECT_PATH`, browser, or Next.js runtime state across unrelated
 areas.
 
-The dedicated `Release candidate` workflow runs `pnpm check:community`, `pnpm check:spdx`, and
-`pnpm check:release-candidate` when its workflow, release guide, release audit scripts, package
+The dedicated `Release candidate` workflow runs `pnpm check:community`, `pnpm check:spdx`,
+`pnpm check:vulnerabilities`, and `pnpm check:release-candidate` when its workflow, release guide, release audit scripts, package
 builder, lockfile, or package manifests change. It can also be dispatched manually for an exact
 candidate head. These checks build and inspect the packed CLI archive but do not publish it:
 publication remains a separate, owner-authorized action under [`docs/releasing.md`](releasing.md).
