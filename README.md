@@ -174,6 +174,16 @@ flowchart LR
 core and the same browser render stage; Web Share packages those rendered PNGs and never substitutes
 another pixel path.
 
+For contributors, [`docs/architecture-map.md`](docs/architecture-map.md) shows where each part of
+the codebase lives, and [`docs/architecture.md`](docs/architecture.md) has diagrams of the package
+structure, render/export parity, sessions and persistence, and trust boundaries.
+
+[`docs/graph/index.html`](docs/graph/index.html) is an interactive graph of the same areas with the
+imports and runtime links between them, generated from the code by `pnpm graph:architecture`. Open
+it in a browser from a clone. The image below is a snapshot and may lag behind the code.
+
+![Snapshot of the Screenshot Studio architecture graph](docs/images/readme/architecture-graph.png)
+
 ### Destinations, output families, sizes, and frames
 
 These concepts are independent:
@@ -214,6 +224,9 @@ pnpm screenshots init --dir ./my-app-screenshots
 # Open its visual editor
 pnpm screenshots dev --project ./my-app-screenshots/app-store-screenshots.json
 
+# Print the project file's JSON Schema for editors and agents; it misses cross-field rules, so check stays authoritative
+pnpm screenshots schema
+
 # Check the preferred layout for Issues without exporting; exits 1 on any blocker
 pnpm screenshots check --render --project ./my-app-screenshots/app-store-screenshots.json
 
@@ -241,6 +254,11 @@ pnpm screenshots element set <screen-id> <element-id> --json '{"rotation":-6,"x"
 pnpm screenshots copy export --locale de,ar --out ./copy.csv --project ./my-app-screenshots/app-store-screenshots.json
 pnpm screenshots copy import ./copy.csv --project ./my-app-screenshots/app-store-screenshots.json
 ```
+
+To get completion and inline errors while editing the JSON, save the schema to a file
+(`pnpm screenshots schema > screenshots.schema.json`) and map it to `app-store-screenshots.json` in
+your editor, for example with VS Code's `json.schemas` setting. Never add a `$schema` key to the
+project document: the strict schema rejects it as an unknown key.
 
 `copy export` writes one row per text layer of the base locale (the first locale in screen order):
 `screen`, `element`, `source`, then one column per target locale. `--locale` takes a comma list
@@ -321,24 +339,26 @@ Inputs: `project` (the JSON file or its folder), `layout` (default: the layout `
 unique in a run, so a matrix or a job that runs the action twice sets one per entry). Outputs:
 `out`, `check-log` and `cache-hit`.
 
-The action builds the CLI from its own source at the ref you pin (`pnpm install --frozen-lockfile`
-and `pnpm build:cli-package`, a few minutes per run), so that ref selects both the action and the
-CLI. To build from a checkout instead, for example a fork, check it out with `actions/checkout`
-(`repository: VitaliiDeveloper/Screenshot-Studio`, `ref: <commit-sha>`, `path: .screenshot-studio`)
-and use `uses: ./.screenshot-studio`.
+The action installs `@screenshot-studio/cli` from npm at the version in `packages/cli/package.json`
+at the ref you pin, so a commit between releases runs the last release's CLI, not that commit's
+source, and a commit whose version is not on npm yet fails at the install step. A fork's CLI changes
+do not reach the action until they are published.
 
-The action lives at the root rather than in `action/` so the short `owner/repo@ref` form works and
-the action's own folder is the CLI source it builds. It supports Linux runners only. The Playwright
+The action lives at the root rather than in `action/` so the short `owner/repo@ref` form works. It
+supports Linux runners only. The Playwright
 Chromium is cached under a key that includes the Playwright version the CLI depends on; the
 download happens only on a cache miss. On every run the action installs Playwright's system
 packages and fonts, as this repository's E2E job does. While it installs them, it moves apt sources
 from `packages.microsoft.com` aside and puts them back afterwards. The action sets up Node 22, which
-stays active for the job's later steps; its pnpm stays private to the action.
+stays active for the job's later steps; the CLI goes into a private temporary folder, not your
+project.
 
 ## Use an agent in the editor
 
 The **Agent** item in the editor's tool rail (⌘J) and the **Start with agent** starting point in New
 project run an official agent CLI that you installed and signed in to with your own subscription.
+On Windows the editor cannot start agents yet and the Agent panel says so; use
+[your own agent](#work-with-your-own-agent) with the CLI instead.
 
 <img src="docs/images/readme/agent-new-project.png" alt="Screenshot Studio New project dialog with the Start with agent starting point" width="640">
 
@@ -398,6 +418,7 @@ copy the editor shows, so open the project in place as in step 2.
 | Sunrise | Design pack | `sunrise` | A warm peach gradient with a generated sun and light editorial type. |
 | `<style>` · iPhone, `<style>` · Android phone | Screen packs (6 screens each) | `<style>-iphone`, `<style>-android-phone` | For each style above: hero, three features, social proof, and a call to action, laid out for iPhone 6.3″ or Android phone portrait. |
 | `<style>` panorama · iPhone, `<style>` panorama · Android phone | Panorama screen packs (6 connected screens each) | `<style>-panorama-iphone`, `<style>-panorama-android-phone` | The same six screens over art that crosses every screen edge: Clean (one stage and a timeline), Midnight (orbit rings on each seam), Poster (a bold stripe and split discs), and Sunrise (one horizon, rolling hills, and a sun between the first two screens). Panorama layouts only. |
+| Clean · iPad, Aurora · iPad, Clean · Android tablet, Aurora · Android tablet, Clean · macOS, Poster · macOS | Screen packs (6 screens each) | `clean-ipad`, `aurora-ipad`, `clean-android-tablet`, `aurora-android-tablet`, `clean-macos`, `poster-macos` | The same six screens laid out for iPad 13″, Android tablet 9:16 portrait, or Mac 2880×1800. |
 | `<style>` showcase · iPhone, `<style>` showcase · Android phone | Screen packs (6 screens each) | `midnight-showcase-iphone`, `midnight-showcase-android-phone`, `poster-showcase-iphone`, `poster-showcase-android-phone` | The same six screens with a different composition on each: a large tilted hero device, two overlapping devices, copy under the device, a big-number rating proof, and tilted devices on the rest. Midnight and Poster only. |
 
 Styled packs set type in the built-in Studio Display family, which covers Latin, Cyrillic, and Greek.
@@ -475,7 +496,8 @@ my-app-screenshots/
 ├── assets/                      # screenshots, images, fonts, and processed assets
 ├── screenshots/                 # organized PNG captures for import
 ├── templates/<id>.json          # project-local screen templates
-├── themes/<id>.json             # project-local design packs
+├── themes/<id>.json             # project-local themes
+├── packs/<id>/                  # project-local screen packs and Design packs
 └── export/                      # generated outputs
 ```
 
@@ -484,9 +506,8 @@ not become hidden project state. Applying a starter, template, or pack materiali
 project fields that remain editable. Project-local resources stay beside the document and can travel
 with its portable project archive.
 
-Four living starter workflows cover isolated, connected, RTL/multi-locale, and capture-import paths.
-The self-contained projects under [`examples/`](examples/README.md) are also validated and exported
-as part of the repository's release surfaces.
+The self-contained projects under [`examples/`](examples/README.md), a connected launch deck and an
+RTL multi-locale delivery, are validated and exported as part of the repository's release surfaces.
 
 ## Installed CLI
 
@@ -501,8 +522,8 @@ at `http://localhost:4747` and opens the project library in your browser; runnin
 the editor that is already running. `ss-studio .` opens the project in the current folder in that
 editor, starting it first when needed, and offers to create one (in `./screenshot-studio` inside a
 non-empty folder) when there is none. `--port <port>` and `--no-open` change that, `--app` opens a
-Chrome or Edge window without tabs or an address bar instead of a tab (that browser keeps its own
-editor settings), and Ctrl+C in its terminal stops it (closing the tab does not). The installed CLI
+Chrome, Edge, Chromium, or Brave window without tabs or an address bar instead of a tab (that
+browser keeps its own editor settings), and Ctrl+C in its terminal stops it (closing the tab does not). The installed CLI
 keeps managed projects, recent projects, and store keys in the per-user data folder
 (`~/Library/Application Support/screenshot-studio` on macOS) unless `SCREENSHOT_STUDIO_DATA_ROOT` is
 set. `screenshots dev --project` still starts an editor pinned to one project.
@@ -562,11 +583,14 @@ or announcement. Publication requires explicit owner authorization under
 ## Documentation
 
 - [Architecture](docs/architecture.md) — model, sources, sessions, rendering, export, and CLI.
+- [Architecture map](docs/architecture-map.md) — where each package, folder, and area lives.
+- [Architecture graph](docs/graph/index.html) — interactive graph of areas, imports, and runtime links.
 - [Editor UI and UX](docs/editor.md) — durable interaction, navigation, and accessibility semantics.
 - [Testing](docs/testing.md) — test ownership, focused browser groups, and CI policy.
 - [Project mutation locking](docs/project-mutation-locking.md) — concurrent write and recovery contract.
 - [Safe file publication](docs/safe-file-publication.md) — asset and output publication boundaries.
 - [Releasing](docs/releasing.md) — candidate verification, publication, upgrade, and uninstall.
+- [Changelog](CHANGELOG.md) — what changed in each release.
 - [Contributing](CONTRIBUTING.md) and [Security](SECURITY.md) — contributor workflow and private
   vulnerability reporting.
 

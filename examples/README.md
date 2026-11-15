@@ -24,9 +24,6 @@ texts travel beside the font files. `pnpm test:e2e:examples` validates both docu
 exact alpha-free store PNG from each, and edits a temporary RTL example copy through the accessible
 locale, Layers, and keyboard group controls.
 
-App Home also presents four workflow-oriented starter routes without adding example-only Project
-fields: **Separate images feature project** and **Panorama launch deck** use the current strict scaffold;
-**RTL and multi-locale delivery** opens complete project import and is represented here by
-`rtl-delivery`; **Imported screenshot story** opens capture import for the documented PNG folder
-shape. `connected-launch` remains the editable living Panorama/screenshot reference. Focused launcher
-tests parse these living documents with the current strict schema and validate both scaffold inputs.
+`connected-launch` remains the editable living Panorama/screenshot reference, and `rtl-delivery` the
+RTL and multi-locale one. To start from either in the editor, use **Import** on the project library
+and choose the example folder.

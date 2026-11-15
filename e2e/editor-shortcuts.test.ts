@@ -348,7 +348,10 @@ describe("keyboard focus never drops to the page behind a selection", () => {
     await dialog.waitFor({ state: "detached" });
     await expect.poll(() => focusedLabel(page)).toBe("Delete Hero");
     await page.keyboard.press("Enter");
+    // DialogShell takes focus one frame after opening, which would pull it off a control focused sooner.
+    await expect.poll(() => focusedLabel(page)).toBe("Delete screen?");
     await dialog.getByRole("button", { name: "Delete screen", exact: true }).focus();
+    expect(await focusedLabel(page)).toBe("Delete screen");
     await page.keyboard.press("Enter");
     await dialog.waitFor({ state: "detached" });
 
@@ -522,7 +525,7 @@ describe("dialog focus", () => {
     const page = await openEditor({ width: 1440, height: 1000 });
     const dialog = await openCreateLayout(page);
     await dialog.waitFor({ state: "visible" });
-    await page.waitForTimeout(100);
+    await expect.poll(() => dialog.getByRole("textbox", { name: "Name" }).evaluate((element) => element === document.activeElement)).toBe(true);
     await page.keyboard.type("My layout");
     expect(await dialog.getByRole("textbox", { name: "Name" }).inputValue()).toBe("My layout");
     await dialog.waitFor({ state: "visible" });
@@ -544,6 +547,8 @@ describe("dialog focus", () => {
     const focusBehindDialog = () => page.getByRole("button", { name: "Find screen or layer", exact: true }).focus();
     const inDialog = () => page.evaluate(() => document.activeElement?.closest("[role='dialog']") !== null);
 
+    // DialogShell takes focus one frame after opening, which would undo a move made sooner.
+    await expect.poll(inDialog).toBe(true);
     await focusBehindDialog();
     expect(await inDialog()).toBe(false);
     await page.keyboard.press("Tab");

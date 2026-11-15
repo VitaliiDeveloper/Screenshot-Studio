@@ -21,6 +21,8 @@ export type AgentState =
   | "unavailable"
   /** Listed with its policy, but the editor has no adapter to run it, so its binary is never probed. */
   | "no-adapter"
+  /** The editor cannot start agent CLIs on this operating system yet, so no binary is probed. */
+  | "unsupported-platform"
   | "ready";
 
 export type AgentAuthMode = "subscription" | "api-key";
@@ -50,6 +52,7 @@ export interface AgentRegistryOptions {
   timeoutMs?: number;
   /** The store a Codex run will use; read from the probe environment when omitted. */
   codexAuthStore?: CodexAuthStore | null;
+  platform?: NodeJS.Platform;
 }
 
 const DEFAULT_PROBE_TIMEOUT_MS = 5_000;
@@ -163,6 +166,7 @@ export async function detectAgent(
   };
   if (definition.policy.level === "unavailable") return status;
   if (!agentAdapter(definition.id)) return { ...status, state: "no-adapter" };
+  if ((options.platform ?? process.platform) === "win32") return { ...status, state: "unsupported-platform" };
 
   const probe = { env: agentEnv(options.env), timeoutMs: options.timeoutMs ?? DEFAULT_PROBE_TIMEOUT_MS };
   const versionResult = await runAgentProbe(definition.binary, ["--version"], probe);
@@ -193,7 +197,9 @@ let statusCache: { key: string; promise: Promise<AgentStatus[]>; expiresAt: numb
  * client cannot respawn the CLIs on every request. Runs re-check with `detectAgent` directly.
  */
 export function listAgentStatuses(options: AgentRegistryOptions = {}): Promise<AgentStatus[]> {
-  const key = JSON.stringify([agentEnv(options.env), options.timeoutMs ?? DEFAULT_PROBE_TIMEOUT_MS]);
+  const key = JSON.stringify([
+    agentEnv(options.env), options.timeoutMs ?? DEFAULT_PROBE_TIMEOUT_MS, options.platform ?? process.platform,
+  ]);
   if (statusCache?.key === key && Date.now() < statusCache.expiresAt) return statusCache.promise;
   const entry = {
     key,

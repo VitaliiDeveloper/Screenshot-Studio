@@ -27,6 +27,7 @@ Read only the smallest relevant set:
 
 | Task | Read first |
 |---|---|
+| Finding where code for an area lives | `docs/architecture-map.md` |
 | Schema, renderer, export, or CLI behavior | `docs/architecture.md` and the relevant source/tests |
 | Editor/UI behavior | `docs/editor.md` |
 | Test selection or CI behavior | `docs/testing.md` |

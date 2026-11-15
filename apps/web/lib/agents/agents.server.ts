@@ -226,8 +226,8 @@ export function spawnAgentProcess(
   args: readonly string[],
   options: AgentSpawnOptions,
 ): ChildProcess {
-  // shortcut: no shell, so Windows npm `.cmd` shims are not resolved and read as not-installed;
-  // add a PATHEXT resolver when Windows agent runs are supported.
+  // shortcut: no shell, so Windows npm `.cmd` shims are not resolved; detection therefore reports
+  // Windows as `unsupported-platform` until a PATHEXT resolver adds Windows agent runs.
   const child = spawn(binary, args, {
     cwd: options.cwd,
     env: options.env,

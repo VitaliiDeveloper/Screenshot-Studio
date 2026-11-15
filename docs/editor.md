@@ -393,7 +393,9 @@ The model trigger names the exact model (**Sonnet 5.5** by default) and the effo
 (**High effort** by default, from Low to Max); an agent without listed models shows
 `CLI default model` and no effort picker. Changing the agent returns both to that agent's defaults. The browser remembers the last agent, model,
 and effort the user picked for the next page load while the registry still offers them; **Start with
-agent** overrides them. When the selected agent cannot run, the panel says why and what
+agent** overrides them. On Windows the editor cannot start agents yet: no CLI is probed, the
+picker is hidden, and the panel shows **Not supported on Windows yet**, pointing to running your own
+agent in the project folder with the CLI and the agent skill. When the selected agent cannot run, the panel says why and what
 to do: **No agent found** when no CLI is installed (each links to its official setup page; the
 editor works without an agent), **Not signed in** or **Signed in with an API key** with the CLI's
 own Terminal sign-in command, **Update needed** below the verified version, and **Unavailable**
@@ -636,8 +638,9 @@ an arbitrary local filesystem path.
   packs with the built-in Design packs and screen packs with the built-in Screen packs, and apply
   through the same actions. A pack that fails validation does not hide the others: the dialog shows
   one warning line per broken file with its project-relative path and reason.
-- An empty project presents **Create your first screen** with relevant family starters, capture
-  import, and blank-screen paths instead of relying on an unexplained empty canvas.
+- A layout whose only screen has no layers presents **Your blank screen is ready** with **Create from
+  template**, **Import capture folder**, and **Keep blank screen** instead of relying on an
+  unexplained empty canvas.
 - **Add device mockup** creates a presentation frame with a visible empty drop target. **Place
   screenshot in mockup** is a separate action; an assigned local screenshot can be replaced or
   removed later. The inspector exposes project-image Choose, Replace, and Remove actions rather
