@@ -402,6 +402,7 @@ window.ARCH_GRAPH = {
       "paths": [
         "packages/cli/src/init.ts",
         "packages/cli/src/*-commands.ts",
+        "packages/cli/src/schema-command.ts",
         "packages/cli/src/csv.ts",
         "packages/cli/src/direction.ts"
       ],
@@ -709,7 +710,7 @@ window.ARCH_GRAPH = {
       "source": "cli-commands",
       "target": "core-model",
       "kind": "import",
-      "weight": 8
+      "weight": 9
     },
     {
       "id": "import:cli-commands->core-packs",
