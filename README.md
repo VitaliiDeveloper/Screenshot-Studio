@@ -255,6 +255,11 @@ pnpm screenshots copy export --locale de,ar --out ./copy.csv --project ./my-app-
 pnpm screenshots copy import ./copy.csv --project ./my-app-screenshots/app-store-screenshots.json
 ```
 
+To get completion and inline errors while editing the JSON, save the schema to a file
+(`pnpm screenshots schema > screenshots.schema.json`) and map it to `app-store-screenshots.json` in
+your editor, for example with VS Code's `json.schemas` setting. Never add a `$schema` key to the
+project document: the strict schema rejects it as an unknown key.
+
 `copy export` writes one row per text layer of the base locale (the first locale in screen order):
 `screen`, `element`, `source`, then one column per target locale. `--locale` takes a comma list
 (`de,ar`); a repeated `--locale` keeps only the last value. `.csv` (written with a byte-order mark
