@@ -60,6 +60,8 @@ is ignored. Verify the opt-outs `SCREENSHOTS_NO_UPDATE_CHECK=1` and
 For the exact commit and artifact proposed for publication:
 
 1. Confirm the workspace/package versions, release notes, `SECURITY.md`, and intended Git tag agree.
+   `CHANGELOG.md` must have a dated entry for the version being released, with the `Unreleased`
+   items moved under it.
 2. Install with `pnpm install --frozen-lockfile`; do not change dependency resolutions during the
    release gate.
 3. Run `pnpm test`, `pnpm lint`, `pnpm typecheck`, `pnpm check:community`, `pnpm check:spdx`, and

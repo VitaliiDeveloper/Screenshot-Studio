@@ -580,6 +580,7 @@ or announcement. Publication requires explicit owner authorization under
 - [Project mutation locking](docs/project-mutation-locking.md) — concurrent write and recovery contract.
 - [Safe file publication](docs/safe-file-publication.md) — asset and output publication boundaries.
 - [Releasing](docs/releasing.md) — candidate verification, publication, upgrade, and uninstall.
+- [Changelog](CHANGELOG.md) — what changed in each release.
 - [Contributing](CONTRIBUTING.md) and [Security](SECURITY.md) — contributor workflow and private
   vulnerability reporting.
 
