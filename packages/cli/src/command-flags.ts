@@ -37,6 +37,7 @@ export const COMMAND_FLAG_SPECS = {
   copy: { value: ["project", "layout", "locale", "out"], boolean: ["force", "json"] },
   upload: { value: ["project", "store-specs", "store", "layout", "service-account", "version", "key-path"], boolean: ["dry-run", "json", "changes-not-sent-for-review"] },
   publishing: { value: ["project", "google-package", "apple-app-id"], boolean: ["json"] },
+  schema: { value: [], boolean: ["help"] },
 } as const satisfies Record<string, CommandFlagSpec>;
 
 export type CliCommand = keyof typeof COMMAND_FLAG_SPECS;

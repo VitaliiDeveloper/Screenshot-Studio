@@ -224,6 +224,9 @@ pnpm screenshots init --dir ./my-app-screenshots
 # Open its visual editor
 pnpm screenshots dev --project ./my-app-screenshots/app-store-screenshots.json
 
+# Print the project file's JSON Schema for editors and agents; it misses cross-field rules, so check stays authoritative
+pnpm screenshots schema
+
 # Check the preferred layout for Issues without exporting; exits 1 on any blocker
 pnpm screenshots check --render --project ./my-app-screenshots/app-store-screenshots.json
 
