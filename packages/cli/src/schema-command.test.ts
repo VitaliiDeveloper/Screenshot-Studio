@@ -41,7 +41,8 @@ describe("screenshots schema", () => {
     const child = spawn(process.execPath, [binPath, "schema"], { stdio: ["ignore", "pipe", "pipe"] });
     let stderr = "";
     child.stderr.on("data", (chunk) => { stderr += chunk; });
-    child.stdout.once("data", () => child.stdout.destroy());
+    // Closed before the CLI writes: the schema fits one pipe write, so closing after a chunk never fails it.
+    child.stdout.destroy();
     const [code] = await once(child, "close");
     expect(stderr).not.toContain("EPIPE");
     expect(code).toBe(0);

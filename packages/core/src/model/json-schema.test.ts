@@ -23,8 +23,18 @@ async function projectFiles(directory: string): Promise<string[]> {
   return nested.flat().sort();
 }
 
-async function sampleProject(): Promise<ProjectInput> {
-  return JSON.parse(await readFile(join(repoRoot, "fixtures/sample/app-store-screenshots.json"), "utf8"));
+async function sampleProject(fixture = "sample"): Promise<ProjectInput> {
+  return JSON.parse(await readFile(join(repoRoot, "fixtures", fixture, "app-store-screenshots.json"), "utf8"));
+}
+
+function firstScreen(project: ProjectInput) {
+  return project.layouts[0]!.screens[0]!;
+}
+
+function firstGroup(project: ProjectInput) {
+  const group = firstScreen(project).elements.find((element) => element.type === "group");
+  if (group?.type !== "group") throw new Error("fixture has no group on its first screen");
+  return group;
 }
 
 function objectNodesWithoutStrictness(node: unknown, path = "#"): string[] {
@@ -71,16 +81,31 @@ describe("projectJsonSchema", () => {
     expect(validate(project)).toBe(true);
   });
 
-  it.each([
-    ["an unknown root key", (project: ProjectInput) => { Object.assign(project, { $schema: "./schema.json" }); }],
-    ["an unknown element key", (project: ProjectInput) => {
-      Object.assign(project.layouts[0]!.screens[0]!.elements[0]!, { shadowColor: "#000" });
+  it.each<[string, string, (project: ProjectInput) => void]>([
+    ["an unknown root key", "sample", (project) => { Object.assign(project, { $schema: "./schema.json" }); }],
+    ["an unknown element key", "sample", (project) => { Object.assign(firstScreen(project).elements[0]!, { shadowColor: "#000" }); }],
+    ["a wrong type", "sample", (project) => { Object.assign(project.meta, { schemaVersion: "1" }); }],
+    ["a missing required field", "sample", (project) => { delete (project as Partial<ProjectInput>).preferredExportLayoutId; }],
+    ["a device outside its platform", "sample", (project) => { Object.assign(firstScreen(project), { device: "phone" }); }],
+    ["an unknown background key", "sample", (project) => { Object.assign(firstScreen(project).background, { opacity: 0.5 }); }],
+    ["an unknown background type", "sample", (project) => { Object.assign(firstScreen(project).background, { type: "radial-gradient" }); }],
+    ["a background colour of the wrong type", "sample", (project) => { Object.assign(firstScreen(project).background, { color: 0x0b1020 }); }],
+    ["an invalid hex colour", "sample", (project) => { Object.assign(firstScreen(project).elements[0]!, { fill: "#12345" }); }],
+    ["a font weight of the wrong type", "sample", (project) => { Object.assign(project.fonts![0]!, { weight: "400" }); }],
+    ["an unknown screen set policy mode", "sample", (project) => {
+      Object.assign(project.layouts[0]!.screenSetPolicies![0]!, { mode: "mirrored" });
     }],
-    ["a wrong type", (project: ProjectInput) => { Object.assign(project.meta, { schemaVersion: "1" }); }],
-    ["a missing required field", (project: ProjectInput) => { delete (project as Partial<ProjectInput>).preferredExportLayoutId; }],
-    ["a device outside its platform", (project: ProjectInput) => { Object.assign(project.layouts[0]!.screens[0]!, { device: "phone" }); }],
-  ])("rejects %s, as the zod schema does", async (_name, mutate) => {
-    const project = await sampleProject();
+    ["an unknown key in a group child", "regressions/group-parity", (project) => {
+      Object.assign(firstGroup(project).children[0]!, { shadowColor: "#000" });
+    }],
+    ["a group nested in a group", "regressions/group-parity", (project) => {
+      const group = firstGroup(project);
+      group.children.push({ ...group, id: "nested-group" } as never);
+    }],
+    ["a non-numeric Apple app id", "publishing", (project) => { Object.assign(project.publishing!.apple!, { appId: "app-123" }); }],
+    ["an unknown publishing store", "publishing", (project) => { Object.assign(project.publishing!, { amazon: { appId: "1" } }); }],
+  ])("rejects %s (%s), as the zod schema does", async (_name, fixture, mutate) => {
+    const project = await sampleProject(fixture);
     mutate(project);
     expect(Project.safeParse(project).success).toBe(false);
     expect(validate(project)).toBe(false);
