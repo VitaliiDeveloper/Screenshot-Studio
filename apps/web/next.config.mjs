@@ -10,6 +10,8 @@ const nextConfig = {
   outputFileTracingRoot: monorepoRoot,
   // Keep Next's development portal out of visual QA and product interaction checks.
   devIndicators: false,
+  // The repository's AGENTS.md routes agents; keep `next dev` from writing its own into apps/web.
+  agentRules: false,
   // core is shipped as TypeScript source across the workspace; let Next transpile it.
   transpilePackages: ["@screenshot-studio/core", "@screenshot-studio/cli"],
   // Playwright ships a native driver; keep it a runtime require rather than letting webpack
