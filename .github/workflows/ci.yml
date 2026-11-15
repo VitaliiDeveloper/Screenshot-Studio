@@ -86,7 +86,9 @@ jobs:
         run: |
           sha=$(gh api "repos/$REPO/git/ref/heads/dev" --jq .object.sha)
           tested=false
-          if count=$(gh api "repos/$REPO/actions/artifacts?name=nightly-passed-$sha&per_page=100" --jq '[.artifacts[] | select((.expired | not) and .workflow_run.head_branch == "main")] | length'); then
+          # A fork pull request from a branch named main could upload a marker with the same name,
+          # so only artifacts from this repository's own main count.
+          if count=$(gh api "repos/$REPO/actions/artifacts?name=nightly-passed-$sha&per_page=100" --jq '[.artifacts[] | select((.expired | not) and .workflow_run.head_branch == "main" and .workflow_run.head_repository_id == .workflow_run.repository_id)] | length'); then
             if [ "$count" -gt 0 ]; then tested=true; fi
           else
             echo "::warning::Could not read the nightly marker; running the suite."
