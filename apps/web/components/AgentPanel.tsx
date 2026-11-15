@@ -118,7 +118,7 @@ export function AgentPanel({
             New chat
           </button>
         </div>
-        {agents && selected && notice?.kind !== "no-agent" ? (
+        {agents && selected && notice?.kind !== "no-agent" && notice?.kind !== "unsupported-platform" ? (
           <div ref={picker}>
             <AgentPicker
               layout="stacked"

@@ -349,6 +349,8 @@ project.
 
 The **Agent** item in the editor's tool rail (⌘J) and the **Start with agent** starting point in New
 project run an official agent CLI that you installed and signed in to with your own subscription.
+On Windows the editor cannot start agents yet and the Agent panel says so; use
+[your own agent](#work-with-your-own-agent) with the CLI instead.
 
 <img src="docs/images/readme/agent-new-project.png" alt="Screenshot Studio New project dialog with the Start with agent starting point" width="640">
 

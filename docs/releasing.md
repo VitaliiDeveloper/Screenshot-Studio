@@ -137,6 +137,9 @@ Uninstalling the CLI does not remove projects, exports, or Playwright's shared b
 - Export is intentionally Chromium-only; Firefox and WebKit are editor smoke targets, not alternate
   pixel-parity renderers.
 - Node.js 22.13+ is required on Linux, macOS, and Windows.
+- The editor cannot start agents on Windows yet: the Agent panel says so instead of probing for
+  CLIs, and New project offers no **Start with agent**. The editor and CLI otherwise work on Windows,
+  and a user's own agent can drive a project through the CLI and the agent skill.
 - Only presets in `store-specs.json` are supported.
 - Groups are one level, do not clip children, and cannot nest.
 - Rendered fonts must be bundled built-ins or registered project assets; export rejects
