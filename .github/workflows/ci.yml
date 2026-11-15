@@ -6,6 +6,10 @@ on:
     branches:
       - "main"
       - "dev"
+  # Scheduled runs use this file from the default branch (main) but test the dev head, which the
+  # jobs below check out explicitly.
+  schedule:
+    - cron: "17 2 * * *"
 
 permissions:
   contents: read
@@ -63,12 +67,52 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  resolve-dev:
+    # Nightly gate: pin the dev head once so every job tests one commit, and skip the run when a
+    # nightly already passed for that commit.
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read # lists the nightly-passed-<sha> marker artifacts
+      contents: read # resolves refs/heads/dev
+    outputs:
+      sha: ${{ steps.dev.outputs.sha }}
+      tested: ${{ steps.dev.outputs.tested }}
+    steps:
+      - id: dev
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          sha=$(gh api "repos/$REPO/git/ref/heads/dev" --jq .object.sha)
+          tested=false
+          # A fork pull request from a branch named main could upload a marker with the same name,
+          # so only artifacts from this repository's own main count.
+          if count=$(gh api "repos/$REPO/actions/artifacts?name=nightly-passed-$sha&per_page=100" --jq '[.artifacts[] | select((.expired | not) and .workflow_run.head_branch == "main" and .workflow_run.head_repository_id == .workflow_run.repository_id)] | length'); then
+            if [ "$count" -gt 0 ]; then tested=true; fi
+          else
+            echo "::warning::Could not read the nightly marker; running the suite."
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "tested=$tested" >> "$GITHUB_OUTPUT"
+          echo "dev head $sha: already passed nightly = $tested" >> "$GITHUB_STEP_SUMMARY"
+
   e2e-full:
-    # Browser regression belongs only at the long-lived integration boundary.
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.base_ref == 'main' && github.head_ref == 'dev')
+    # Browser regression runs at the integration boundary, and nightly against the dev head.
+    needs: resolve-dev
+    # !cancelled() keeps the job running when resolve-dev is skipped, which it is on every event
+    # except schedule.
+    if: >-
+      !cancelled() && (
+      github.event_name == 'workflow_dispatch'
+      || (github.event_name == 'pull_request' && github.base_ref == 'main' && github.head_ref == 'dev')
+      || (github.event_name == 'schedule' && needs.resolve-dev.result == 'success' && needs.resolve-dev.outputs.tested != 'true'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Empty outside schedule, which keeps the event's own commit.
+          ref: ${{ needs.resolve-dev.outputs.sha }}
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -77,4 +121,38 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: sudo grep -rlZ 'packages.microsoft.com' /etc/apt/sources.list.d/ | sudo xargs -0 -r rm -f
       - run: pnpm exec playwright install --with-deps chromium firefox webkit
-      - run: xvfb-run -a pnpm test:e2e
+      - shell: bash # pipefail, so a failing suite still fails the step behind tee
+        run: |
+          mkdir -p test-results/e2e
+          xvfb-run -a pnpm test:e2e 2>&1 | tee test-results/e2e/output.log
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: e2e-results-${{ needs.resolve-dev.outputs.sha || github.sha }}
+          path: test-results/e2e/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  nightly-golden-gallery:
+    needs: resolve-dev
+    if: github.event_name == 'schedule' && needs.resolve-dev.outputs.tested != 'true'
+    uses: ./.github/workflows/golden-gallery.yml
+    with:
+      ref: ${{ needs.resolve-dev.outputs.sha }}
+
+  nightly-passed:
+    # Written only after both browser gates passed, so a failure is retried on the next night.
+    needs: [resolve-dev, e2e-full, nightly-golden-gallery]
+    if: github.event_name == 'schedule' && needs.resolve-dev.outputs.tested != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          SHA: ${{ needs.resolve-dev.outputs.sha }}
+        run: echo "$SHA" > nightly-passed.txt
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: nightly-passed-${{ needs.resolve-dev.outputs.sha }}
+          path: nightly-passed.txt
+          if-no-files-found: error
+          # Also re-verifies an unchanged dev head once a week against runner and browser drift.
+          retention-days: 7

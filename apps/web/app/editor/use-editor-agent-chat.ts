@@ -27,6 +27,7 @@ export type AgentChatPhase = "idle" | "running" | "syncing";
 
 const AGENT_STATES = new Set([
   "not-installed", "unsupported-version", "not-signed-in", "wrong-auth-mode", "unavailable", "no-adapter", "consent-required",
+  "unsupported-platform",
 ]);
 
 function attachmentsOf(files: readonly File[]): AgentTurnAttachment[] {

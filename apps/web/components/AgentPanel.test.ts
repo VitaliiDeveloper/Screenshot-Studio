@@ -117,6 +117,21 @@ describe("AgentPanel", () => {
     expect(reviewed).not.toContain("No changes to the project");
   });
 
+  it("says agents cannot run from the editor on Windows instead of asking to install them", () => {
+    const windows = [claude, codex].map((agent) => ({ ...agent, installed: null, version: null, state: "unsupported-platform" as const }));
+    const html = render(chat({ agents: windows }));
+    expect(html).toContain("Not supported on Windows yet");
+    expect(html).toContain("Running an agent from the editor is not supported on Windows yet.");
+    expect(html).toContain("You can still run your own agent in the project folder");
+    expect(html).not.toContain("No agent found");
+    expect(html).not.toContain("Not installed");
+    expect(html).not.toContain("https://code.claude.com/docs/en/setup");
+    expect(html).not.toContain("Check again");
+    expect(html).not.toContain('aria-haspopup="menu"');
+    expect(html).not.toMatch(/>Supported</);
+    expect(html).not.toContain("runs on this computer");
+  });
+
   it("explains every 7c state with its next action", () => {
     const missing = { ...claude, installed: false, state: "not-installed" as const };
     const noAgent = render(chat({ agents: [missing, { ...codex, installed: false, state: "not-installed" }] }));

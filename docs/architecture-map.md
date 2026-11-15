@@ -120,7 +120,7 @@ The map shows placement only. How the packages depend on each other is in
 | Area | Files | Owns |
 |---|---|---|
 | Entry | `index.ts`, `command-dispatch.ts`, `command-flags.ts`, `cli-runtime.ts`, `update-check.ts` | Parsing and routing `screenshots` commands |
-| Project commands | `init.ts`, `*-commands.ts`, `csv.ts`, `direction.ts` | Structural edits: layouts, screens, elements, locales, copy, assets, fonts, templates, themes, publishing ids |
+| Project commands | `init.ts`, `*-commands.ts`, `schema-command.ts`, `csv.ts`, `direction.ts` | Structural edits: layouts, screens, elements, locales, copy, assets, fonts, templates, themes, publishing ids; printing the project JSON Schema |
 | Resource services | `*-service.ts`, `project-io.ts`, `font-validation.ts`, `system-fonts.ts`, `managed-definition-store.ts` | Resource files and locked project writes |
 | Render host | `server.ts`, `packaged-render-host.ts`, `render-driver.ts`, `render-host-readiness.ts`, `browser-setup.ts`, `render-through-editor.ts`, `launch-command.ts`, `dev-command.ts` | Starting the web host and driving `/render` with Playwright |
 | Export | `export-command.ts`, `export.ts`, `check-command.ts`, `web-share.ts`, `fastlane-*.ts`, `store-ready-png.ts` | Bundles, profiles, `check --render` |

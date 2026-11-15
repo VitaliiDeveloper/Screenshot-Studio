@@ -321,6 +321,7 @@ export const AREAS = [
     paths: [
       "packages/cli/src/init.ts",
       "packages/cli/src/*-commands.ts",
+      "packages/cli/src/schema-command.ts",
       "packages/cli/src/csv.ts",
       "packages/cli/src/direction.ts",
     ],

@@ -108,6 +108,20 @@ export function AgentNoticeView({ notice, chat }: { notice: AgentNotice; chat: E
       </NoticeCard>
     );
   }
+  if (notice.kind === "unsupported-platform") {
+    return (
+      <NoticeCard label="Not supported on Windows yet">
+        <p className={text}>
+          Running an agent from the editor is not supported on Windows yet. The editor and the screenshots CLI
+          work as usual.
+        </p>
+        <p className={text}>
+          You can still run your own agent in the project folder: it changes the project with the screenshots
+          CLI and the agent skill while the editor is open.
+        </p>
+      </NoticeCard>
+    );
+  }
   const { agent } = notice;
   switch (notice.kind) {
     case "not-signed-in":

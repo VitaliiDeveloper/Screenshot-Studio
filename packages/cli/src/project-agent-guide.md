@@ -24,6 +24,9 @@ project's JSON with `--project`.
   and imports, and for element edits (`element text`, `element media`, `element set`, `element add`,
   `element rm`). Each command takes the project lock, validates the complete strict Project, and
   writes atomically. Directly edit JSON only for literals the CLI does not manage.
+  `screenshots schema` prints the file's JSON Schema; it cannot check cross-field rules such as
+  unique ids or references (`schema --help` lists them), so run `screenshots check` after any JSON edit.
+  Never add a `$schema` key to the project file: it fails validation as an unknown key.
 - The visual editor may be open on this project. It refuses to save over a newer file ("Project
   changed on disk"), so reload it after CLI or JSON changes made outside it.
 - Preserve layout, screen, and element ids unless intentionally creating a new object. Layout ids
@@ -194,6 +197,7 @@ screenshots element get <screen-id> <element-id> --project ./app-store-screensho
 | Import raw captures | `import <dir>` |
 | Refresh re-captured screens | `import <dir> --refresh` |
 | Find problems before export | `check --render [--json] [--strict]` |
+| JSON Schema of the project file | `schema` (no `--project`; `check` stays the authoritative validation) |
 | Export a bundle | `export [--locale <l>] [--platform <p> --device <d>]` |
 | Export one screen | `export --screen <id> [--size <target-id>]` (no bundle filters) |
 | Export for fastlane deliver/supply | `export --profile fastlane [--locale <l>]` (writes `fastlane/` and removes stale generated images unless filtered; ambiguous locales such as `pt` or `zh` abort it) |

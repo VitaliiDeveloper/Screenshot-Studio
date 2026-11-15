@@ -43,4 +43,5 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm check:community
       - run: pnpm check:spdx
+      - run: pnpm check:vulnerabilities
       - run: pnpm check:release-candidate

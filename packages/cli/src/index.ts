@@ -40,6 +40,14 @@ const invokedDirectly = invokedPath
 /** Runs the command in `process.argv`; the source-checkout launcher calls it after registering tsx. */
 export function runCli(): void {
   const [command, ...argv] = process.argv.slice(2);
+  // `schema | head` closing the pipe early is not a failure. Other commands keep their exit codes,
+  // which CI reads (check: 1 blockers, 2 could not run).
+  if (command === "schema") {
+    process.stdout.on("error", (error: NodeJS.ErrnoException) => {
+      if (error.code !== "EPIPE") throw error;
+      process.exit(0);
+    });
+  }
   const updateNotice = isInfoFlag(command) ? undefined : startUpdateCheck();
   dispatchCommand(command, argv, { storeSpecsPath: DEFAULT_STORE_SPECS })
     .then(async () => {
