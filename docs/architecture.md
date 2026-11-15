@@ -559,7 +559,9 @@ have no path to the plan, upload, or key store, `/api/upload/plan` and `/api/upl
 (`423`) while an editor-started agent runs, and the CLI's agent marker still refuses the command
 inside an agent session. Antigravity `agy` is listed with its
 `at-own-risk` policy but has no adapter (it has no auth-status command, and its stream was never run
-because that is the account-ban case), so it reports `no-adapter` and never runs. A run in the project folder, at most one per project, receives the user
+because that is the account-ban case), so it reports `no-adapter` and never runs. On Windows every agent with an adapter reports
+`unsupported-platform` without a probe, because agent CLIs start without a shell and npm's `.cmd`
+shims do not resolve that way. A run in the project folder, at most one per project, receives the user
 message on stdin, and streams normalized events. Completion, cancel, timeout, a SIGTERM or SIGINT to
 the server, or server exit kills its whole process tree. Permanently deleting a managed project stops
 its run and waits for the verdict before the folder moves, and a run whose folder is gone never writes
