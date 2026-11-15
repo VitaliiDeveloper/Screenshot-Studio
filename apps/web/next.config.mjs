@@ -12,6 +12,11 @@ const nextConfig = {
   devIndicators: false,
   // The repository's AGENTS.md routes agents; keep `next dev` from writing its own into apps/web.
   agentRules: false,
+  experimental: {
+    // `next dev` would otherwise query the npm registry for Next advisories on every start; the
+    // editor makes no network calls the user did not approve, and `check:vulnerabilities` owns this.
+    agentUpgrade: false,
+  },
   // core is shipped as TypeScript source across the workspace; let Next transpile it.
   transpilePackages: ["@screenshot-studio/core", "@screenshot-studio/cli"],
   // Playwright ships a native driver; keep it a runtime require rather than letting webpack
