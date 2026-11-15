@@ -128,6 +128,8 @@ describe("AgentPanel", () => {
     expect(html).not.toContain("https://code.claude.com/docs/en/setup");
     expect(html).not.toContain("Check again");
     expect(html).not.toContain('aria-haspopup="menu"');
+    expect(html).not.toMatch(/>Supported</);
+    expect(html).not.toContain("runs on this computer");
   });
 
   it("explains every 7c state with its next action", () => {

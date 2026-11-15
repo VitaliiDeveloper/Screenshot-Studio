@@ -64,6 +64,8 @@ export function AgentPanel({
   const attachments = useComposerAttachments();
   const { agents, selected, phase, turns } = chat;
   const notice = agentNotice(agents, selected);
+  // No agent can run on such a platform, so nothing about one selected agent is shown.
+  const platformUnsupported = notice?.kind === "unsupported-platform";
   const running = phase === "running";
   const reviewing = chat.outcome !== null && !running;
   const canCritique = phase === "idle" && agentCanRun(selected);
@@ -118,7 +120,7 @@ export function AgentPanel({
             New chat
           </button>
         </div>
-        {agents && selected && notice?.kind !== "no-agent" && notice?.kind !== "unsupported-platform" ? (
+        {agents && selected && notice?.kind !== "no-agent" && !platformUnsupported ? (
           <div ref={picker}>
             <AgentPicker
               layout="stacked"
@@ -132,7 +134,7 @@ export function AgentPanel({
             />
           </div>
         ) : null}
-        {selected ? (
+        {selected && !platformUnsupported ? (
           <div className="flex items-center gap-2">
             <PolicyBadge agent={selected} />
             {selected.policy.level === "at-own-risk" && selected.consented === true ? (
@@ -148,7 +150,7 @@ export function AgentPanel({
           </div>
         ) : null}
         {selected?.consented === true && chat.consentError ? <StatusMessage tone="error">{chat.consentError}</StatusMessage> : null}
-        <p className={hint}>Your subscription · runs on this computer</p>
+        {platformUnsupported ? null : <p className={hint}>Your subscription · runs on this computer</p>}
       </div>
       {reviewing ? (
         <AgentReview chat={chat} specs={specs} issueCounts={issueCounts} onGoToScreen={onGoToScreen} onOpenIssues={onOpenIssues} />
