@@ -1,6 +1,6 @@
 {
   "name": "screenshot-studio",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Code-first App Store, Google Play, and Microsoft Store screenshot editor and exporter",
   "license": "Apache-2.0",

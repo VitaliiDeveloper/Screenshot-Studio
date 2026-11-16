@@ -1,6 +1,6 @@
 # Release and publication
 
-Version `0.1.0` is published on npm as `@screenshot-studio/cli`. No npm publication, Git tag,
+Version `0.1.1` is published on npm as `@screenshot-studio/cli`. No npm publication, Git tag,
 GitHub release, or announcement is implied by a successful local build or CI run.
 
 ## Build and inspect the candidate
@@ -12,13 +12,13 @@ pnpm install --frozen-lockfile
 pnpm check:release-candidate
 mkdir -p artifacts
 pnpm --dir packages/cli/package pack --pack-destination ../../../artifacts
-npm publish ./artifacts/screenshot-studio-cli-0.1.0.tgz --access public --dry-run --json
+npm publish ./artifacts/screenshot-studio-cli-0.1.1.tgz --access public --dry-run --json
 ```
 
 `check:release-candidate` builds the shared standalone host, generates third-party notices, packs a
 temporary tarball, and audits its files, runtime dependencies, licenses, size, portability, version,
 and public documentation. The retained artifact is
-`artifacts/screenshot-studio-cli-0.1.0.tgz`. The final command is inspection-only: its JSON reports
+`artifacts/screenshot-studio-cli-0.1.1.tgz`. The final command is inspection-only: its JSON reports
 the exact retained tarball’s npm SHA-512 SRI and packed size without publishing it.
 
 `pnpm check:vulnerabilities` runs `pnpm audit --prod --audit-level high` against the lockfile and
@@ -29,7 +29,7 @@ Treat a failure as a release blocker; resolving it (upgrade or override) is an o
 ## Verify a clean local installation
 
 ```bash
-pnpm add --global ./artifacts/screenshot-studio-cli-0.1.0.tgz
+pnpm add --global ./artifacts/screenshot-studio-cli-0.1.1.tgz
 screenshots setup
 screenshots init --dir ./my-app-screenshots
 screenshots dev --project ./my-app-screenshots/app-store-screenshots.json

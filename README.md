@@ -562,7 +562,7 @@ render host. To build and install a local package from a checkout instead:
 ```bash
 pnpm build:cli-package
 pnpm --dir packages/cli/package pack
-pnpm add --global ./packages/cli/package/screenshot-studio-cli-0.1.0.tgz
+pnpm add --global ./packages/cli/package/screenshot-studio-cli-0.1.1.tgz
 ```
 
 Building or verifying a local package does not create an npm publication, Git tag, GitHub release,

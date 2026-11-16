@@ -12,7 +12,7 @@ body:
     attributes:
       label: CLI version
       description: Output of `screenshots --version`. Version 0.1.0 predates that flag; use `npm ls --global @screenshot-studio/cli` instead.
-      placeholder: 0.1.0
+      placeholder: 0.1.1
     validations:
       required: true
   - type: input
