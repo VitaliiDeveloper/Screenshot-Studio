@@ -174,6 +174,16 @@ flowchart LR
 core and the same browser render stage; Web Share packages those rendered PNGs and never substitutes
 another pixel path.
 
+For contributors, [`docs/architecture-map.md`](docs/architecture-map.md) shows where each part of
+the codebase lives, and [`docs/architecture.md`](docs/architecture.md) has diagrams of the package
+structure, render/export parity, sessions and persistence, and trust boundaries.
+
+[`docs/graph/index.html`](docs/graph/index.html) is an interactive graph of the same areas with the
+imports and runtime links between them, generated from the code by `pnpm graph:architecture`. Open
+it in a browser from a clone. The image below is a snapshot and may lag behind the code.
+
+![Snapshot of the Screenshot Studio architecture graph](docs/images/readme/architecture-graph.png)
+
 ### Destinations, output families, sizes, and frames
 
 These concepts are independent:
@@ -214,6 +224,9 @@ pnpm screenshots init --dir ./my-app-screenshots
 # Open its visual editor
 pnpm screenshots dev --project ./my-app-screenshots/app-store-screenshots.json
 
+# Print the project file's JSON Schema for editors and agents; it misses cross-field rules, so check stays authoritative
+pnpm screenshots schema
+
 # Check the preferred layout for Issues without exporting; exits 1 on any blocker
 pnpm screenshots check --render --project ./my-app-screenshots/app-store-screenshots.json
 
@@ -241,6 +254,11 @@ pnpm screenshots element set <screen-id> <element-id> --json '{"rotation":-6,"x"
 pnpm screenshots copy export --locale de,ar --out ./copy.csv --project ./my-app-screenshots/app-store-screenshots.json
 pnpm screenshots copy import ./copy.csv --project ./my-app-screenshots/app-store-screenshots.json
 ```
+
+To get completion and inline errors while editing the JSON, save the schema to a file
+(`pnpm screenshots schema > screenshots.schema.json`) and map it to `app-store-screenshots.json` in
+your editor, for example with VS Code's `json.schemas` setting. Never add a `$schema` key to the
+project document: the strict schema rejects it as an unknown key.
 
 `copy export` writes one row per text layer of the base locale (the first locale in screen order):
 `screen`, `element`, `source`, then one column per target locale. `--locale` takes a comma list
@@ -339,6 +357,8 @@ project.
 
 The **Agent** item in the editor's tool rail (⌘J) and the **Start with agent** starting point in New
 project run an official agent CLI that you installed and signed in to with your own subscription.
+On Windows the editor cannot start agents yet and the Agent panel says so; use
+[your own agent](#work-with-your-own-agent) with the CLI instead.
 
 <img src="docs/images/readme/agent-new-project.png" alt="Screenshot Studio New project dialog with the Start with agent starting point" width="640">
 
@@ -542,7 +562,7 @@ render host. To build and install a local package from a checkout instead:
 ```bash
 pnpm build:cli-package
 pnpm --dir packages/cli/package pack
-pnpm add --global ./packages/cli/package/screenshot-studio-cli-0.1.0.tgz
+pnpm add --global ./packages/cli/package/screenshot-studio-cli-0.1.1.tgz
 ```
 
 Building or verifying a local package does not create an npm publication, Git tag, GitHub release,
@@ -563,11 +583,14 @@ or announcement. Publication requires explicit owner authorization under
 ## Documentation
 
 - [Architecture](docs/architecture.md) — model, sources, sessions, rendering, export, and CLI.
+- [Architecture map](docs/architecture-map.md) — where each package, folder, and area lives.
+- [Architecture graph](docs/graph/index.html) — interactive graph of areas, imports, and runtime links.
 - [Editor UI and UX](docs/editor.md) — durable interaction, navigation, and accessibility semantics.
 - [Testing](docs/testing.md) — test ownership, focused browser groups, and CI policy.
 - [Project mutation locking](docs/project-mutation-locking.md) — concurrent write and recovery contract.
 - [Safe file publication](docs/safe-file-publication.md) — asset and output publication boundaries.
 - [Releasing](docs/releasing.md) — candidate verification, publication, upgrade, and uninstall.
+- [Changelog](CHANGELOG.md) — what changed in each release.
 - [Contributing](CONTRIBUTING.md) and [Security](SECURITY.md) — contributor workflow and private
   vulnerability reporting.
 

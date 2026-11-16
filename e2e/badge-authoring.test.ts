@@ -82,7 +82,9 @@ describe("badge authoring", () => {
     const storeDialog = page.getByRole("dialog", { name: "Store badge asset picker" });
     await storeDialog.waitFor({ state: "visible" });
     await storeDialog.getByRole("button", { name: "Use assets/store-badge.png" }).click();
-    await expect.poll(() => elements().length).toBe(3);
+    // The picker caches the image before inserting, and the element reaches disk only after the
+    // debounced save; the default one-second poll is too short for that on a loaded runner.
+    await expect.poll(() => elements().length, { timeout: 10_000 }).toBe(3);
     expect(elements()[2]).toMatchObject({
       type: "image", name: "Store badge", assetUrl: "assets/store-badge.png",
       fit: "contain", width: 420, height: 140,

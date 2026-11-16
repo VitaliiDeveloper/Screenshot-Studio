@@ -31,6 +31,7 @@ and CLI pixels on the shared browser renderer.
    the full browser suite locally; CI owns `pnpm test:e2e` for the integration PR from `dev` into
    `main`. The leaf-group ownership and cost matrix lives in `docs/testing.md`.
 5. Update public documentation when the user-visible behavior or install path changes.
+6. Add a line under `Unreleased` in `CHANGELOG.md` for a user-visible change.
 
 Commit subjects use `feat:`, `fix:`, `docs:`, `test:`, `refactor:`, `build:`, `chore:`, `style:`, or
 `perf:` followed by a concise imperative description. Do not add agent attribution trailers.

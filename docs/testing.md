@@ -17,7 +17,7 @@ walks them byte by byte.
 | Browser leaf group | one user-visible workflow or renderer/export contract | one command from the matrix below |
 | Full browser gate | GitHub CI for the integration PR from `dev` into `main` | `pnpm test:e2e` |
 | Release surfaces | cross-browser, packed CLI, optional skill, and living examples | `pnpm test:e2e:release-surfaces` |
-| Release policy | SPDX headers, required community surfaces, and public status text | `pnpm check:spdx` and `pnpm check:community` |
+| Release policy | SPDX headers, required community surfaces, public status text, and high-severity advisories in production dependencies | `pnpm check:spdx`, `pnpm check:community`, and `pnpm check:vulnerabilities` |
 | Release candidate | exact packed archive, metadata, integrity, and public release contract | `pnpm check:release-candidate` |
 
 ## Project mutation lock ownership
@@ -208,8 +208,8 @@ shared renderer, or size-variant reflow changes.
 - Keep one scenario focused on one coherent user outcome. Combining steps is acceptable when they
   intentionally share expensive setup and later assertions depend on the earlier workflow.
 - The golden gallery runs on pull requests into `dev` only when its test, references, workflows, or
-  `package.json` change. A built-in pack or renderer change elsewhere reaches it only at `dev` to
-  `main`, so run `pnpm golden:check` locally (about 4 minutes) for such a change.
+  `package.json` change. A built-in pack or renderer change elsewhere reaches it only in the nightly
+  run or at `dev` to `main`, so run `pnpm golden:check` locally (about 4 minutes) for such a change.
 - Record actual timing before deleting unique coverage for performance reasons. Slow and redundant
   are different problems.
 
@@ -227,12 +227,27 @@ requests into `dev` that change the gallery test, its references, its workflows,
 artifact when it fails. The workflows remain
 available through `workflow_dispatch` for an explicitly requested candidate head.
 
+A nightly run (`schedule` in `ci.yml`, 02:17 UTC) gives `dev` the browser coverage that its pull
+requests skip: it runs the complete `pnpm test:e2e` suite and the golden gallery, and nothing else
+(no lint, typecheck, unit tests, or coverage, which every `dev` pull request already runs). A
+scheduled workflow always runs the file as it exists on `main` and cannot be edited into `dev` only,
+so the jobs check out the `dev` head explicitly: a first job resolves its SHA once, and both gates
+test that commit. The run is skipped when a nightly already passed for that SHA: after both gates
+pass, a `nightly-passed-<sha>` marker artifact is uploaded with 7-day retention, and the first job
+looks for it. A failed run writes no marker, so the same commit is retried the next night; an
+unchanged `dev` is also re-verified once a week, when the marker expires. A failing full suite
+uploads `test-results/e2e/output.log` as `e2e-results-<sha>`, and the gallery uploads its
+`golden-gallery-renders-<sha>` artifact as before; GitHub's own email for the failed scheduled run is
+the only notification. Only the workflow files come from `main` on a scheduled run, so a `dev`
+change to a workflow takes effect for the nightly run once it reaches `main`. GitHub disables
+scheduled workflows in a repository with no activity for 60 days.
+
 The full browser command composes the leaf groups as separate Vitest processes, preserving complete
 coverage without leaking mutable `PROJECT_PATH`, browser, or Next.js runtime state across unrelated
 areas.
 
-The dedicated `Release candidate` workflow runs `pnpm check:community`, `pnpm check:spdx`, and
-`pnpm check:release-candidate` when its workflow, release guide, release audit scripts, package
+The dedicated `Release candidate` workflow runs `pnpm check:community`, `pnpm check:spdx`,
+`pnpm check:vulnerabilities`, and `pnpm check:release-candidate` when its workflow, release guide, release audit scripts, package
 builder, lockfile, or package manifests change. It can also be dispatched manually for an exact
 candidate head. These checks build and inspect the packed CLI archive but do not publish it:
 publication remains a separate, owner-authorized action under [`docs/releasing.md`](releasing.md).

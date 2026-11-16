@@ -168,6 +168,7 @@ export function hasOtherFiles(otherFiles: AgentOtherFiles | null): boolean {
 export type AgentNotice =
   | { kind: "loading" }
   | { kind: "no-agent" }
+  | { kind: "unsupported-platform" }
   | {
     kind: "not-signed-in" | "wrong-auth-mode" | "unsupported-version" | "not-installed" | "unavailable" | "no-adapter"
       | "consent-required";
@@ -193,6 +194,10 @@ export function policyLevelLabel(agent: AgentStatus): string {
 /** Why the selected agent cannot run (mockup 7c); null when it is ready. */
 export function agentNotice(agents: AgentStatus[] | null, selected: AgentStatus | undefined): AgentNotice | null {
   if (agents === null) return { kind: "loading" };
+  // Checked before no-agent: on such a platform no agent is probed, so none reads as installed.
+  if (selected?.state === "unsupported-platform" || agents.some((agent) => agent.state === "unsupported-platform")) {
+    return { kind: "unsupported-platform" };
+  }
   // Agents that are never probed report `installed: null`, which does not count as installed.
   if (!agents.some((agent) => agent.installed === true)) return { kind: "no-agent" };
   if (!selected) return null;
@@ -219,6 +224,8 @@ export function agentStateLabel(agent: AgentStatus): string {
       return "Unavailable";
     case "no-adapter":
       return "Not supported in the editor yet";
+    case "unsupported-platform":
+      return "Not supported on Windows yet";
   }
 }
 

@@ -1,6 +1,6 @@
 # Release and publication
 
-Version `0.1.0` is published on npm as `@screenshot-studio/cli`. No npm publication, Git tag,
+Version `0.1.1` is published on npm as `@screenshot-studio/cli`. No npm publication, Git tag,
 GitHub release, or announcement is implied by a successful local build or CI run.
 
 ## Build and inspect the candidate
@@ -12,19 +12,24 @@ pnpm install --frozen-lockfile
 pnpm check:release-candidate
 mkdir -p artifacts
 pnpm --dir packages/cli/package pack --pack-destination ../../../artifacts
-npm publish ./artifacts/screenshot-studio-cli-0.1.0.tgz --access public --dry-run --json
+npm publish ./artifacts/screenshot-studio-cli-0.1.1.tgz --access public --dry-run --json
 ```
 
 `check:release-candidate` builds the shared standalone host, generates third-party notices, packs a
 temporary tarball, and audits its files, runtime dependencies, licenses, size, portability, version,
 and public documentation. The retained artifact is
-`artifacts/screenshot-studio-cli-0.1.0.tgz`. The final command is inspection-only: its JSON reports
+`artifacts/screenshot-studio-cli-0.1.1.tgz`. The final command is inspection-only: its JSON reports
 the exact retained tarball’s npm SHA-512 SRI and packed size without publishing it.
+
+`pnpm check:vulnerabilities` runs `pnpm audit --prod --audit-level high` against the lockfile and
+fails on any high or critical advisory in production dependencies. It queries the npm registry, so it
+needs network access and is a separate command from the offline-capable `check:release-candidate`.
+Treat a failure as a release blocker; resolving it (upgrade or override) is an owner decision.
 
 ## Verify a clean local installation
 
 ```bash
-pnpm add --global ./artifacts/screenshot-studio-cli-0.1.0.tgz
+pnpm add --global ./artifacts/screenshot-studio-cli-0.1.1.tgz
 screenshots setup
 screenshots init --dir ./my-app-screenshots
 screenshots dev --project ./my-app-screenshots/app-store-screenshots.json
@@ -60,10 +65,12 @@ is ignored. Verify the opt-outs `SCREENSHOTS_NO_UPDATE_CHECK=1` and
 For the exact commit and artifact proposed for publication:
 
 1. Confirm the workspace/package versions, release notes, `SECURITY.md`, and intended Git tag agree.
+   `CHANGELOG.md` must have a dated entry for the version being released, with the `Unreleased`
+   items moved under it.
 2. Install with `pnpm install --frozen-lockfile`; do not change dependency resolutions during the
    release gate.
-3. Run `pnpm test`, `pnpm lint`, `pnpm typecheck`, `pnpm check:community`, `pnpm check:spdx`, and
-   `pnpm check:release-candidate`.
+3. Run `pnpm test`, `pnpm lint`, `pnpm typecheck`, `pnpm check:community`, `pnpm check:spdx`,
+   `pnpm check:vulnerabilities`, and `pnpm check:release-candidate`.
 4. Run `pnpm test:e2e:package`. Let the `dev` to `main` integration CI own the complete browser gate,
    and require the package matrix on the exact candidate SHA to pass the supported OS/Node matrix.
 5. Record the tarball’s SHA-512 SRI (`sha512-…`) and size from the pack result, then install that
@@ -137,6 +144,9 @@ Uninstalling the CLI does not remove projects, exports, or Playwright's shared b
 - Export is intentionally Chromium-only; Firefox and WebKit are editor smoke targets, not alternate
   pixel-parity renderers.
 - Node.js 22.13+ is required on Linux, macOS, and Windows.
+- The editor cannot start agents on Windows yet: the Agent panel says so instead of probing for
+  CLIs, and New project offers no **Start with agent**. The editor and CLI otherwise work on Windows,
+  and a user's own agent can drive a project through the CLI and the agent skill.
 - Only presets in `store-specs.json` are supported.
 - Groups are one level, do not clip children, and cannot nest.
 - Rendered fonts must be bundled built-ins or registered project assets; export rejects

@@ -118,16 +118,16 @@ afterAll(async () => {
 describe("Packaged CLI", () => {
   it("contains the candidate metadata and only the explicit executable/runtime surface", async () => {
     const manifest = JSON.parse(await readFile(join(stagedPackage, "package.json"), "utf8"));
-    expect(packedName).toBe("screenshot-studio-cli-0.1.0.tgz");
+    expect(packedName).toBe("screenshot-studio-cli-0.1.1.tgz");
     expect(manifest).toMatchObject({
       name: "@screenshot-studio/cli",
-      version: "0.1.0",
+      version: "0.1.1",
       repository: {
         url: "git+https://github.com/VitaliiDeveloper/Screenshot-Studio.git",
         directory: "packages/cli",
       },
       publishConfig: { access: "public" },
-      dependencies: { playwright: "1.62.0", sharp: "0.35.3" },
+      dependencies: { playwright: "1.62.0", sharp: "0.35.5" },
     });
     expect(manifest.private).toBeUndefined();
     expect(packedFiles).toEqual([

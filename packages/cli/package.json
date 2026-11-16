@@ -1,6 +1,6 @@
 {
   "name": "@screenshot-studio/cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Code-first App Store, Google Play, and Microsoft Store screenshot editor and exporter",
   "license": "Apache-2.0",
@@ -57,7 +57,7 @@
     "fontkit": "2.0.4",
     "jszip": "^3.10.1",
     "playwright": "1.62.0",
-    "sharp": "0.35.3"
+    "sharp": "0.35.5"
   },
   "devDependencies": {
     "tsx": "^4.23.1"

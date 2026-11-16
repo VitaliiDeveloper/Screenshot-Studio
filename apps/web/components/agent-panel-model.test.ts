@@ -143,6 +143,15 @@ describe("agent notices and picker", () => {
     expect(agentNotice([agentStatus(), codex, gemini], agentStatus())).toBeNull();
   });
 
+  it("explains an unsupported platform instead of reporting that no agent is installed", () => {
+    const windows = agentStatus({ installed: null, version: null, state: "unsupported-platform", authMode: null });
+    const windowsCodex = { ...codex, installed: null, state: "unsupported-platform" } as const;
+    expect(agentNotice([windows, windowsCodex, gemini], windows)).toEqual({ kind: "unsupported-platform" });
+    expect(agentNotice([windows, windowsCodex, gemini], gemini)).toEqual({ kind: "unsupported-platform" });
+    expect(agentCanRun(windows)).toBe(false);
+    expect(agentStateLabel(windows)).toBe("Not supported on Windows yet");
+  });
+
   it("labels each agent's state and prefers a ready agent", () => {
     expect(agentStateLabel(agentStatus())).toBe("Signed in · subscription · v2.1.296");
     expect(agentStateLabel(agentStatus({ state: "unsupported-version" }))).toBe("Needs v2.1.268 or later");
