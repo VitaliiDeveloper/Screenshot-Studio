@@ -112,7 +112,8 @@ export function missingProjectImages(project: Project, images: ImageCache): stri
 export interface IssueRowCopy {
   title: string;
   detail: string;
-  fixLabel: string;
+  /** Null when no one-click fix exists; Go to is the only action. */
+  fixLabel: string | null;
 }
 
 /** Row copy for the Issues list; null when the issue no longer resolves in the project. */
@@ -175,7 +176,7 @@ export function issueRowCopy(
         screenSizeLabel(found.screen, specs),
         ...(multipleLocales ? [found.screen.locale] : []),
       ].join(" · "),
-      fixLabel: "Select layer",
+      fixLabel: null,
     };
   }
   const target = overflowTarget(project, issue);

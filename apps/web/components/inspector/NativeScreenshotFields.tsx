@@ -73,7 +73,8 @@ export function NativeScreenshotFields({
   return (
     <div className="flex flex-col gap-2 text-xs" data-native-screenshot-fields>
       <p className="leading-5 text-[color:var(--editor-color-text-secondary)]">
-        Placed pixel for pixel, never scaled. Export fails if the result differs from the source.
+        Placed pixel for pixel, never scaled. Export fails if the result differs from the source, so
+        use an opaque 8-bit sRGB PNG.
         {cropped ? ` ${cropped.width}×${cropped.height} px after crop.` : null}
       </p>
       {SIDES.map(({ key, label }) => (

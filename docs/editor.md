@@ -214,9 +214,10 @@ New Screenshot and Image elements preserve the decoded asset aspect ratio at ins
 Content mode control presents `Fill` for cover-and-crop and `Fit` for uncropped containment.
 Screenshot layers add `1:1`, which places source pixels unscaled: choosing it sizes the box to the
 source, rounds its position, and clears rotation, opacity, corner radius, blur, and crop. In 1:1 the
-Inspector hides radius and blur and shows **Crop top/bottom/left/right** in source pixels (each edit
-resizes the box to the cropped source), the canvas offers no resize or rotate handles, and a drag
-lands on whole pixels. Every `native-placement` Issue for the layer is repeated as a warning under
+Inspector replaces size, rotation, and opacity with a note and hides radius and blur, bringing any of
+them back only while an outside edit has set it so it can be undone. It shows **Crop
+top/bottom/left/right** in source pixels (each edit resizes the box to the cropped source), the
+canvas offers no resize or rotate handles, and a drag lands on whole pixels. Every `native-placement` Issue for the layer is repeated as a warning under
 those fields, so a shot that export would reject is flagged before export.
 
 Text boxes expose independent horizontal (`left`, `center`, `right`) and vertical (`top`, `middle`,

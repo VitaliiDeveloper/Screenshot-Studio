@@ -106,8 +106,8 @@ export function MediaPresentationFields({
   ) : (
     <ContentModeControl value={element.fit} onChange={(fit) => onChange({ fit })} />
   );
-  // Radius and blur always change pixels, so 1:1 hides them.
-  if (element.fit === "native") return contentMode;
+  // Radius and blur always change pixels, so 1:1 hides them unless an outside edit set one.
+  if (element.fit === "native" && element.cornerRadius === 0 && !element.blur) return contentMode;
 
   return (
     <>
