@@ -119,7 +119,7 @@ export async function dispatchCommand(
     const { flags, target } = launchArgs(command === undefined ? argv : [command, ...argv]);
     await runLaunchCommand(flags, defaults.launch ?? defaultLaunchDependencies(
       defaults.storeSpecsPath,
-      () => ensureRenderBrowsers("optional", defaults.browserSetup),
+      async () => { await ensureRenderBrowsers("optional", defaults.browserSetup); },
     ), target);
     return;
   }
@@ -136,10 +136,13 @@ export async function dispatchCommand(
     case "init":
       await runInitCommand(flags, defaults.storeSpecsPath);
       break;
-    case "export":
-      await ensureRenderBrowsers("required", defaults.browserSetup, resolveBrowserChoice(flags.browser));
-      await runExportCommand(flags, defaults.storeSpecsPath);
+    case "export": {
+      const browser = await ensureRenderBrowsers("required", defaults.browserSetup, resolveBrowserChoice(flags.browser), {
+        offerSystemBrowser: true,
+      });
+      await runExportCommand({ ...flags, browser }, defaults.storeSpecsPath);
       break;
+    }
     case "check": {
       if (flags.render) await ensureRenderBrowsers("required", defaults.browserSetup);
       const result = await runCheckCommand(flags, defaults.storeSpecsPath);
@@ -190,7 +193,7 @@ export async function dispatchCommand(
       console.log(await runCopyCommand(resolveProjectPath(flags), args, flags));
       break;
     case "upload": {
-      const prepareRender = () => ensureRenderBrowsers("required", defaults.browserSetup, resolveBrowserChoice(undefined));
+      const prepareRender = async () => { await ensureRenderBrowsers("required", defaults.browserSetup, resolveBrowserChoice(undefined)); };
       if (flags.store === "apple") {
         const result = await runAppStoreUploadCommand(flags, defaults.storeSpecsPath, { prepareRender });
         console.log(result.output);

@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { dispatchCommand } from "./command-dispatch.js";
 import {
   ensureRenderBrowsers,
+  exportedWith,
   installHelp,
   listInstallLocations,
   isMissingChannelError,
@@ -41,7 +42,8 @@ function deps(overrides: Partial<BrowserSetupDependencies> = {}): BrowserSetupDe
     interactive: true,
     playwrightVersion: "9.9.9",
     detect: () => ({ missing: true, cacheDir: "/cache/ms-playwright" }),
-    hasSystemBrowser: vi.fn(async () => false),
+    findSystemBrowser: vi.fn(async () => undefined),
+    ask: vi.fn(async () => ""),
     install: vi.fn(async () => undefined),
     confirm: vi.fn(async () => true),
     log: vi.fn(),
@@ -120,18 +122,102 @@ describe("ensureRenderBrowsers", () => {
 
   it("lets optional commands continue with a warning instead of failing", async () => {
     const nonInteractive = deps({ interactive: false });
-    await expect(ensureRenderBrowsers("optional", nonInteractive)).resolves.toBeUndefined();
+    await expect(ensureRenderBrowsers("optional", nonInteractive)).resolves.toBe("chromium");
     expect(nonInteractive.install).not.toHaveBeenCalled();
     expect(vi.mocked(nonInteractive.log).mock.calls.join("\n")).toContain("screenshots setup");
 
     const declined = deps({ confirm: vi.fn(async () => false) });
-    await expect(ensureRenderBrowsers("optional", declined)).resolves.toBeUndefined();
+    await expect(ensureRenderBrowsers("optional", declined)).resolves.toBe("chromium");
     expect(declined.install).not.toHaveBeenCalled();
   });
 
   it("surfaces an installer failure", async () => {
     const d = deps({ install: vi.fn(async () => { throw new Error("download failed"); }) });
     await expect(ensureRenderBrowsers("required", d)).rejects.toThrow("download failed");
+  });
+});
+
+describe("first export with a system browser installed", () => {
+  const offer = { offerSystemBrowser: true };
+  const withChrome = (overrides: Partial<BrowserSetupDependencies> = {}) =>
+    deps({ findSystemBrowser: vi.fn(async () => "chrome" as const), ...overrides });
+  const shown = (d: BrowserSetupDependencies) => vi.mocked(d.log).mock.calls.map(([message]) => message).join("\n");
+
+  it("offers download or the system browser and downloads on Enter", async () => {
+    const d = withChrome();
+    await expect(ensureRenderBrowsers("required", d, "chromium", offer)).resolves.toBe("chromium");
+    expect(d.ask).toHaveBeenCalledOnce();
+    expect(d.confirm).not.toHaveBeenCalled();
+    expect(d.install).toHaveBeenCalledOnce();
+    expect(shown(d)).toContain("550 MB");
+    expect(shown(d)).toMatch(/1\. Download Chromium now \(recommended\)/);
+    expect(shown(d)).toMatch(/2\. Export now with Google Chrome: no download/);
+  });
+
+  it.each(["1", "y", "Yes"])("downloads on %j like the other yes/no prompts", async (answer) => {
+    const d = withChrome({ ask: vi.fn(async () => answer) });
+    await expect(ensureRenderBrowsers("required", d, "chromium", offer)).resolves.toBe("chromium");
+    expect(d.install).toHaveBeenCalledOnce();
+  });
+
+  it("returns the system channel without downloading when the user picks it", async () => {
+    const d = withChrome({ findSystemBrowser: vi.fn(async () => "msedge" as const), ask: vi.fn(async () => "2") });
+    await expect(ensureRenderBrowsers("required", d, "chromium", offer)).resolves.toBe("msedge");
+    expect(d.install).not.toHaveBeenCalled();
+    expect(shown(d)).toContain("Microsoft Edge");
+  });
+
+  it("fails with both the install command and the system-browser command on any other answer", async () => {
+    const d = withChrome({ ask: vi.fn(async () => "n") });
+    const failure = ensureRenderBrowsers("required", d, "chromium", offer);
+    await expect(failure).rejects.toThrow(installHelp("9.9.9"));
+    await expect(failure).rejects.toThrow("screenshots export --browser chrome");
+    expect(d.install).not.toHaveBeenCalled();
+  });
+
+  it("keeps the plain download question when no system browser is found", async () => {
+    const d = deps();
+    await ensureRenderBrowsers("required", d, "chromium", offer);
+    expect(d.findSystemBrowser).toHaveBeenCalledOnce();
+    expect(d.ask).not.toHaveBeenCalled();
+    expect(d.confirm).toHaveBeenCalledOnce();
+  });
+
+  it("never probes or prompts without a TTY", async () => {
+    const d = withChrome({ interactive: false });
+    await expect(ensureRenderBrowsers("required", d, "chromium", offer)).rejects.toThrow("screenshots setup");
+    expect(d.findSystemBrowser).not.toHaveBeenCalled();
+    expect(d.ask).not.toHaveBeenCalled();
+  });
+
+  it("does not offer it when Chromium is installed or the caller did not ask", async () => {
+    const present = withChrome({ detect: () => ({ missing: false }) });
+    await expect(ensureRenderBrowsers("required", present, "chromium", offer)).resolves.toBe("chromium");
+    expect(present.findSystemBrowser).not.toHaveBeenCalled();
+
+    const notOffered = withChrome();
+    await ensureRenderBrowsers("required", notOffered);
+    expect(notOffered.findSystemBrowser).not.toHaveBeenCalled();
+    expect(notOffered.ask).not.toHaveBeenCalled();
+  });
+
+  it("offers it on export only, not on check --render", async () => {
+    const declined = () => withChrome({ ask: vi.fn(async () => "n"), confirm: vi.fn(async () => false) });
+    const exporting = declined();
+    await expect(dispatchCommand("export", [], { storeSpecsPath: "/s.json", browserSetup: exporting })).rejects.toThrow();
+    expect(exporting.ask).toHaveBeenCalledOnce();
+
+    const checking = declined();
+    await expect(dispatchCommand("check", ["--render"], { storeSpecsPath: "/s.json", browserSetup: checking })).rejects.toThrow();
+    expect(checking.ask).not.toHaveBeenCalled();
+    expect(checking.confirm).toHaveBeenCalledOnce();
+  });
+
+  it("names a system browser in the export summary and leaves the pinned default implicit", () => {
+    expect(exportedWith("chrome")).toBe(" with Google Chrome (system browser)");
+    expect(exportedWith("msedge")).toBe(" with Microsoft Edge (system browser)");
+    expect(exportedWith("chromium")).toBe("");
+    expect(exportedWith("auto")).toBe("");
   });
 });
 
@@ -225,11 +311,11 @@ describe("browser choice", () => {
       const d = deps({ interactive: false });
       await ensureRenderBrowsers("required", d, "chrome");
       await ensureRenderBrowsers("required", d, "msedge");
-      expect(d.hasSystemBrowser).not.toHaveBeenCalled();
+      expect(d.findSystemBrowser).not.toHaveBeenCalled();
     });
 
     it("auto passes without a download when a system browser exists", async () => {
-      const d = deps({ interactive: false, hasSystemBrowser: vi.fn(async () => true) });
+      const d = deps({ interactive: false, findSystemBrowser: vi.fn(async () => "chrome" as const) });
       await ensureRenderBrowsers("required", d, "auto");
       expect(d.install).not.toHaveBeenCalled();
     });
@@ -245,7 +331,7 @@ describe("browser choice", () => {
     it("chromium never probes for system browsers", async () => {
       const d = deps({ interactive: false });
       await expect(ensureRenderBrowsers("required", d, "chromium")).rejects.toThrow("screenshots setup");
-      expect(d.hasSystemBrowser).not.toHaveBeenCalled();
+      expect(d.findSystemBrowser).not.toHaveBeenCalled();
     });
 
     it("dispatches --browser and SCREENSHOTS_BROWSER to the guard", async () => {
@@ -259,7 +345,7 @@ describe("browser choice", () => {
       const flagged = guarded();
       await expect(run(["--browser", "chrome"], flagged)).rejects.not.toThrow("screenshots setup");
       expect(flagged.detect).not.toHaveBeenCalled();
-      expect(flagged.hasSystemBrowser).not.toHaveBeenCalled();
+      expect(flagged.findSystemBrowser).not.toHaveBeenCalled();
 
       vi.stubEnv("SCREENSHOTS_BROWSER", "msedge");
       try {
