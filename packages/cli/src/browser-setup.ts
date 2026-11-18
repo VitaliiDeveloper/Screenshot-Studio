@@ -185,7 +185,7 @@ export async function askYesNo(question: string): Promise<boolean> {
   return /^(y(es)?)?$/i.test(await askLine(question));
 }
 
-/** Download (Enter or 1), export with the system browser (2), or anything else to cancel. */
+/** Download (Enter, 1, or y as in the other prompts), export with the system browser (2), or anything else to cancel. */
 async function chooseDownloadOrSystem(deps: BrowserSetupDependencies, channel: SystemChannel): Promise<"download" | "system" | "cancel"> {
   const name = SYSTEM_BROWSER_NAMES[channel];
   deps.log([
@@ -194,7 +194,7 @@ async function chooseDownloadOrSystem(deps: BrowserSetupDependencies, channel: S
     `  2. Export now with ${name}: no download, but text can render slightly differently and can change when ${name} updates.`,
   ].join("\n"));
   const answer = await deps.ask("Choose 1 or 2 [1]: ");
-  if (answer === "" || answer === "1") return "download";
+  if (/^(1|y(es)?)?$/i.test(answer)) return "download";
   return answer === "2" ? "system" : "cancel";
 }
 

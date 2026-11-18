@@ -154,6 +154,12 @@ describe("first export with a system browser installed", () => {
     expect(shown(d)).toMatch(/2\. Export now with Google Chrome: no download/);
   });
 
+  it.each(["1", "y", "Yes"])("downloads on %j like the other yes/no prompts", async (answer) => {
+    const d = withChrome({ ask: vi.fn(async () => answer) });
+    await expect(ensureRenderBrowsers("required", d, "chromium", offer)).resolves.toBe("chromium");
+    expect(d.install).toHaveBeenCalledOnce();
+  });
+
   it("returns the system channel without downloading when the user picks it", async () => {
     const d = withChrome({ findSystemBrowser: vi.fn(async () => "msedge" as const), ask: vi.fn(async () => "2") });
     await expect(ensureRenderBrowsers("required", d, "chromium", offer)).resolves.toBe("msedge");
