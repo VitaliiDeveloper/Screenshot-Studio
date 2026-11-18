@@ -106,12 +106,27 @@ On macOS with Homebrew, which installs Node.js 24 for the CLI, replace the first
 brew install vitaliideveloper/tap/screenshot-studio
 ```
 
-`screenshots setup` downloads the Chromium build that exact exports use (about 550 MB, once).
+`screenshots setup` downloads the Chromium build that exact exports use (about 550 MB, once). To
+skip the download, export with a Chrome or Edge you already have: the first interactive
+`screenshots export` offers that choice, and `--browser chrome` or `--browser msedge` selects it
+directly. The download stays the default because only it makes exports reproducible
+([details](#installed-cli)).
 `ss-studio` opens the project library at `http://localhost:4747`: choose **New project** and a
 built-in starter, or use **Import** to create a managed copy of an existing Folder, project ZIP, or
 complete `app-store-screenshots.json` project. `ss-studio .` opens the project in the current
 folder, or offers to create one. [Installed CLI](#installed-cli) covers the flags, updates, and
 where data is kept.
+
+To try it without a global install, run the same commands through `npx`:
+
+```bash
+npx @screenshot-studio/cli
+```
+
+That starts the editor; `npx @screenshot-studio/cli export --browser chrome` exports the project
+in the current folder with an installed Chrome instead of the download, and
+`npx @screenshot-studio/cli setup` downloads the pinned Chromium. Commands below that start with
+`screenshots` work the same way with `npx @screenshot-studio/cli` in their place.
 
 ### From source
 
@@ -530,9 +545,11 @@ set. `screenshots dev --project` still starts an editor pinned to one project.
 
 `screenshots setup` downloads the Chromium builds (about 550 MB, in Playwright's shared per-user
 cache) using the Playwright version the CLI depends on; it is safe to re-run. Without it,
-`screenshots export` asks before downloading on first use and, in CI or other non-interactive
-runs, exits with the install command instead of downloading. Exporting from the editor without it
-shows the `screenshots setup` command. On Linux, Chromium may also need Playwright's
+`screenshots export` asks before downloading on first use; when Chrome or Edge is installed, it
+offers a choice between the download (recommended) and exporting now with that browser, and the
+summary then names the browser it used. In CI or other non-interactive runs it exits with the
+install command instead of downloading or asking. Exporting from the editor without it shows both
+options: `screenshots setup`, or `screenshots export --browser auto` in a terminal. On Linux, Chromium may also need Playwright's
 [system packages](https://playwright.dev/docs/browsers#install-system-dependencies).
 
 To skip the download, `screenshots export` can use a Chrome or Edge you already have installed:

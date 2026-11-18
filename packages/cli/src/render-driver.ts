@@ -81,8 +81,10 @@ function errorsTogether(primary: unknown, cleanup: unknown, action: string): Agg
 // The editor shows this to people who never ran a terminal command: Playwright's own message
 // suggests an unpinned `npx playwright install`, which may fetch a build this CLI does not use.
 export const MISSING_CHROMIUM_MESSAGE = "Rendering screenshots needs Chromium, which is not installed yet. "
-  + "Run `screenshots setup` in a terminal (`pnpm screenshots setup` in a source checkout) to download it once "
-  + "(about 550 MB), then try again.";
+  + "Recommended: run `screenshots setup` in a terminal (`pnpm screenshots setup` in a source checkout) to download it once "
+  + "(about 550 MB), then try again; every export then matches this editor exactly. "
+  + "To skip the download, export from your own terminal with an installed Chrome or Edge instead: "
+  + "`screenshots export --browser auto` (text can render slightly differently and can change when that browser updates).";
 
 function missingChromium(error: unknown): Error {
   return new Error(MISSING_CHROMIUM_MESSAGE, { cause: error });

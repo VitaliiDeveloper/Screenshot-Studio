@@ -23,7 +23,7 @@ import {
   SCREEN_DEVICES_BY_PLATFORM,
   type Screen,
 } from "@screenshot-studio/core/model";
-import { resolveBrowserChoice } from "./browser-setup.js";
+import { exportedWith, resolveBrowserChoice } from "./browser-setup.js";
 import { closeAll, failWhenServerExits, runWithCleanup } from "./cli-runtime.js";
 import {
   exportBundle,
@@ -176,7 +176,7 @@ export async function runExportCommand(
           bytes: png,
           replace: true,
         }));
-        log(`Exported ${publication.path} (${target.width}x${target.height})`);
+        log(`Exported ${publication.path} (${target.width}x${target.height})${exportedWith(browser)}`);
       });
     }, () => server.stop());
     return;
@@ -223,7 +223,7 @@ export async function runExportCommand(
         profile,
         project: context.project,
       }));
-      log(`Exported ${entries.length} screenshots to ${outDir}`);
+      log(`Exported ${entries.length} screenshots to ${outDir}${exportedWith(browser)}`);
       log(`Wrote bundle ${zipPath}`);
     });
   }, () => closeAll([
