@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Element } from "@screenshot-studio/core/model";
-import sharp from "sharp";
+import sharp, { type Sharp } from "sharp";
 import { verifyNativePixels } from "./native-pixel-check.js";
 
 const roots: string[] = [];
@@ -22,12 +22,16 @@ function sourcePixels(alpha = 255): Buffer {
   return data;
 }
 
-async function project(source: sharp.Sharp): Promise<string> {
+async function project(source: Sharp): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "native-pixels-"));
   roots.push(root);
   await mkdir(join(root, "assets"));
   await writeFile(join(root, "assets", "shot.png"), await source.png().toBuffer());
   return root;
+}
+
+function flipLowBit(rgb: Buffer, index: number): void {
+  rgb[index] = rgb.readUInt8(index) ^ 1;
 }
 
 const raw = (data: Buffer) => sharp(data, { raw: { ...SOURCE, channels: 4 } });
@@ -65,7 +69,7 @@ describe("verifyNativePixels", () => {
   it("fails on one changed pixel and names the screen, layer and first difference", async () => {
     const root = await project(raw(sourcePixels()));
     const png = await finished((rgb) => {
-      rgb[(3 * 8 + 4) * 3] ^= 1;
+      flipLowBit(rgb, (3 * 8 + 4) * 3);
     });
     await expect(verifyNativePixels({ png, screen: screen(), pixelRatio: 1, root }))
       .rejects.toThrow(/Screen "Hero" \(hero\): 1:1 screenshot "shot" differs from its source in 1 pixel\(s\), first at \(2, 2\)/);
@@ -92,7 +96,7 @@ describe("verifyNativePixels", () => {
   it("points at an embedded color profile when pixels differ", async () => {
     const root = await project(raw(sourcePixels()).withIccProfile("p3"));
     const png = await finished((rgb) => {
-      rgb[(1 * 8 + 2) * 3] ^= 1;
+      flipLowBit(rgb, (1 * 8 + 2) * 3);
     });
     await expect(verifyNativePixels({ png, screen: screen(), pixelRatio: 1, root }))
       .rejects.toThrow(/embedded color profile/);
