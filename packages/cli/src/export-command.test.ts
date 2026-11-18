@@ -143,6 +143,18 @@ describe("runExportCommand stable single export", () => {
     expect(render.mock.calls.map(([options]) => options.browser)).toEqual(["chromium", "msedge", "chromium"]);
   });
 
+  it("names the system browser in the export summary", async () => {
+    const fixture = await projectFixture();
+    const runtime = commandDependencies(vi.fn(async () => Buffer.from("rendered png")));
+    await runExportCommand({
+      project: fixture.path,
+      screen: "hero",
+      out: join(fixture.root, "output"),
+      browser: "chrome",
+    }, storeSpecsPath, runtime.dependencies);
+    expect(runtime.log).toHaveBeenCalledWith(expect.stringMatching(/^Exported .* \(\d+x\d+\) with Google Chrome \(system browser\)$/));
+  });
+
   it("opens the bundle render session with the chosen browser", async () => {
     const fixture = await projectFixture();
     const runtime = commandDependencies(vi.fn());

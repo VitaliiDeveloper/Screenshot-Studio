@@ -53,6 +53,11 @@ export const SYSTEM_BROWSER_NAMES: Record<SystemChannel, string> = {
   msedge: "Microsoft Edge",
 };
 
+/** Export summary suffix naming an explicit system browser; the pinned default stays implicit. */
+export function exportedWith(choice: BrowserChoice): string {
+  return choice === "chrome" || choice === "msedge" ? ` with ${SYSTEM_BROWSER_NAMES[choice]} (system browser)` : "";
+}
+
 /** Playwright throws "Chromium distribution '<channel>' is not found at <path>" for an absent channel. */
 export function isMissingChannelError(error: unknown): boolean {
   return error instanceof Error && /distribution '[^']+' is not (found|supported)/.test(error.message);
@@ -111,10 +116,11 @@ export interface BrowserSetupDependencies {
   interactive: boolean;
   playwrightVersion: string;
   detect: () => BrowserStatus;
-  /** True when a system browser for `auto` can be launched (or fails for a reason other than absence). */
-  hasSystemBrowser: () => Promise<boolean>;
+  /** First system browser for `auto` that launches (or fails for a reason other than absence). */
+  findSystemBrowser: () => Promise<SystemChannel | undefined>;
   install: () => Promise<void>;
   confirm: (question: string) => Promise<boolean>;
+  ask: (question: string) => Promise<string>;
   log: (message: string) => void;
 }
 
@@ -141,16 +147,16 @@ function defaultDependencies(): BrowserSetupDependencies {
         ...(locations[0] ? { cacheDir: dirname(locations[0]) } : {}),
       };
     },
-    async hasSystemBrowser() {
+    async findSystemBrowser() {
       for (const channel of systemChannels("auto")) {
         try {
           await (await chromium.launch({ channel })).close();
-          return true;
+          return channel;
         } catch (error) {
-          if (!isMissingChannelError(error)) return true;
+          if (!isMissingChannelError(error)) return channel;
         }
       }
-      return false;
+      return undefined;
     },
     install: () => new Promise((resolve, reject) => {
       const child = spawn(process.execPath, [playwright.cliPath, "install", ...BROWSERS], { stdio: "inherit" });
@@ -161,17 +167,35 @@ function defaultDependencies(): BrowserSetupDependencies {
       });
     }),
     confirm: askYesNo,
+    ask: askLine,
     log: (message) => console.log(message),
   };
 }
 
-export async function askYesNo(question: string): Promise<boolean> {
+export async function askLine(question: string): Promise<string> {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   try {
-    return /^(y(es)?)?$/i.test((await rl.question(question)).trim());
+    return (await rl.question(question)).trim();
   } finally {
     rl.close();
   }
+}
+
+export async function askYesNo(question: string): Promise<boolean> {
+  return /^(y(es)?)?$/i.test(await askLine(question));
+}
+
+/** Download (Enter or 1), export with the system browser (2), or anything else to cancel. */
+async function chooseDownloadOrSystem(deps: BrowserSetupDependencies, channel: SystemChannel): Promise<"download" | "system" | "cancel"> {
+  const name = SYSTEM_BROWSER_NAMES[channel];
+  deps.log([
+    `${name} is installed, so you can export without the download:`,
+    "  1. Download Chromium now (recommended): exports match the editor and other machines exactly.",
+    `  2. Export now with ${name}: no download, but text can render slightly differently and can change when ${name} updates.`,
+  ].join("\n"));
+  const answer = await deps.ask("Choose 1 or 2 [1]: ");
+  if (answer === "" || answer === "1") return "download";
+  return answer === "2" ? "system" : "cancel";
 }
 
 function describeDownload(version: string, cacheDir: string | undefined): string {
@@ -179,35 +203,51 @@ function describeDownload(version: string, cacheDir: string | undefined): string
     + ` stored in ${cacheDir ?? "Playwright's shared browser cache"}.`;
 }
 
+export interface EnsureRenderBrowsersOptions {
+  /**
+   * Lets an interactive user export with an installed Chrome or Edge instead of downloading.
+   * Only for callers that render with the returned choice (`export`); upload and `check --render`
+   * stay on the pinned build.
+   */
+  offerSystemBrowser?: boolean;
+}
+
 /**
- * Make sure the render browsers exist before a command launches Chromium. `required` commands
- * (export) fail when the browsers are missing and cannot be installed with consent; `optional`
- * commands (dev: only UI export needs Chromium) warn and carry on.
+ * Make sure the render browsers exist before a command launches Chromium and return the browser
+ * to render with. `required` commands (export) fail when the browsers are missing and cannot be
+ * installed with consent; `optional` commands (dev: only UI export needs Chromium) warn and carry on.
  */
 export async function ensureRenderBrowsers(
   mode: "required" | "optional",
   deps: BrowserSetupDependencies = defaultDependencies(),
   browser: BrowserChoice = DEFAULT_BROWSER_CHOICE,
-): Promise<void> {
+  { offerSystemBrowser = false }: EnsureRenderBrowsersOptions = {},
+): Promise<BrowserChoice> {
   // An explicit system browser never needs the download; the launch reports it if it is absent.
-  if (browser === "chrome" || browser === "msedge") return;
+  if (browser === "chrome" || browser === "msedge") return browser;
   const status = deps.detect();
-  if (!status.missing) return;
-  if (browser === "auto" && await deps.hasSystemBrowser()) return;
+  if (!status.missing) return browser;
+  if (browser === "auto" && await deps.findSystemBrowser()) return browser;
 
   const missingMessage = `Playwright's Chromium browsers are not installed. They download once per machine: ${describeDownload(deps.playwrightVersion, status.cacheDir)}`;
-  const help = installHelp(deps.playwrightVersion);
+  let help = installHelp(deps.playwrightVersion);
   if (deps.interactive) {
     deps.log(missingMessage);
-    if (await deps.confirm("Download them now? [Y/n] ")) {
+    const system = offerSystemBrowser && browser === "chromium" ? await deps.findSystemBrowser() : undefined;
+    const choice = system
+      ? await chooseDownloadOrSystem(deps, system)
+      : await deps.confirm("Download them now? [Y/n] ") ? "download" : "cancel";
+    if (choice === "download") {
       await deps.install();
       deps.log("Browsers installed.");
-      return;
+      return browser;
     }
+    if (choice === "system") return system!;
+    if (system) help += `\nOr export with ${SYSTEM_BROWSER_NAMES[system]} without the download: screenshots export --browser ${system}`;
   }
   if (mode === "optional") {
     deps.log(`${deps.interactive ? "Skipped browser download." : missingMessage} Exporting from the editor needs them.\n${help}`);
-    return;
+    return browser;
   }
   throw new Error(`${deps.interactive ? "Browser download declined." : missingMessage}\n${help}`);
 }

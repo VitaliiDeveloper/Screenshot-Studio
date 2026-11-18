@@ -266,7 +266,8 @@ describe("check dispatch", () => {
     detect: vi.fn(() => ({ missing: true as const, cacheDir: "/cache/ms-playwright" })),
     install: vi.fn(async () => undefined),
     confirm: vi.fn(async () => true),
-    hasSystemBrowser: vi.fn(async () => false),
+    findSystemBrowser: vi.fn(async () => undefined),
+    ask: vi.fn(async () => ""),
     log: vi.fn(),
     ...overrides,
   });

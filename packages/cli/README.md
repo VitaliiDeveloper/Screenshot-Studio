@@ -12,6 +12,10 @@ screenshots setup
 ss-studio
 ```
 
+To try it without a global install, run `npx @screenshot-studio/cli` (the editor), then
+`npx @screenshot-studio/cli export --browser chrome` to export with an installed Chrome instead of
+the download; any `screenshots` command works with `npx @screenshot-studio/cli` in its place.
+
 `ss-studio` is another name for `screenshots`; both run the same CLI. With no command it starts the editor at `http://localhost:4747` and opens the project
 library in your browser, where **New project** and **Import** create projects. Running it again
 while the editor runs opens the same editor instead of starting a second one, and the fixed address
@@ -47,9 +51,10 @@ port.
 
 `screenshots setup` downloads the Chromium builds (about 550 MB, in Playwright's shared per-user
 cache) with the Playwright version this CLI depends on, and is safe to re-run. `export` offers the
-same download on first use when run in a terminal; in CI or piped runs it exits with the install
-command instead. Exporting from the editor without the download shows the `screenshots setup`
-command. On Linux, Chromium may also need Playwright's system packages.
+same download on first use when run in a terminal and, when Chrome or Edge is installed, the choice
+to export now with that browser instead, naming it in the summary; in CI or piped runs it exits
+with the install command instead. Exporting from the editor without the download shows both
+options. On Linux, Chromium may also need Playwright's system packages.
 
 To skip the download, pass `--browser chrome`, `--browser msedge`, or `--browser auto` (the
 downloaded Chromium if present, otherwise installed Chrome, then Edge) to `export`, or set
