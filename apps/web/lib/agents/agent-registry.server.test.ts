@@ -47,12 +47,13 @@ describe("agent detection per platform", () => {
       (await listAgentStatuses({ ...options, platform })).map(({ id, state }) => [id, state]);
 
     expect(await states("linux")).toEqual([
-      ["claude-code", "not-installed"], ["codex", "not-installed"], ["agy", "no-adapter"], ["gemini-cli", "unavailable"],
+      ["claude-code", "not-installed"], ["codex", "not-installed"], ["copilot", "not-installed"],
+      ["opencode", "not-installed"], ["agy", "no-adapter"], ["gemini-cli", "unavailable"],
     ]);
     vi.mocked(spawn).mockClear();
     expect(await states("win32")).toEqual([
       ["claude-code", "unsupported-platform"], ["codex", "unsupported-platform"],
-      ["agy", "no-adapter"], ["gemini-cli", "unavailable"],
+      ["copilot", "unsupported-platform"], ["opencode", "unsupported-platform"], ["agy", "no-adapter"], ["gemini-cli", "unavailable"],
     ]);
     expect(spawn).not.toHaveBeenCalled();
   });
