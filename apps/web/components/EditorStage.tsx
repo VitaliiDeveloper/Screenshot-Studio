@@ -24,7 +24,7 @@ import { applyElementPatchToScope } from "@web/lib/editor/editor-apply-to";
 import { applyTextFit } from "@web/lib/editor/editor-text-fit";
 import { deriveStageModel } from "./editor-stage/stage-model";
 import { useElementTransform } from "./editor-stage/use-element-transform";
-import { elementKeepsAspectRatio } from "./editor-stage/element-transform-model";
+import { elementIsPixelExact, elementKeepsAspectRatio } from "./editor-stage/element-transform-model";
 import { useInlineTextEditing } from "./editor-stage/use-inline-text-editing";
 import { useMarqueeSelection } from "./editor-stage/use-marquee-selection";
 import { transformerAppearance } from "./editor-stage/transformer-appearance";
@@ -383,8 +383,10 @@ export function EditorStage({
                 anchorFill={stageColors.handleFill}
                 anchorStroke={stageColors.selection}
                 borderStroke={stageColors.selection}
-                resizeEnabled={selectedItems.length === 1 && !selectedElement?.locked}
-                rotateEnabled={selectedItems.length === 1 && !selectedElement?.locked}
+                resizeEnabled={selectedItems.length === 1 && !selectedElement?.locked
+                  && !elementIsPixelExact(selectedElement)}
+                rotateEnabled={selectedItems.length === 1 && !selectedElement?.locked
+                  && !elementIsPixelExact(selectedElement)}
                 keepRatio={selectedKeepsAspectRatio}
                 flipEnabled={false}
                 onTransformStart={() => setInteracting(true)}

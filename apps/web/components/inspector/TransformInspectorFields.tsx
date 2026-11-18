@@ -56,6 +56,10 @@ export function TransformInspectorFields({
   const forcedLock = aspectRatioLockForced(element.type);
   const effectiveLocked = effectiveLockedProp ?? element.locked;
   const rotation = normalizeRotation(element.rotation);
+  // A 1:1 screenshot's size comes from its source and it must stay unrotated and opaque; controls
+  // come back only when an edit outside the Inspector broke that, so it can be undone here.
+  const pixelExact = element.type === "screenshot" && element.fit === "native"
+    && element.rotation % 360 === 0 && element.opacity === 1;
   const [ratioLocked, setRatioLocked] = useState(() => defaultAspectRatioLocked(element.type));
 
   const artboardPreviewRef = useRef<HTMLSpanElement>(null);
@@ -154,6 +158,12 @@ export function TransformInspectorFields({
         </div>
       </div>
 
+      {pixelExact ? (
+        <p data-transform-pixel-exact className="text-xs leading-5 text-[color:var(--editor-color-text-secondary)]">
+          {element.width}×{element.height} px. A 1:1 screenshot keeps its source size and stays unrotated
+          and fully opaque.
+        </p>
+      ) : (<>
       <div className="grid grid-cols-[minmax(0,1fr)_2rem_minmax(0,1fr)] items-end gap-2">
         <NumberField
           label="Width"
@@ -254,6 +264,7 @@ export function TransformInspectorFields({
           />
         </div>
       </div>
+      </>)}
     </div>
   );
 }

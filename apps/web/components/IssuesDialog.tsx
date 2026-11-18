@@ -110,15 +110,17 @@ export function IssuesDialog({
                   >
                     Go to
                   </button>
-                  <button
-                    type="button"
-                    aria-label={`${copy.fixLabel}: ${copy.detail}`}
-                    disabled={fixUnavailable}
-                    className={cx(editorUi.buttonPrimary, "!min-h-7 whitespace-nowrap !text-xs")}
-                    onClick={() => applyFix(issue, fitSize)}
-                  >
-                    {copy.fixLabel}
-                  </button>
+                  {copy.fixLabel ? (
+                    <button
+                      type="button"
+                      aria-label={`${copy.fixLabel}: ${copy.detail}`}
+                      disabled={fixUnavailable}
+                      className={cx(editorUi.buttonPrimary, "!min-h-7 whitespace-nowrap !text-xs")}
+                      onClick={() => applyFix(issue, fitSize)}
+                    >
+                      {copy.fixLabel}
+                    </button>
+                  ) : null}
                 </div>
               </li>
             );

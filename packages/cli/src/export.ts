@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { readFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import {
   getScreen,
   type Project,
@@ -159,6 +160,7 @@ export async function exportScreenToPng(opts: ExportScreenOptions): Promise<Buff
   return renderStoreReadyPng({
     screen,
     target,
+    projectRoot: dirname(projectPath),
     render: (pixelRatio) => renderScreenToPng({
       baseUrl,
       projectPath,
@@ -227,6 +229,7 @@ export async function exportBundle({
       const png = await renderStoreReadyPng({
         screen: entry.screen,
         target: entry.target,
+        projectRoot: dirname(projectPath),
         render: (pixelRatio) => renderSession.renderScreenToPng({
           baseUrl,
           projectPath,

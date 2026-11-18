@@ -37,12 +37,12 @@ function pngBytes(): Buffer {
 
 const entries = [
   {
-    screen: { id: "s1", artboard: { width: 1, height: 1 } },
+    screen: { id: "s1", name: "s1", elements: [], artboard: { width: 1, height: 1 } },
     target: { id: "one", width: 1, height: 1 },
     relativePath: "apple/iphone/en/01-one-one.png",
   },
   {
-    screen: { id: "s2", artboard: { width: 1, height: 1 } },
+    screen: { id: "s2", name: "s2", elements: [], artboard: { width: 1, height: 1 } },
     target: { id: "two", width: 1, height: 1 },
     relativePath: "android/phone/uk/02-two-two.png",
   },
@@ -62,8 +62,9 @@ describe("renderStoreReadyPng", () => {
     expect(inspectPng(raw).hasAlpha).toBe(true);
 
     const png = await renderStoreReadyPng({
-      screen: { artboard: { width: 1, height: 1 } },
+      screen: { id: "screen", name: "Screen", elements: [], artboard: { width: 1, height: 1 } },
       target: { width: 2, height: 2 },
+      projectRoot: ".",
       render,
     });
 
@@ -77,8 +78,9 @@ describe("renderStoreReadyPng", () => {
 
   it("rejects rendered PNG dimensions that do not match the target", async () => {
     await expect(renderStoreReadyPng({
-      screen: { artboard: { width: 1, height: 1 } },
+      screen: { id: "screen", name: "Screen", elements: [], artboard: { width: 1, height: 1 } },
       target: { width: 2, height: 2 },
+      projectRoot: ".",
       render: vi.fn(async () => pngBytes()),
     })).rejects.toThrow(/Export dimension mismatch: got 1×1, expected 2×2/);
   });

@@ -127,7 +127,7 @@ export function EditorWorkspace({ expectedProjectId }: { expectedProjectId: stri
   );
   // Fallback-font metrics would report false overflow, so measure only with every project font loaded.
   const textMeasured = Boolean(images && specs) && fontWarnings.length === 0 && !fontRetrying;
-  const issues = useEditorIssues(textMeasured, images);
+  const issues = useEditorIssues(textMeasured, images, specs);
   const issueCounts = useMemo(() => countIssues(issues), [issues]);
   const canPlay = useStore(editorStore, (state) =>
     specs ? playEntries(state.project, state.activeLayoutId, state.activeScreenId, specs).length > 0 : false);

@@ -87,6 +87,22 @@ describe("editor issues copy", () => {
     });
   });
 
+  it("explains a 1:1 screenshot issue and offers only Go to", () => {
+    expect(issueRowCopy(project, {
+      kind: "native-placement",
+      id: "native-placement:hero:title",
+      level: "blocker",
+      layoutId: "default",
+      screenId: "hero",
+      elementId: "title",
+      reasons: ["fractional-position", "covered"],
+    })).toEqual({
+      title: "1:1 screenshot cannot be exported pixel-exact: its position is not on whole pixels; another layer is drawn over it",
+      detail: expect.stringMatching(/^Headline · Hero · iPhone/),
+      fixLabel: null,
+    });
+  });
+
   it("names an unnamed text layer by its text, as the layers tree does", () => {
     const overflow = issues.find((issue): issue is Extract<ProjectIssue, { kind: "text-overflow" }> =>
       issue.kind === "text-overflow"

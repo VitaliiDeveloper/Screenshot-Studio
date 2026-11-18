@@ -7,6 +7,7 @@ import {
   findStoreTarget,
   leadStoreSizeId,
   parseStoreSpecs,
+  screenExportScale,
   validateBundleArtboards,
   type BundleEntry,
   type StoreSpecs,
@@ -21,10 +22,11 @@ import {
   type Screen,
 } from "@screenshot-studio/core/model";
 import { readIdentifiedProjectSnapshot, resolveExistingProjectPath } from "@screenshot-studio/core/storage";
-import { collectLayoutIssues, type IssueLevel, type ProjectIssue } from "@screenshot-studio/core/validation";
+import { collectLayoutIssues, nativePlacementMessage, type IssueLevel, type ProjectIssue } from "@screenshot-studio/core/validation";
 import { assertInside } from "./asset-service.js";
 import { failWhenServerExits, runWithCleanup } from "./cli-runtime.js";
 import { resolveProjectPath } from "./project-io.js";
+import { nativeImageSizes } from "./native-pixel-check.js";
 import { collectRenderedLayoutIssues } from "./render-driver.js";
 import { startWebServer } from "./server.js";
 
@@ -141,7 +143,9 @@ function fromEngine(issue: ProjectIssue, project: Project, specs: StoreSpecs): C
       ? `Image missing from the project folder: ${issue.assetUrl}`
       : issue.kind === "unequal-connected-artboard"
         ? `Artboard differs from its connected strip (${issue.stripArtboard.width}×${issue.stripArtboard.height}), so seams mix scales`
-        : "Text overflows its layer box",
+        : issue.kind === "native-placement"
+          ? nativePlacementMessage(issue.reasons)
+          : "Text overflows its layer box",
     layoutId: issue.layoutId,
     screenId: screen.id,
     size: screenSizeId(screen, specs),
@@ -266,6 +270,10 @@ export async function collectCheckReport(
   const fonts = await fontIssues(project, layoutId, root);
   const preflight = exportPreflightIssues(project, layoutId, specs);
   const notes: string[] = [];
+  const exportScales = Object.fromEntries(getLayout(project, layoutId).screens.flatMap((screen) => {
+    const scale = screenExportScale(specs, screen);
+    return scale === undefined ? [] : [[screen.id, scale] as const];
+  }));
 
   let engine: ProjectIssue[];
   let textMeasured = false;
@@ -278,11 +286,17 @@ export async function collectCheckReport(
       projectPath,
       projectRevision: revision,
       layoutId,
+      exportScales,
     })), () => server.stop());
     textMeasured = true;
   } else {
     if (flags.render === "true") notes.push("Text overflow was not measured: fix the font blockers first.");
-    engine = collectLayoutIssues(project, layoutId, { imageMissing: await nodeImageMissing(project, layoutId, root) });
+    const imageSizes = await nativeImageSizes(project, layoutId, root);
+    engine = collectLayoutIssues(project, layoutId, {
+      imageMissing: await nodeImageMissing(project, layoutId, root),
+      imageSize: (assetUrl) => imageSizes.get(assetUrl),
+      exportScale: (screen) => exportScales[screen.id],
+    });
   }
 
   const issues = [...fonts, ...engine.map((issue) => fromEngine(issue, project, specs)), ...preflight];

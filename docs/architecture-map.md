@@ -123,7 +123,7 @@ The map shows placement only. How the packages depend on each other is in
 | Project commands | `init.ts`, `*-commands.ts`, `schema-command.ts`, `csv.ts`, `direction.ts` | Structural edits: layouts, screens, elements, locales, copy, assets, fonts, templates, themes, publishing ids; printing the project JSON Schema |
 | Resource services | `*-service.ts`, `project-io.ts`, `font-validation.ts`, `system-fonts.ts`, `managed-definition-store.ts` | Resource files and locked project writes |
 | Render host | `server.ts`, `packaged-render-host.ts`, `render-driver.ts`, `render-host-readiness.ts`, `browser-setup.ts`, `render-through-editor.ts`, `launch-command.ts`, `dev-command.ts` | Starting the web host and driving `/render` with Playwright |
-| Export | `export-command.ts`, `export.ts`, `check-command.ts`, `web-share.ts`, `fastlane-*.ts`, `store-ready-png.ts` | Bundles, profiles, `check --render` |
+| Export | `export-command.ts`, `export.ts`, `check-command.ts`, `web-share.ts`, `fastlane-*.ts`, `store-ready-png.ts`, `native-pixel-check.ts` | Bundles, profiles, `check --render`, 1:1 pixel verification |
 | Store upload | `upload-command.ts`, `app-store-upload-command.ts`, `store-upload-plan.ts`, `google-play-client.ts`, `app-store-connect-client.ts`, `store-credential-env.ts` | Human-only upload to Google Play and App Store Connect |
 | Capture import | `import-command.ts`, `capture-import-transaction.ts`, `capture-import-recovery.ts` | Import transaction and crash recovery |
 | File publication | `safe-file/`, `safe-file-publisher.ts`, `bundle-publisher.ts`, `managed-resource-file.ts`, `read-capped-body.ts` | [Safe file publication](safe-file-publication.md) |

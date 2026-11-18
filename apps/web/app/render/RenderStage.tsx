@@ -22,7 +22,7 @@ declare global {
     /** Returns a PNG data URL of the current stage at the given pixelRatio. */
     __exportPng?: (pixelRatio: number) => string;
     /** The core Issues engine for the layout, measured with the fonts and images this stage loaded. */
-    __collectIssues?: () => ProjectIssue[];
+    __collectIssues?: (exportScales?: Record<string, number>) => ProjectIssue[];
   }
 }
 
@@ -71,8 +71,10 @@ export function RenderStage({
         window.__exportPng = (pixelRatio: number) =>
           stage!.toDataURL({ pixelRatio, mimeType: "image/png" });
         // Same checks as the editor's Issues; lazy so export renders never measure every layer.
-        window.__collectIssues = () => collectLayoutIssues(project, layoutId, {
+        window.__collectIssues = (exportScales) => collectLayoutIssues(project, layoutId, {
           imageMissing: (assetUrl) => !images.has(assetUrl),
+          imageSize: (assetUrl) => images.get(assetUrl),
+          exportScale: exportScales ? (screen) => exportScales[screen.id] : undefined,
           textOverflows: (element, screen) => textOverflows(element, screen.direction),
         });
         window.__stageReady = true;

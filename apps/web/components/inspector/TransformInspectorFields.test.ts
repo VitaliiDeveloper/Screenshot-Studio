@@ -67,6 +67,21 @@ describe("TransformInspectorFields", () => {
     expect(markup).toMatch(/aria-label="Rotation"[^>]*value="354"/);
   });
 
+  it("replaces size, rotation and opacity with a note for a clean 1:1 screenshot", () => {
+    const render = (element: ScreenshotElement) => renderToStaticMarkup(React.createElement(TransformInspectorFields, {
+      element,
+      artboard: { width: 1290, height: 2796 },
+      onChange: vi.fn(),
+      onInteractionEnd: vi.fn(),
+    }));
+    const clean = render({ ...screenshot, fit: "native", rotation: 0, cornerRadius: 0 });
+    expect(clean).toContain("data-transform-pixel-exact");
+    expect(clean).not.toContain('aria-label="Rotation dial"');
+    expect(clean).not.toContain('aria-label="Width"');
+    expect(clean).toContain('aria-label="X"');
+    expect(render({ ...screenshot, fit: "native", cornerRadius: 0 })).toContain('aria-label="Rotation dial"');
+  });
+
   it("forces ratio lock for device frames", () => {
     const markup = renderToStaticMarkup(React.createElement(TransformInspectorFields, {
       element: {
@@ -75,6 +90,7 @@ describe("TransformInspectorFields", () => {
         type: "device-frame",
         deviceType: "android-phone",
         assetUrl: undefined,
+        fit: "cover",
       },
       artboard: { width: 1290, height: 2796 },
       onChange: vi.fn(),

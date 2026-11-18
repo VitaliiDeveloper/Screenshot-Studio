@@ -63,7 +63,7 @@ const PATCH_KEYS: { [T in Element["type"]]: ReadonlyArray<keyof ElementPatchFor<
     "align", "verticalAlign", "color", "shadow",
   ],
   shape: [...COMMON_PATCH_KEYS, "role", "kind", "fill", "radius", "gradient", "stroke"],
-  screenshot: [...COMMON_PATCH_KEYS, ...MEDIA_PATCH_KEYS],
+  screenshot: [...COMMON_PATCH_KEYS, ...MEDIA_PATCH_KEYS, "nativeInsets"],
   image: [...COMMON_PATCH_KEYS, ...MEDIA_PATCH_KEYS],
   icon: [...COMMON_PATCH_KEYS, "icon", "color", "strokeWidth"],
   "device-frame": [...COMMON_PATCH_KEYS, "assetUrl", "fit", "deviceType", "blur"],

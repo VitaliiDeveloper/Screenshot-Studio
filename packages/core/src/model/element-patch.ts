@@ -8,6 +8,7 @@ import {
   type ImageElement,
   type LinearGradientPaint,
   type MediaCrop,
+  type NativeInsets,
   type ScreenshotElement,
   type ShapeElement,
   type ShapeStroke,
@@ -34,6 +35,7 @@ type ShapePatch = Partial<Pick<ShapeElement, "kind" | "fill" | "radius">> & {
 type ScreenshotPatch = Partial<Pick<ScreenshotElement, "assetUrl" | "fit" | "cornerRadius">> & {
   crop?: MediaCrop | null;
   blur?: number | null;
+  nativeInsets?: NativeInsets | null;
 };
 type ImagePatch = Partial<Pick<ImageElement, "assetUrl" | "fit" | "cornerRadius">> & {
   crop?: MediaCrop | null;
@@ -138,6 +140,10 @@ export function applyElementPatch(element: Element, patch: ElementPatch): void {
       else if (typedPatch.crop !== undefined) element.crop = typedPatch.crop;
       if (typedPatch.blur === null) delete element.blur;
       else if (typedPatch.blur !== undefined) element.blur = typedPatch.blur;
+      if (typedPatch.nativeInsets === null) delete element.nativeInsets;
+      else if (typedPatch.nativeInsets !== undefined) element.nativeInsets = typedPatch.nativeInsets;
+      // Insets exist only in 1:1 mode (schema rule), so leaving it drops them.
+      if (element.fit !== "native") delete element.nativeInsets;
       return;
     }
     case "image": {

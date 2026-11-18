@@ -5,6 +5,7 @@ import { useMemo } from "react";
 import { useStore } from "zustand";
 import type { ImageCache } from "@screenshot-studio/core/assets";
 import { textOverflows } from "@screenshot-studio/core/engine";
+import { screenExportScale, type StoreSpecs } from "@screenshot-studio/core/export";
 import { collectLayoutIssues, type ProjectIssue } from "@screenshot-studio/core/validation";
 import { editorStore } from "@web/lib/editor/editor-store";
 
@@ -16,7 +17,11 @@ const MAX_CACHED_MEASUREMENTS = 2000;
  * renderer lays out and dropped whenever the project's fonts change. Missing images are read from
  * the editor's image cache once it has loaded (null until then).
  */
-export function useEditorIssues(fontsSettled: boolean, images: ImageCache | null): ProjectIssue[] {
+export function useEditorIssues(
+  fontsSettled: boolean,
+  images: ImageCache | null,
+  specs: StoreSpecs | null = null,
+): ProjectIssue[] {
   const project = useStore(editorStore, (state) => state.project);
   const layoutId = useStore(editorStore, (state) => state.activeLayoutId);
   const fonts = project?.fonts;
@@ -26,6 +31,8 @@ export function useEditorIssues(fontsSettled: boolean, images: ImageCache | null
     if (!project || !layoutId) return [];
     return collectLayoutIssues(project, layoutId, {
       imageMissing: images ? (assetUrl) => !images.has(assetUrl) : undefined,
+      imageSize: images ? (assetUrl) => images.get(assetUrl) : undefined,
+      exportScale: specs ? (screen) => screenExportScale(specs, screen) : undefined,
       textOverflows: fontsSettled ? (element, screen) => {
         const key = JSON.stringify([
           screen.direction,
@@ -46,5 +53,5 @@ export function useEditorIssues(fontsSettled: boolean, images: ImageCache | null
         return overflows;
       } : undefined,
     });
-  }, [cache, fontsSettled, images, layoutId, project]);
+  }, [cache, fontsSettled, images, layoutId, project, specs]);
 }

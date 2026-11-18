@@ -135,13 +135,25 @@ export const ShapeElement = z
   .strict();
 export type ShapeElement = z.infer<typeof ShapeElement>;
 
+/** Edge crop of a `native` screenshot, in whole source pixels (status bar, home indicator). */
+export const NativeInsets = z.object({
+  top: z.number().int().min(0).default(0),
+  right: z.number().int().min(0).default(0),
+  bottom: z.number().int().min(0).default(0),
+  left: z.number().int().min(0).default(0),
+}).strict();
+export type NativeInsets = z.infer<typeof NativeInsets>;
+
 export const ScreenshotElement = z
   .object({
     type: z.literal("screenshot"),
     ...leafBase,
     /** Portable project-relative path to the image, served by the web-host asset route. */
     assetUrl: ProjectRelativePath,
-    fit: z.enum(["cover", "contain"]).default("cover"),
+    /** `native` draws source pixels 1:1 without resampling; export verifies them (docs/architecture.md). */
+    fit: z.enum(["cover", "contain", "native"]).default("cover"),
+    /** Allowed only with `fit: "native"`. */
+    nativeInsets: NativeInsets.optional(),
     cornerRadius: z.number().min(0).default(0),
     crop: MediaCrop.optional(),
     /** Gaussian blur radius in artboard pixels. Omitted and zero are visually equivalent. */
@@ -606,11 +618,22 @@ function validateElementIds(layout: LayoutShape, layoutIndex: number, ctx: z.Ref
         ids.add(id);
       }
     };
+    const checkNativeInsets = (element: Element, path: Array<string | number>): void => {
+      if (element.type === "screenshot" && element.nativeInsets && element.fit !== "native") {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "nativeInsets requires fit \"native\"",
+          path: ["layouts", layoutIndex, "screens", screenIndex, ...path, "nativeInsets"],
+        });
+      }
+    };
     screen.elements.forEach((element, elementIndex) => {
       register(element.id, ["elements", elementIndex]);
+      checkNativeInsets(element, ["elements", elementIndex]);
       if (element.type === "group") {
         element.children.forEach((child, childIndex) => {
           register(child.id, ["elements", elementIndex, "children", childIndex]);
+          checkNativeInsets(child, ["elements", elementIndex, "children", childIndex]);
         });
       }
     });

@@ -385,6 +385,8 @@ export function Inspector({
               onUngroup={() => mutateAndSave(() => editorStore.getState().ungroupSelected())}
               screen={screen}
               effectiveLocked={effectiveLocked}
+              nativeReasons={issues.flatMap((issue) => issue.kind === "native-placement"
+                && issue.screenId === screen.id && issue.elementId === element.id ? issue.reasons : [])}
               textSizeAccessory={
                 <ApplyScopeSelect screen={screen} specs={specs} value={applyScope} onChange={setApplyScope} />
               }

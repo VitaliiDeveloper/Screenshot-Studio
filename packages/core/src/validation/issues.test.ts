@@ -178,3 +178,56 @@ describe("missing-image issues", () => {
     });
   });
 });
+
+describe("native-placement issues", () => {
+  const nativeShot = (overrides: Record<string, unknown> = {}) => ({
+    ...createScreenshotElement({ assetUrl: "assets/shot.png" }),
+    id: "shot",
+    x: 100,
+    y: 200,
+    width: 1080,
+    height: 2300,
+    fit: "native",
+    cornerRadius: 0,
+    nativeInsets: { top: 80, right: 0, bottom: 20, left: 0 },
+    ...overrides,
+  }) as Element;
+  const layoutWith = (elements: Element[]) => parseProject({
+    meta: { name: "T", schemaVersion: 1 },
+    fonts: [],
+    preferredExportLayoutId: "default",
+    layouts: [{ id: "default", name: "Default", mode: "isolated", screens: [screen("hero", "Hero", "en", elements)] }],
+  });
+  const checks = {
+    imageSize: () => ({ width: 1080, height: 2400 }),
+    exportScale: () => 1,
+  };
+  const reasons = (elements: Element[], extra = {}) => collectLayoutIssues(layoutWith(elements), "default", { ...checks, ...extra })
+    .flatMap((issue) => issue.kind === "native-placement" ? issue.reasons : []);
+
+  it("reports nothing for a 1:1 shot that matches its cropped source on whole pixels", () => {
+    expect(reasons([nativeShot()])).toEqual([]);
+  });
+
+  it("reports every reason the export check would reject", () => {
+    expect(reasons([
+      nativeShot({ x: 100.5, rotation: 3, blur: 4, width: 1000 }),
+      text("over", "short"),
+    ], { exportScale: () => 2 })).toEqual([
+      "export-scale", "fractional-position", "transform", "effect", "size-mismatch", "covered",
+    ]);
+  });
+
+  it("checks the group a shot sits in and the artboard edge", () => {
+    const group = {
+      id: "group", type: "group", x: 300, y: 0, width: 1080, height: 2300, opacity: 0.5,
+      children: [nativeShot({ x: 0, y: 0 })],
+    } as Element;
+    expect(reasons([group])).toEqual(["transform", "off-artboard"]);
+  });
+
+  it("flags insets that remove the whole image", () => {
+    expect(reasons([nativeShot({ nativeInsets: { top: 2400, right: 0, bottom: 0, left: 0 } })]))
+      .toEqual(["insets-exceed-image"]);
+  });
+});

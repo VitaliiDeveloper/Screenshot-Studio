@@ -10,7 +10,7 @@ import type {
 import { isSelected, type SelectionRef } from "@web/lib/editor/editor-selection.js";
 import { snapElementDrag, type SnapGuide } from "@web/lib/editor/editor-snapping.js";
 import type { StageProjection } from "./stage-model.js";
-import { transformedDimensions } from "./element-transform-model.js";
+import { elementIsPixelExact, transformedDimensions } from "./element-transform-model.js";
 import { nodeSelectionKey } from "./use-transformer-selection.js";
 
 export interface ElementTransformInput {
@@ -108,7 +108,11 @@ export function useElementTransform({
       moveSelected({ x: event.target.x() - element.x, y: event.target.y() - element.y });
       return;
     }
-    patchElement(ownerScreenId, element, { x: event.target.x(), y: event.target.y() });
+    const position = elementIsPixelExact(element)
+      ? { x: Math.round(event.target.x()), y: Math.round(event.target.y()) }
+      : { x: event.target.x(), y: event.target.y() };
+    if (elementIsPixelExact(element)) event.target.position(position);
+    patchElement(ownerScreenId, element, position);
   };
 
   const onTransformEnd = (ownerScreenId: string, id: string) => (

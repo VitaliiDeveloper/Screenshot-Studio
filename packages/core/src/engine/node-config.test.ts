@@ -252,6 +252,28 @@ describe("elementToNodeConfig — screenshot", () => {
     expect((result.children[1]!.config as Record<string, unknown>).cropWidth).toBeUndefined();
   });
 
+  it("maps a native screenshot to its inset source rect at the same size, never scaled", () => {
+    const result = elementToNodeConfig({
+      ...shot,
+      fit: "native",
+      width: 380,
+      height: 330,
+      nativeInsets: { top: 40, right: 0, bottom: 30, left: 20 },
+    }, { images: cache });
+    if (result.konva !== "Group") throw new Error("expected Group");
+    expect(result.children[1]!.config).toMatchObject({
+      x: 0, y: 0, width: 380, height: 330, cropX: 20, cropY: 40, cropWidth: 380, cropHeight: 330,
+    });
+  });
+
+  it("clips a native screenshot to a smaller box instead of shrinking it", () => {
+    const result = elementToNodeConfig({ ...shot, fit: "native" }, { images: cache });
+    if (result.konva !== "Group") throw new Error("expected Group");
+    expect(result.children[1]!.config).toMatchObject({
+      width: 200, height: 100, cropX: 0, cropY: 0, cropWidth: 200, cropHeight: 100,
+    });
+  });
+
   it("applies normalized focal point and zoom only to cover", () => {
     const cropped = elementToNodeConfig({
       ...shot,

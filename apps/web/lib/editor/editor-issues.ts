@@ -15,7 +15,7 @@ import {
   type StoreSpecs,
 } from "@screenshot-studio/core/export";
 import type { ImageCache } from "@screenshot-studio/core/assets";
-import { collectLayoutIssues, visibleLeaves, type ProjectIssue } from "@screenshot-studio/core/validation";
+import { collectLayoutIssues, nativePlacementMessage, visibleLeaves, type ProjectIssue } from "@screenshot-studio/core/validation";
 import {
   conciseStoreTargetLabel,
   distinctSizeLabels,
@@ -112,7 +112,8 @@ export function missingProjectImages(project: Project, images: ImageCache): stri
 export interface IssueRowCopy {
   title: string;
   detail: string;
-  fixLabel: string;
+  /** Null when no one-click fix exists; Go to is the only action. */
+  fixLabel: string | null;
 }
 
 /** Row copy for the Issues list; null when the issue no longer resolves in the project. */
@@ -162,6 +163,20 @@ export function issueRowCopy(
         ...(multipleLocales ? [screen.locale] : []),
       ].join(" · "),
       fixLabel: "Match strip",
+    };
+  }
+  if (issue.kind === "native-placement") {
+    const found = findLeaf(project, issue.layoutId, issue.screenId, issue.elementId);
+    if (!found?.element) return null;
+    return {
+      title: nativePlacementMessage(issue.reasons),
+      detail: [
+        elementLabel(found.element),
+        found.screen.name,
+        screenSizeLabel(found.screen, specs),
+        ...(multipleLocales ? [found.screen.locale] : []),
+      ].join(" · "),
+      fixLabel: null,
     };
   }
   const target = overflowTarget(project, issue);

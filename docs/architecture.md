@@ -100,6 +100,12 @@ treats an omitted vertical value as `top` so existing strict documents keep thei
 Screenshot and decorative-image elements may persist a bounded Gaussian blur radius. Device-frame
 elements use the same field for screenshot content only, leaving the bezel sharp. The editor and
 browser export renderer apply that effect through the same cached Konva filter contract.
+Screenshot elements (not images, device frames, or backgrounds) may persist `fit: "native"` (1:1)
+with optional `nativeInsets: { top, right, bottom, left }` in whole source pixels; the project
+schema rejects insets on any other fit. The shared mapping draws the inset source rect from the
+box's top-left at exactly its source size, clipped to the box and never resampled, and ignores
+`crop`. A store-size scale (synchronized variants, `fitElementsToArtboard`) moves a native shot's
+centre but keeps its box and insets.
 
 Screen-slot behavior is a layout-local output-family policy keyed by persisted platform, device, and locale.
 New project scaffolds and newly created output families persist `synchronized`; an omitted policy
@@ -198,6 +204,18 @@ Validation that depends on rendered geometry, such as text overflow, measures th
 on a separate path. `screenshots check --render` reads the core Issues engine from the `/render` host
 (`window.__collectIssues`, set with the stage's fonts and images), so the CLI reports the same issues
 as the editor; without `--render` it runs the same engine in Node and skips text measurement.
+
+A `native` screenshot is verified in the export itself, not only in tests. `renderStoreReadyPng`,
+which CLI export, the editor export route, and upload all reach through `exportBundle`, decodes the
+finished PNG and the source file (stored values, ICC ignored) and fails the file unless the box
+region holds exactly the cropped source's RGB values; decoded pixels are compared because the PNG is
+re-encoded. It needs an export scale of 1, a whole-pixel box equal to the cropped source on the
+artboard, and an opaque 8-bit PNG source, and names the screen, layer, and first differing pixel
+otherwise, with a hint when the source carries a color profile the browser converted. Before export,
+the core Issues engine reports a `native-placement` blocker per layer for everything it can see
+without pixels (scale, fractional position, rotation or opacity on the layer or its group, radius
+or blur, box versus cropped size, artboard edges, later layers overlapping it), for the editor and
+`screenshots check` alike; the export check stays the authority.
 
 Parity coverage runs against the pinned Playwright Chromium; `screenshots export --browser
 chrome|msedge|auto` can launch an installed system browser, which is outside that coverage.
