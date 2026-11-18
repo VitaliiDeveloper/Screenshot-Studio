@@ -370,6 +370,7 @@ export const AREAS = [
       "packages/cli/src/web-share.ts",
       "packages/cli/src/fastlane-*.ts",
       "packages/cli/src/store-ready-png.ts",
+      "packages/cli/src/native-pixel-check.ts",
     ],
     doc: `${DOC}#3-rendering-and-export-parity`,
   },

@@ -453,7 +453,8 @@ window.ARCH_GRAPH = {
         "packages/cli/src/check-command.ts",
         "packages/cli/src/web-share.ts",
         "packages/cli/src/fastlane-*.ts",
-        "packages/cli/src/store-ready-png.ts"
+        "packages/cli/src/store-ready-png.ts",
+        "packages/cli/src/native-pixel-check.ts"
       ],
       "doc": "https://github.com/VitaliiDeveloper/Screenshot-Studio/blob/main/docs/architecture.md#3-rendering-and-export-parity"
     },
@@ -808,7 +809,7 @@ window.ARCH_GRAPH = {
       "source": "cli-export",
       "target": "cli-services",
       "kind": "import",
-      "weight": 3
+      "weight": 4
     },
     {
       "id": "import:cli-export->cli-upload",
@@ -829,7 +830,7 @@ window.ARCH_GRAPH = {
       "source": "cli-export",
       "target": "core-model",
       "kind": "import",
-      "weight": 6
+      "weight": 7
     },
     {
       "id": "import:cli-export->core-storage",
@@ -1683,7 +1684,7 @@ window.ARCH_GRAPH = {
       "source": "web-editor-route",
       "target": "core-export",
       "kind": "import",
-      "weight": 3
+      "weight": 4
     },
     {
       "id": "import:web-editor-route->core-fonts",
@@ -2348,28 +2349,28 @@ window.ARCH_GRAPH = {
       "source": "web-ui-inspector",
       "target": "core-model",
       "kind": "import",
-      "weight": 17
+      "weight": 18
     },
     {
       "id": "import:web-ui-inspector->core-validation",
       "source": "web-ui-inspector",
       "target": "core-validation",
       "kind": "import",
-      "weight": 2
+      "weight": 5
     },
     {
       "id": "import:web-ui-inspector->web-clients",
       "source": "web-ui-inspector",
       "target": "web-clients",
       "kind": "import",
-      "weight": 3
+      "weight": 4
     },
     {
       "id": "import:web-ui-inspector->web-state",
       "source": "web-ui-inspector",
       "target": "web-state",
       "kind": "import",
-      "weight": 12
+      "weight": 13
     },
     {
       "id": "import:web-ui-inspector->web-ui-canvas",
