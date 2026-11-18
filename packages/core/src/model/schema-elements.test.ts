@@ -143,6 +143,26 @@ describe("ScreenshotElement", () => {
     expect(() => Element.parse({ ...base, crop: { x: 0.5, y: 0.5, zoom: 4.1 } })).toThrow();
   });
 
+  it("accepts native fit with whole-pixel insets and defaults omitted sides to 0", () => {
+    expect(Element.parse({ ...base, fit: "native", nativeInsets: { top: 80 } })).toMatchObject({
+      fit: "native",
+      nativeInsets: { top: 80, right: 0, bottom: 0, left: 0 },
+    });
+    expect(() => Element.parse({ ...base, fit: "native", nativeInsets: { top: 1.5 } })).toThrow();
+    expect(() => Element.parse({ ...base, fit: "native", nativeInsets: { top: -1 } })).toThrow();
+  });
+
+  it("accepts native insets only with native fit in a project", () => {
+    const withShot = (shot: Record<string, unknown>) => {
+      const project = validProject();
+      project.layouts[0]!.screens[0]!.elements.push({ ...base, ...shot } as never);
+      return project;
+    };
+    expect(() => parseProject(withShot({ fit: "native", nativeInsets: { top: 80 } }))).not.toThrow();
+    expect(() => parseProject(withShot({ fit: "cover", nativeInsets: { top: 80 } })))
+      .toThrow(/nativeInsets requires fit "native"/);
+  });
+
   it("rejects an unknown fit", () => {
     expect(() => Element.parse({ ...base, fit: "stretch" })).toThrow();
   });

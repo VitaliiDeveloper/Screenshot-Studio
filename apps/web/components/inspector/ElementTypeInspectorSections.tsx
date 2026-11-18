@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
+import type { NativePlacementReason } from "@screenshot-studio/core/validation";
 import { useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { Copy, ImagePlus, PanelsTopLeft, Smartphone, Trash2, Ungroup } from "lucide-react";
@@ -55,6 +56,7 @@ export function ElementTypeInspectorSections({
   effectiveLocked,
   screen,
   textSizeAccessory,
+  nativeReasons,
 }: {
   element: Element;
   fonts: FontAsset[];
@@ -67,6 +69,7 @@ export function ElementTypeInspectorSections({
   effectiveLocked?: boolean;
   screen?: Pick<Screen, "platform" | "device" | "artboard">;
   textSizeAccessory?: ReactNode;
+  nativeReasons?: readonly NativePlacementReason[];
 }) {
   const [framePickerOpen, setFramePickerOpen] = useState(false);
   const patchText = (change: ElementPatchFor<"text">) => onPatch(element.id, "text", change);
@@ -161,6 +164,7 @@ export function ElementTypeInspectorSections({
           <MediaInspectorFields
             element={element}
             onChange={patchScreenshot}
+            nativeReasons={nativeReasons}
             onChooseAsset={onChooseMediaAsset}
             onRemoveElement={onRemoveElement}
             effectiveLocked={effectiveLocked}
@@ -172,7 +176,7 @@ export function ElementTypeInspectorSections({
         <Section title="Image">
           <MediaInspectorFields
             element={element}
-            onChange={patchImage}
+            onChange={(change) => patchImage(change as ElementPatchFor<"image">)}
             onChooseAsset={onChooseMediaAsset}
             onRemoveElement={onRemoveElement}
             effectiveLocked={effectiveLocked}

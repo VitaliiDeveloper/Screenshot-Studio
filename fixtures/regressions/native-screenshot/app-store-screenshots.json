@@ -1,0 +1,126 @@
+{
+  "meta": {
+    "name": "Native Screenshot",
+    "schemaVersion": 1
+  },
+  "fonts": [],
+  "preferredExportLayoutId": "default",
+  "layouts": [
+    {
+      "id": "default",
+      "name": "Default",
+      "mode": "isolated",
+      "screens": [
+        {
+          "id": "exact",
+          "name": "Exact",
+          "platform": "android",
+          "device": "phone",
+          "locale": "en-US",
+          "artboard": {
+            "width": 1080,
+            "height": 1920
+          },
+          "background": {
+            "type": "solid",
+            "color": "#102030"
+          },
+          "elements": [
+            {
+              "id": "phone-shot",
+              "type": "screenshot",
+              "x": 270,
+              "y": 400,
+              "width": 540,
+              "height": 890,
+              "assetUrl": "assets/shot.png",
+              "fit": "native",
+              "nativeInsets": {
+                "top": 40,
+                "right": 0,
+                "bottom": 30,
+                "left": 0
+              }
+            }
+          ]
+        },
+        {
+          "id": "covered",
+          "name": "Covered",
+          "platform": "android",
+          "device": "phone",
+          "locale": "en-US",
+          "artboard": {
+            "width": 1080,
+            "height": 1920
+          },
+          "background": {
+            "type": "solid",
+            "color": "#102030"
+          },
+          "elements": [
+            {
+              "id": "phone-shot",
+              "type": "screenshot",
+              "x": 270,
+              "y": 400,
+              "width": 540,
+              "height": 890,
+              "assetUrl": "assets/shot.png",
+              "fit": "native",
+              "nativeInsets": {
+                "top": 40,
+                "right": 0,
+                "bottom": 30,
+                "left": 0
+              }
+            },
+            {
+              "id": "sticker",
+              "type": "shape",
+              "kind": "ellipse",
+              "x": 700,
+              "y": 1200,
+              "width": 200,
+              "height": 200,
+              "fill": "#FFCC00"
+            }
+          ]
+        },
+        {
+          "id": "display-p3",
+          "name": "Display P3",
+          "platform": "android",
+          "device": "phone",
+          "locale": "en-US",
+          "artboard": {
+            "width": 1080,
+            "height": 1920
+          },
+          "background": {
+            "type": "solid",
+            "color": "#102030"
+          },
+          "elements": [
+            {
+              "id": "phone-shot",
+              "type": "screenshot",
+              "x": 270,
+              "y": 400,
+              "width": 540,
+              "height": 890,
+              "assetUrl": "assets/shot-display-p3.png",
+              "fit": "native",
+              "nativeInsets": {
+                "top": 40,
+                "right": 0,
+                "bottom": 30,
+                "left": 0
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

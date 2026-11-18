@@ -44,6 +44,8 @@ export function IssuesDialog({
         store.selectScreen(issue.screenId);
         store.resizeArtboard(issue.stripArtboard);
       });
+    } else if (issue.kind === "native-placement") {
+      onGoTo(issue);
     } else if (fitSize) {
       applyTextFit(issue.screenId, issue.elementId, fitSize);
     }

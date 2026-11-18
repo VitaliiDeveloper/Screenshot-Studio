@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-import type { MediaCrop } from "@screenshot-studio/core/model";
+import { nativeSourceRect, type MediaCrop, type NativeInsets } from "@screenshot-studio/core/model";
 import type { Box, NodeFilter } from "./node-types.js";
 
 interface Fit {
@@ -24,9 +24,11 @@ export function mediaFilter(blur: number | undefined): NodeFilter | undefined {
 export function computeImageFit(
   image: HTMLImageElement,
   box: Box,
-  fit: "cover" | "contain",
+  fit: "cover" | "contain" | "native",
   crop?: MediaCrop,
+  insets?: NativeInsets,
 ): Fit {
+  if (fit === "native") return nativeImageFit(image, box, insets);
   if (fit === "contain") {
     const scale = Math.min(box.width / image.width, box.height / image.height);
     const drawW = image.width * scale;
@@ -61,5 +63,20 @@ export function computeImageFit(
     cropY,
     cropWidth,
     cropHeight,
+  };
+}
+
+// Source and destination sizes are always equal, so the browser never resamples.
+function nativeImageFit(image: HTMLImageElement, box: Box, insets?: NativeInsets): Fit {
+  const source = nativeSourceRect(image, box, insets);
+  return {
+    x: 0,
+    y: 0,
+    width: source.width,
+    height: source.height,
+    cropX: source.x,
+    cropY: source.y,
+    cropWidth: source.width,
+    cropHeight: source.height,
   };
 }

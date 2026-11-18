@@ -12,6 +12,7 @@ export * from "./built-in-fonts.js";
 export * from "./screen-defaults.js";
 export * from "./project-font-usage.js";
 export * from "./factories.js";
+export * from "./native-screenshot.js";
 export * from "./project-ops.js";
 export * from "./connected-canvas.js";
 export * from "./element-tree.js";

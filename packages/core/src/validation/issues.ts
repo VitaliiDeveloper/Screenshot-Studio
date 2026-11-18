@@ -3,6 +3,9 @@ import {
   elementLeaves,
   getLayout,
   missingLocaleScreens,
+  nativeCroppedSize,
+  nativePlacements,
+  rectsOverlap,
   sameScreenGroup,
   type LeafElement,
   type Project,
@@ -51,7 +54,43 @@ export type ProjectIssue =
     elementId: null;
     /** The strip's first screen, which the rest of the strip is compared with. */
     stripArtboard: { width: number; height: number };
+  }
+  | {
+    kind: "native-placement";
+    id: string;
+    level: "blocker";
+    layoutId: string;
+    screenId: string;
+    elementId: string;
+    /** Every reason the export check would reject this 1:1 screenshot. */
+    reasons: NativePlacementReason[];
   };
+
+export type NativePlacementReason =
+  | "export-scale"
+  | "fractional-position"
+  | "transform"
+  | "effect"
+  | "insets-exceed-image"
+  | "size-mismatch"
+  | "off-artboard"
+  | "covered";
+
+const NATIVE_REASON_TEXT: Record<NativePlacementReason, string> = {
+  "export-scale": "the artboard is not at the export size, so export would scale it",
+  "fractional-position": "its position is not on whole pixels",
+  transform: "it or its group is rotated or semi-transparent",
+  effect: "it has a corner radius or blur",
+  "insets-exceed-image": "its crop insets remove the whole image",
+  "size-mismatch": "its box differs from the cropped screenshot size",
+  "off-artboard": "it is not entirely on the artboard",
+  covered: "another layer is drawn over it",
+};
+
+/** One sentence for a native-placement issue, shared by the editor and `screenshots check`. */
+export function nativePlacementMessage(reasons: readonly NativePlacementReason[]): string {
+  return `1:1 screenshot cannot be exported pixel-exact: ${reasons.map((reason) => NATIVE_REASON_TEXT[reason]).join("; ")}`;
+}
 
 export interface IssueChecks {
   /**
@@ -64,6 +103,34 @@ export interface IssueChecks {
    * Omit it until the cache has loaded so images still in flight never report as missing.
    */
   imageMissing?: (assetUrl: string) => boolean;
+  /** Decoded pixel size of a project image; omit or return undefined until it is known. */
+  imageSize?: (assetUrl: string) => { width: number; height: number } | undefined;
+  /** Export pixel ratio of a screen (`exportPixelRatio`); omit or return undefined when unknown. */
+  exportScale?: (screen: Screen) => number | undefined;
+}
+
+function nativePlacementReasons(screen: Screen, checks: IssueChecks) {
+  const scale = checks.exportScale?.(screen);
+  return nativePlacements(screen).flatMap((placement) => {
+    const { element } = placement;
+    const reasons: NativePlacementReason[] = [];
+    if (scale !== undefined && Math.abs(scale - 1) > 1e-9) reasons.push("export-scale");
+    if (!Number.isInteger(placement.x) || !Number.isInteger(placement.y)) reasons.push("fractional-position");
+    if (placement.rotations.some((rotation) => rotation % 360 !== 0)
+      || placement.opacities.some((opacity) => opacity !== 1)) reasons.push("transform");
+    if (element.cornerRadius > 0 || (element.blur ?? 0) > 0) reasons.push("effect");
+    const image = checks.imageSize?.(element.assetUrl);
+    if (image) {
+      const cropped = nativeCroppedSize(image, element.nativeInsets);
+      if (cropped.width === 0 || cropped.height === 0) reasons.push("insets-exceed-image");
+      else if (cropped.width !== element.width || cropped.height !== element.height) reasons.push("size-mismatch");
+    }
+    const box = { x: placement.x, y: placement.y, width: element.width, height: element.height };
+    if (box.x < 0 || box.y < 0 || box.x + box.width > screen.artboard.width
+      || box.y + box.height > screen.artboard.height) reasons.push("off-artboard");
+    if (placement.above.some((rect) => rectsOverlap(box, rect))) reasons.push("covered");
+    return reasons.length > 0 ? [{ elementId: element.id, reasons }] : [];
+  });
 }
 
 /** Leaves the renderer draws: a hidden group or layer hides everything under it. */
@@ -141,5 +208,15 @@ export function collectLayoutIssues(
         }];
     })
     : [];
-  return [...missing, ...missingImages, ...overflows, ...unequalArtboards];
+  const nativeIssues = layout.screens.flatMap((screen) => nativePlacementReasons(screen, checks)
+    .map(({ elementId, reasons }): ProjectIssue => ({
+      kind: "native-placement",
+      id: `native-placement:${screen.id}:${elementId}`,
+      level: "blocker",
+      layoutId: layout.id,
+      screenId: screen.id,
+      elementId,
+      reasons,
+    })));
+  return [...missing, ...missingImages, ...nativeIssues, ...overflows, ...unequalArtboards];
 }

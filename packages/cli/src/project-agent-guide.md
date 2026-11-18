@@ -86,6 +86,12 @@ elements. Preserve and edit their literal children like any other group/image.
 
 Screenshot and decorative-image leaves may store normalized `crop: { x, y, zoom }`: focal `x/y`
 are in `0…1`, zoom is `1…4`, and the literal affects `cover` only. `contain` keeps but ignores it.
+A `screenshot` may instead use `fit: "native"` (1:1): its source pixels are drawn unscaled from the
+box's top-left, optionally cropped by `nativeInsets: { top, right, bottom, left }` in whole source
+pixels (allowed only with `native`). Keep the box equal to the cropped source size, on whole pixels,
+unrotated, opaque, without radius or blur, not covered by later layers, on an artboard at export
+size, and use an 8-bit opaque PNG without a non-sRGB color profile. Export fails when the finished
+PNG's region differs from the cropped source; `screenshots check` reports `native-placement` first.
 Text may store one literal shadow. Shapes may be rect or ellipse and may add a two-stop linear
 gradient and stroke; do not invent generic effects, paths, or extra stops.
 Device frames use one of the current strict preset ids below. The first eight ids are retained for

@@ -87,6 +87,8 @@ export function screenRowWarning(
         return onSize(issue.screenId, "text overflows");
       case "unequal-connected-artboard":
         return onSize(issue.screenId, "size differs from strip");
+      case "native-placement":
+        return onSize(issue.screenId, "1:1 screenshot not exact");
       default:
         return assertNever(issue);
     }

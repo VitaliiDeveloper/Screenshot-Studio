@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 "use client";
 
-import { Maximize2, Minimize2 } from "lucide-react";
+import { Maximize2, Minimize2, Scan } from "lucide-react";
 import {
   MEDIA_BLUR_MAX,
   type ImageElement,
@@ -33,13 +33,23 @@ export function cornerRadiusPresetValue(
   return Math.round(shortestSide / 2);
 }
 
-export function ContentModeControl({
+type ContentMode = ScreenshotElement["fit"];
+
+export function ContentModeControl<T extends ContentMode>({
   value,
   onChange,
+  allowNative = false,
 }: {
-  value: ScreenshotElement["fit"];
-  onChange: (fit: ScreenshotElement["fit"]) => void;
+  value: T;
+  onChange: (fit: T) => void;
+  /** Offer `1:1` (native pixels); only Screenshot layers support it. */
+  allowNative?: boolean;
 }) {
+  const options = [
+    { value: "cover", label: <><Maximize2 size={13} aria-hidden="true" /> Fill</> },
+    { value: "contain", label: <><Minimize2 size={13} aria-hidden="true" /> Fit</> },
+    ...(allowNative ? [{ value: "native", label: <><Scan size={13} aria-hidden="true" /> 1:1</> }] : []),
+  ] as Array<{ value: T; label: React.ReactNode }>;
   return (
     <div className="flex flex-col gap-2 text-xs">
       <span className="text-[color:var(--editor-color-text-secondary)]">Content mode</span>
@@ -47,34 +57,61 @@ export function ContentModeControl({
         label="Content mode"
         value={value}
         fill
-        options={[
-          {
-            value: "cover",
-            label: <><Maximize2 size={13} aria-hidden="true" /> Fill</>,
-          },
-          {
-            value: "contain",
-            label: <><Minimize2 size={13} aria-hidden="true" /> Fit</>,
-          },
-        ] as const}
+        options={options}
         onChange={onChange}
       />
     </div>
   );
 }
 
+/**
+ * Entering 1:1 sizes the box to the source and clears everything that would alter its pixels; the
+ * remaining placement rules are reported as Issues.
+ */
+export function nativeModePatch(
+  element: Pick<ScreenshotElement, "x" | "y">,
+  sourceSize: { width: number; height: number } | null,
+): ElementPatchFor<"screenshot"> {
+  return {
+    fit: "native",
+    x: Math.round(element.x),
+    y: Math.round(element.y),
+    rotation: 0,
+    opacity: 1,
+    cornerRadius: 0,
+    blur: null,
+    crop: null,
+    nativeInsets: null,
+    ...(sourceSize ? { width: sourceSize.width, height: sourceSize.height } : {}),
+  };
+}
+
 export function MediaPresentationFields({
   element,
   onChange,
+  sourceSize = null,
 }: {
   element: ScreenshotElement | ImageElement;
   onChange: (patch: ElementPatchFor<"screenshot"> | ElementPatchFor<"image">) => void;
+  /** Decoded source size, used to size the box when entering 1:1. */
+  sourceSize?: { width: number; height: number } | null;
 }) {
   const radiusMode = cornerRadiusMode(element.cornerRadius, element);
+  const contentMode = element.type === "screenshot" ? (
+    <ContentModeControl
+      value={element.fit}
+      allowNative
+      onChange={(fit) => onChange(fit === "native" ? nativeModePatch(element, sourceSize) : { fit })}
+    />
+  ) : (
+    <ContentModeControl value={element.fit} onChange={(fit) => onChange({ fit })} />
+  );
+  // Radius and blur always change pixels, so 1:1 hides them.
+  if (element.fit === "native") return contentMode;
 
   return (
     <>
-      <ContentModeControl value={element.fit} onChange={(fit) => onChange({ fit })} />
+      {contentMode}
 
       <div className="flex flex-col gap-2 text-xs">
         <span className="text-[color:var(--editor-color-text-secondary)]">Corner radius</span>

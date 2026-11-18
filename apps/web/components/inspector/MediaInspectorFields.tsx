@@ -11,6 +11,8 @@ import { editorUi, InsetPanel } from "@web/components/editor-ui";
 import { mediaInspectorModel } from "./media-inspector-model";
 import { MediaCropControl } from "./MediaCropControl";
 import { MediaPresentationFields } from "./MediaPresentationFields";
+import { NativeScreenshotFields, useImageSourceSize } from "./NativeScreenshotFields";
+import type { NativePlacementReason } from "@screenshot-studio/core/validation";
 
 function assetThumbnailUrl(assetUrl: string): string {
   try {
@@ -26,13 +28,17 @@ export function MediaInspectorFields({
   onChooseAsset,
   onRemoveElement,
   effectiveLocked: effectiveLockedProp,
+  nativeReasons = [],
 }: {
   element: ScreenshotElement | ImageElement;
   onChange: (patch: ElementPatchFor<"screenshot"> | ElementPatchFor<"image">) => void;
   onChooseAsset?: () => void;
   onRemoveElement?: () => void;
   effectiveLocked?: boolean;
+  /** Reasons the live Issues give for this 1:1 screenshot, if any. */
+  nativeReasons?: readonly NativePlacementReason[];
 }) {
+  const sourceSize = useImageSourceSize(element.assetUrl);
   const { crop, showCrop, canResetCrop } = mediaInspectorModel(element);
   const effectiveLocked = effectiveLockedProp ?? element.locked;
   const [failedThumbnailUrl, setFailedThumbnailUrl] = useState<string | null>(null);
@@ -88,7 +94,15 @@ export function MediaInspectorFields({
           </button>
         </div>
       </InsetPanel>
-      <MediaPresentationFields element={element} onChange={onChange} />
+      <MediaPresentationFields element={element} onChange={onChange} sourceSize={sourceSize} />
+      {element.type === "screenshot" && element.fit === "native" ? (
+        <NativeScreenshotFields
+          element={element}
+          sourceSize={sourceSize}
+          reasons={nativeReasons}
+          onChange={onChange}
+        />
+      ) : null}
       {showCrop ? (
         <MediaCropControl
           assetUrl={element.assetUrl}

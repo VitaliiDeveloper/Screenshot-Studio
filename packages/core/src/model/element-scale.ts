@@ -81,6 +81,16 @@ export function scaleLeafElement<T extends LeafElement>(
       };
       break;
     case "screenshot":
+      if (leaf.fit === "native") {
+        // A 1:1 shot never resamples: keep its pixel size and move its centre.
+        scaled = {
+          ...leaf,
+          x: Math.round((leaf.x + leaf.width / 2) * factor + offsetX - leaf.width / 2),
+          y: Math.round((leaf.y + leaf.height / 2) * factor + offsetY - leaf.height / 2),
+        };
+        break;
+      }
+      // falls through
     case "image":
       scaled = {
         ...leaf,

@@ -222,3 +222,14 @@ function leadMigrationHint(screen: Screen, specs: StoreSpecs | undefined): strin
       + `--platform ${screen.platform} --device ${screen.device} --from ${authored.id}".`
     : "";
 }
+
+/** The pixel ratio a screen exports at, or undefined when its target is unknown or cannot scale. */
+export function screenExportScale(specs: StoreSpecs, screen: Screen): number | undefined {
+  try {
+    const sizeId = screen.storeTargetId ?? leadStoreSizeId(specs, screen.platform, screen.device);
+    const target = findStoreTarget(specs, screen.platform, screen.device, sizeId);
+    return exportPixelRatio(screen.artboard, { width: target.width, height: target.height });
+  } catch {
+    return undefined;
+  }
+}

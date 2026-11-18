@@ -22,7 +22,7 @@ declare global {
     __stageReady?: boolean;
     __renderError?: string;
     __exportPng?: (pixelRatio: number) => string;
-    __collectIssues?: () => ProjectIssue[];
+    __collectIssues?: (exportScales?: Record<string, number>) => ProjectIssue[];
   }
 }
 
@@ -241,14 +241,17 @@ export async function renderScreenToPng(
   return result!;
 }
 
-export type LayoutIssuesOptions = Omit<RenderOptions, "screenId" | "pixelRatio" | "headless">;
+export type LayoutIssuesOptions = Omit<RenderOptions, "screenId" | "pixelRatio" | "headless"> & {
+  /** Export pixel ratio per screen id, so the engine can flag 1:1 screenshots that would scale. */
+  exportScales?: Record<string, number>;
+};
 
 /**
  * The core Issues engine for a whole layout, run inside the `/render` host once its fonts and images
  * have loaded, so text overflow is measured with the export's own text layout.
  */
 export async function collectRenderedLayoutIssues(
-  { baseUrl, projectPath, projectRevision, layoutId, timeoutMs = 30_000 }: LayoutIssuesOptions,
+  { baseUrl, projectPath, projectRevision, layoutId, exportScales, timeoutMs = 30_000 }: LayoutIssuesOptions,
   options: Pick<BrowserSessionOptions, "launch"> = {},
 ): Promise<ProjectIssue[]> {
   const search = new URLSearchParams({ project: resolve(projectPath), layout: layoutId });
@@ -267,6 +270,6 @@ export async function collectRenderedLayoutIssues(
     });
     const renderError = await page.evaluate(() => window.__renderError);
     if (renderError) throw new Error(`Check failed for layout "${layoutId}": ${renderError}`);
-    return page.evaluate(() => window.__collectIssues!());
+    return page.evaluate((scales) => window.__collectIssues!(scales), exportScales);
   }, () => browser.close());
 }

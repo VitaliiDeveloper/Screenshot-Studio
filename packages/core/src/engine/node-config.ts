@@ -238,6 +238,7 @@ export function elementToNodeConfig(
         { width: element.width, height: element.height },
         element.fit,
         element.crop,
+        element.type === "screenshot" ? element.nativeInsets : undefined,
       );
       return {
         konva: "Group",

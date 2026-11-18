@@ -7,6 +7,11 @@ export function elementKeepsAspectRatio(element: Element | undefined): boolean {
   return element?.type === "group" || element?.type === "device-frame";
 }
 
+/** A 1:1 screenshot keeps its source pixel size, so the canvas never resizes or rotates it. */
+export function elementIsPixelExact(element: Element | undefined): boolean {
+  return element?.type === "screenshot" && element.fit === "native";
+}
+
 export function transformedDimensions(
   element: Element,
   scaleX: number,
